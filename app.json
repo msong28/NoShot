@@ -8,9 +8,11 @@
     "scheme": "noshot",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "com.noshot.app.ram",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.noshot.app.ram",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

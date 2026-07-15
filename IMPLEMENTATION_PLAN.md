@@ -11,7 +11,7 @@ Rule for all milestones: complete and test one before starting the next. Each mi
 | 0   | Repo & tooling foundation — **done**                | —          | §9.1, §14.1, §14.3                            |
 | 1   | Supabase bootstrap + email/password auth — **done** | 0          | AUTH-01..05, §9                               |
 | 2   | Google + Apple sign-in                              | 1          | AUTH-01                                       |
-| 3   | Friends & blocks                                    | 1          | FR-01..05                                     |
+| 3   | Friends & blocks — **done**                         | 1          | FR-01..05                                     |
 | 4   | Groups & membership                                 | 3          | GR-01..06                                     |
 | 5   | Currencies                                          | 1          | §5.1                                          |
 | 6   | Bet engine core (draft → versions → approvals)      | 4, 5       | BET-01..10                                    |

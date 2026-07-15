@@ -50,7 +50,14 @@ done
 
 for test_file in supabase/tests/*.sql; do
   echo "Running $test_file..."
-  psql_run -d noshot_test -f "$test_file"
+  # Each test file runs in its own transaction, rolled back afterward, so
+  # fixture data (e.g. a username each file inserts) can't collide between
+  # test files sharing the same throwaway database.
+  psql_run -d noshot_test <<SQL
+begin;
+\i $test_file
+rollback;
+SQL
 done
 
 echo "All database tests passed."

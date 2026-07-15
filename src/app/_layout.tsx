@@ -47,7 +47,11 @@ function RootNavigator() {
       <Stack.Protected guard={!!session && !!profile}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="create" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="friends" />
       </Stack.Protected>
+      {/* Not inside any guard above: reachable regardless of auth state, so a
+          non-user can preview an invite before creating an account (FR-04). */}
+      <Stack.Screen name="invite/[username]" />
     </Stack>
   );
 }
