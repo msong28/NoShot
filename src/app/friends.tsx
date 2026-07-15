@@ -20,7 +20,8 @@ import {
 } from '@/hooks/use-friends';
 import { useProfile } from '@/hooks/use-profile';
 import { useSession } from '@/hooks/use-session';
-import { friendErrorMessage, type PublicProfile } from '@/lib/friend';
+import { getErrorMessage } from '@/lib/errors';
+import type { PublicProfile } from '@/lib/friend';
 
 export default function FriendsScreen() {
   const insets = useSafeAreaInsets();
@@ -52,7 +53,7 @@ export default function FriendsScreen() {
   function runAction(action: Promise<unknown>) {
     setActionError(null);
     action.catch((error: unknown) => {
-      setActionError(friendErrorMessage(error, 'Something went wrong'));
+      setActionError(getErrorMessage(error, 'Something went wrong'));
     });
   }
 
@@ -81,7 +82,7 @@ export default function FriendsScreen() {
         />
         {search.isError ? (
           <ThemedText type="small" themeColor="negative">
-            {friendErrorMessage(search.error, 'Search failed')}
+            {getErrorMessage(search.error, 'Search failed')}
           </ThemedText>
         ) : null}
         {(search.data ?? []).map((result) => (

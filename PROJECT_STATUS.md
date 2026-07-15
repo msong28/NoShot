@@ -1,14 +1,50 @@
 # NoShot — Project Status
 
-Last updated: 2026-07-15 (Milestone 3 complete).
+Last updated: 2026-07-15 (Milestones 4 and 5 complete).
 
 ## Where things stand
 
-- Milestones 0, 1, and 3 are complete and verified. See below. (Milestone 2 — Google/Apple sign-in — is skipped for now, blocked on external dashboard accounts; Milestone 3 only depends on Milestone 1, so it was done out of order.)
-- Real Supabase project is live and linked: `noshot-dev` (ref `tckpbwvzxxovnsvdtwee`). `profiles`, `friendships`, `blocks`, and `username_search_log` tables + RLS are deployed to it.
+- Milestones 0, 1, 3, 4, and 5 are complete and verified. See below. (Milestone 2 — Google/Apple sign-in — is skipped for now, blocked on external dashboard accounts; Milestones 3-5 don't depend on it, so they were done out of order.)
+- Real Supabase project is live and linked: `noshot-dev` (ref `tckpbwvzxxovnsvdtwee`). `profiles`, `friendships`, `blocks`, `username_search_log`, `groups`, `group_members`, and `currencies` tables + RLS are deployed to it.
 - Email/password auth works end-to-end against the real project: sign-up, setup-profile, sign-out, sign-in all verified live in a browser.
-- No CI run has happened yet: the workflow exists but nothing has been pushed to a GitHub remote.
+- Milestone 3 is committed and pushed (`origin/master` on GitHub). Milestones 4 and 5 are not yet committed as of this writeup.
+- No CI run has happened yet: the workflow exists but nothing has triggered it (needs a push).
 - Planning docs: `ARCHITECTURE.md`, `DECISIONS.md`, `IMPLEMENTATION_PLAN.md`, this file.
+
+## Milestones 4 and 5 — done
+
+Built together in one pass (both unblocked, independent of each other) and verified together with one live browser pass, per your call to move faster on lower-risk milestones while keeping the DB test suite as the safety net.
+
+What shipped — Milestone 4 (Groups & membership):
+
+- `supabase/migrations/20260715100000_groups_membership.sql`: `groups` and `group_members` tables (role: owner/member; status: invited/active/left/removed/declined), RLS-locked with all writes through `SECURITY DEFINER` RPCs — `create_group`, `invite_to_group` (blocked-pair check reuses Milestone 3's `is_blocked_pair`), `respond_to_group_invite`, `leave_group`, `remove_member` (owner-only), `archive_group` (owner-only). `get_my_group_ids()` and `get_group_member_profiles()` are the same "security-definer escape hatch" pattern Milestone 3 used for `get_profiles_for_relations`, needed because `profiles`' own RLS only lets a user see their own row.
+- `src/app/(tabs)/groups.tsx`: replaces the placeholder — create-group form, pending invites (accept/decline), your active groups list.
+- `src/app/group/[groupId].tsx`: group detail — invite-by-username (reuses Milestone 3's `useSearchUsername`), member roster with role/status, remove-member (owner-only), leave/archive actions, plus the group's currencies (see Milestone 5).
+- `src/hooks/use-groups.ts`, `src/lib/group.ts`.
+- `supabase/tests/groups_membership.test.sql`: covers ownership on create, RLS denial of direct writes, self-invite/duplicate-invite rejection, invite across an active block rejected, non-member visibility denial (both for the group and for `get_group_member_profiles`), accept/decline, owner-only remove/archive enforcement, leave-group, and anon zero-access.
+- **Known, deliberate gap (GR-03):** "can't leave with active bets or outstanding obligations" isn't enforced yet because bets/ledger tables don't exist until Milestones 6/9 — there's nothing to check. Flagged in a code comment on `leave_group()` to revisit then.
+- **Known, deliberate gap (GR-02):** group invites only work for existing users found via username search; a non-user invite link (the FR-04 pattern from Friends) wasn't built this pass, to keep scope to the two milestones at hand. Noted, not hidden.
+- **Known, deliberate gap:** no ownership-transfer path — if the sole owner leaves, the group has no owner (can't be archived or have members removed) until a future milestone adds transfer. Not specified in the PRD; not built speculatively.
+
+What shipped — Milestone 5 (Currencies):
+
+- `supabase/migrations/20260715110000_currencies.sql`: `currencies` table (category enum matches `CurrencyCategoryColors` in `src/constants/theme.ts` — `food`/`drinks`/`items`/`favours`/`chores`/`actions`/`points`/`custom` — rather than the PRD's prose wording verbatim, to line up with the color system already built in Milestone 0). Personal (`owner_user_id`) xor group-owned (`group_id`) xor built-in, enforced by a check constraint. A 7-row built-in catalog seeded (Meal, Coffee, Gift, Favour, Chore, Harmless Dare, Point) — deliberately low-risk only, per PRD §10.2.
+- `moderate_text()`: the deterministic keyword/tier moderation filter decided in `DECISIONS.md` #3 (hard-block / warn+queue / permit), written generically so later milestones (bet titles, comments, chat) can call it too. A `BEFORE INSERT` trigger applies it server-side (only for real `anon`/`authenticated` requests, not the migration's own seed insert), overriding whatever the client sent for `is_builtin`/`moderation_status` so neither can be spoofed. Deliberately no slur list — see the code comment and `DECISIONS.md` #3 for why.
+- `src/lib/moderation.ts`: an advisory-only client-side mirror of the same tiers, for fast pre-submit feedback; the DB trigger is the actual authority.
+- `src/app/currencies.tsx` (personal) and the currencies section of `src/app/group/[groupId].tsx` (group-scoped): create form with a category picker (`src/components/category-picker.tsx`, shared between both screens), list showing built-in/pending-review status.
+- `src/hooks/use-currencies.ts`, `src/lib/currency.ts`.
+- `supabase/tests/currencies.test.sql`: covers all three moderation tiers, the anti-spoofing trigger override, case-insensitive duplicate-name rejection, personal/group visibility scoping (including a non-member's insert being denied), and anon zero-access.
+
+Also, while building this: moved the error-message helper built for Milestone 3 (`friendErrorMessage`) to a shared `src/lib/errors.ts` (`getErrorMessage`) rather than duplicating the same "Supabase errors aren't `instanceof Error`" logic a third time for groups/currencies. `friends.tsx` and `invite/[username].tsx` now import it from there.
+
+Verification performed:
+
+- `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:db` all pass.
+- Both migrations pushed to the real `noshot-dev` project (`supabase db push`).
+- Live in a real browser: created a group as `alicetest2`, invited an existing user by username, confirmed a duplicate-invite-while-still-pending shows the real Postgres error (not a generic fallback), created a group currency and hit all three moderation tiers live (benign → approved, "Cocaine Run" → hard-blocked with the real message, "Tequila Shots" → created but flagged "Pending review"), created a fresh account (`davetest4@example.com`) specifically to verify the invite-accept flow end-to-end (saw the invite, accepted, saw the full roster and both group currencies including the pending-review one, then left the group and confirmed it disappeared from his list), and created a personal currency on the standalone Currencies screen. Also confirmed username search correctly excludes a user with an active block (incidental: `caroltest3` had blocked `alicetest2` during Milestone 3's verification, so Alice's search for "carol" correctly returned nothing — not a bug).
+- **Not verified**: iOS/Android native (web-only again, same gap as every prior milestone); decline-invite and remove-member weren't clicked through live this pass (both are covered by the DB test suite).
+
+## Milestone 3 — done
 
 ## Milestone 3 — done
 
@@ -71,19 +107,20 @@ Not pushed to GitHub — no remote configured. CI will not run until you create 
 | 0    | Repo & tooling foundation                | Done                                                                                                    |
 | 1    | Supabase bootstrap + email/password auth | Done — see above                                                                                        |
 | 2    | Google + Apple sign-in                   | Not started — blocked on Google Cloud / Apple Developer Program accounts (see `IMPLEMENTATION_PLAN.md`) |
-| 3    | Friends & blocks                         | Done — see above                                                                                        |
-| 4–16 | See `IMPLEMENTATION_PLAN.md`             | Not started                                                                                             |
+| 3    | Friends & blocks                         | Done — committed and pushed                                                                             |
+| 4    | Groups & membership                      | Done — see above, not yet committed                                                                     |
+| 5    | Currencies                               | Done — see above, not yet committed                                                                     |
+| 6–16 | See `IMPLEMENTATION_PLAN.md`             | Not started                                                                                             |
 
 ## Open items waiting on you
 
-- Nothing is committed yet from Milestone 3 — `git status` shows it all as modified/untracked. Let me know when you want it committed (and whether as one commit or split).
-- Three test accounts now exist in the real `noshot-dev` project from this milestone's live verification (`bobtest`, `alicetest2@example.com`, `caroltest3@example.com`) — harmless, but flagging in case you want to clean them out of the dashboard later.
+- Milestones 4 and 5 aren't committed yet — `git status` shows them as modified/untracked. Let me know when you want them committed (one bundled commit per milestone, matching how Milestone 3 was done, unless you'd rather bundle both together).
+- Four test accounts now exist in the real `noshot-dev` project from live verification across Milestones 3-5 (`bobtest`, `alicetest2@example.com`, `caroltest3@example.com`, `davetest4@example.com`, all test passwords `TestPass123!` except `bobtest` which predates this session) — harmless, but flagging in case you want to clean them out of the dashboard later.
 - `DECISIONS.md` #6 — turn "Confirm email" back on in Supabase Auth settings before any real-user testing (exact dashboard path is in that entry). Not urgent while still in solo dev/testing.
 - `DECISIONS.md` #7 — decide whether to add the `emailRedirectTo` deep-link callback flow now or later; should land before #6 is flipped back on.
-- `DECISIONS.md` #2 — resolve the PRD's judge/group-vote vs. "random fallback" contradiction (needed before Milestone 8, not before Milestone 4).
+- `DECISIONS.md` #2 — resolve the PRD's judge/group-vote vs. "random fallback" contradiction (needed before Milestone 8, not before Milestone 6).
 - For Milestone 2 (Google + Apple sign-in): Google Cloud Console OAuth client setup, Apple Developer Program enrollment — see `IMPLEMENTATION_PLAN.md` Milestone 2 for exact steps, only needed when you're ready to start that milestone.
-- Optional: recommend a native (iOS/Android) smoke test before building further, since only web has been verified live so far (Milestones 0, 1, and 3 all).
-- Optional: create a GitHub remote if/when you want CI to actually execute.
+- Optional: recommend a native (iOS/Android) smoke test before building further, since only web has been verified live so far (every milestone to date).
 
 ## How to keep this file useful
 

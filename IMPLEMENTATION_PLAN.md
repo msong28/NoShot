@@ -12,8 +12,8 @@ Rule for all milestones: complete and test one before starting the next. Each mi
 | 1   | Supabase bootstrap + email/password auth — **done** | 0          | AUTH-01..05, §9                               |
 | 2   | Google + Apple sign-in                              | 1          | AUTH-01                                       |
 | 3   | Friends & blocks — **done**                         | 1          | FR-01..05                                     |
-| 4   | Groups & membership                                 | 3          | GR-01..06                                     |
-| 5   | Currencies                                          | 1          | §5.1                                          |
+| 4   | Groups & membership — **done**                      | 3          | GR-01..06                                     |
+| 5   | Currencies — **done**                               | 1          | §5.1                                          |
 | 6   | Bet engine core (draft → versions → approvals)      | 4, 5       | BET-01..10                                    |
 | 7   | Bet cancellation                                    | 6          | §5.2                                          |
 | 8   | Resolution & disputes                               | 6          | RES-01..07 (needs Decision #2 resolved first) |

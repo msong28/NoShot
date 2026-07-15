@@ -35,6 +35,15 @@ export default function HomeScreen() {
             </ThemedText>
           </Card>
         </Link>
+
+        <Link href="/currencies" asChild>
+          <Card style={styles.friendsCard}>
+            <ThemedText type="smallBold">Currencies</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              Browse built-in currencies and create your own.
+            </ThemedText>
+          </Card>
+        </Link>
       </ScrollView>
     </ThemedView>
   );

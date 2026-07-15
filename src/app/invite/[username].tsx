@@ -12,7 +12,8 @@ import { useProfile } from '@/hooks/use-profile';
 import { useSendFriendRequest } from '@/hooks/use-friends';
 import { useSession } from '@/hooks/use-session';
 import { supabase } from '@/lib/supabase';
-import { friendErrorMessage, type PublicProfile } from '@/lib/friend';
+import { getErrorMessage } from '@/lib/errors';
+import type { PublicProfile } from '@/lib/friend';
 
 export default function InvitePreviewScreen() {
   const insets = useSafeAreaInsets();
@@ -63,7 +64,7 @@ export default function InvitePreviewScreen() {
                   sendRequest.mutate(invitedProfile.id, {
                     onSuccess: () => setRequestSent(true),
                     onError: (error) =>
-                      setRequestError(friendErrorMessage(error, 'Failed to send request')),
+                      setRequestError(getErrorMessage(error, 'Failed to send request')),
                   });
                 }}
               >

@@ -48,6 +48,8 @@ function RootNavigator() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="create" options={{ presentation: 'modal' }} />
         <Stack.Screen name="friends" />
+        <Stack.Screen name="currencies" />
+        <Stack.Screen name="group/[groupId]" />
       </Stack.Protected>
       {/* Not inside any guard above: reachable regardless of auth state, so a
           non-user can preview an invite before creating an account (FR-04). */}
