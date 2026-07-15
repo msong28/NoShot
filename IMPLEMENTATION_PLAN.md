@@ -6,25 +6,25 @@ Rule for all milestones: complete and test one before starting the next. Each mi
 
 ## Milestone map
 
-| #   | Milestone                                      | Depends on | PRD refs                                      |
-| --- | ---------------------------------------------- | ---------- | --------------------------------------------- |
-| 0   | Repo & tooling foundation — **done**           | —          | §9.1, §14.1, §14.3                            |
-| 1   | Supabase bootstrap + email/password auth       | 0          | AUTH-01..05, §9                               |
-| 2   | Google + Apple sign-in                         | 1          | AUTH-01                                       |
-| 3   | Friends & blocks                               | 1          | FR-01..05                                     |
-| 4   | Groups & membership                            | 3          | GR-01..06                                     |
-| 5   | Currencies                                     | 1          | §5.1                                          |
-| 6   | Bet engine core (draft → versions → approvals) | 4, 5       | BET-01..10                                    |
-| 7   | Bet cancellation                               | 6          | §5.2                                          |
-| 8   | Resolution & disputes                          | 6          | RES-01..07 (needs Decision #2 resolved first) |
-| 9   | Ledger & balances                              | 8          | BAL-01, 02, 08; §5.5                          |
-| 10  | Manual obligations & adjustments               | 4, 5       | BAL-03, 04                                    |
-| 11  | Redemption & forgiveness                       | 9          | BAL-05..07                                    |
-| 12  | Social layer (comments, chat, polls, proof)    | 6, 4       | SOC-01..06                                    |
-| 13  | Trust & safety (reports, moderation, admin)    | 12         | MOD-01..06                                    |
-| 14  | Account deletion & privacy                     | 1          | AUTH-05, §9.5                                 |
-| 15  | Accessibility, performance, observability      | all        | §11, §12                                      |
-| 16  | Store readiness                                | all        | §10.5                                         |
+| #   | Milestone                                           | Depends on | PRD refs                                      |
+| --- | --------------------------------------------------- | ---------- | --------------------------------------------- |
+| 0   | Repo & tooling foundation — **done**                | —          | §9.1, §14.1, §14.3                            |
+| 1   | Supabase bootstrap + email/password auth — **done** | 0          | AUTH-01..05, §9                               |
+| 2   | Google + Apple sign-in                              | 1          | AUTH-01                                       |
+| 3   | Friends & blocks                                    | 1          | FR-01..05                                     |
+| 4   | Groups & membership                                 | 3          | GR-01..06                                     |
+| 5   | Currencies                                          | 1          | §5.1                                          |
+| 6   | Bet engine core (draft → versions → approvals)      | 4, 5       | BET-01..10                                    |
+| 7   | Bet cancellation                                    | 6          | §5.2                                          |
+| 8   | Resolution & disputes                               | 6          | RES-01..07 (needs Decision #2 resolved first) |
+| 9   | Ledger & balances                                   | 8          | BAL-01, 02, 08; §5.5                          |
+| 10  | Manual obligations & adjustments                    | 4, 5       | BAL-03, 04                                    |
+| 11  | Redemption & forgiveness                            | 9          | BAL-05..07                                    |
+| 12  | Social layer (comments, chat, polls, proof)         | 6, 4       | SOC-01..06                                    |
+| 13  | Trust & safety (reports, moderation, admin)         | 12         | MOD-01..06                                    |
+| 14  | Account deletion & privacy                          | 1          | AUTH-05, §9.5                                 |
+| 15  | Accessibility, performance, observability           | all        | §11, §12                                      |
+| 16  | Store readiness                                     | all        | §10.5                                         |
 
 This is deliberately finer-grained than the PRD's own 8 phases, so each milestone is small enough to fully test before moving on.
 
@@ -40,14 +40,15 @@ Verified: lint/typecheck/test/format all pass locally; `expo-doctor` 20/20; live
 
 Not done: CI hasn't actually run yet (no GitHub remote pushed).
 
-### Milestone 1 — Supabase bootstrap + email/password auth
+### Milestone 1 — Supabase bootstrap + email/password auth — **done** (2026-07-14)
 
 **Goal:** real backend, minimal account creation, first RLS test suite.
 
-- I can do directly: write `supabase/migrations/0001_profiles.sql` (enums, `profiles` table, RLS: a user reads/writes only their own row), `supabase/seed.sql`, the Supabase client wrapper, secure session persistence, sign-up/sign-in/sign-out screens, minimal display-name+username setup screen, 16+ age-acknowledgement checkbox (self-attestation, no ID verification), and the first RLS integration test (unrelated user cannot read/write another profile).
-- Needs you at a dashboard: create a Supabase project (pick region — recommend one close to your initial Canada/US users); in Supabase Auth settings, leave Google/Apple disabled for now; run `supabase link` / apply migrations against your project (I'll give exact commands).
-- Credentials needed from you: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` (both client-safe, go in `.env`, never committed). The service-role key is not needed client-side; if we need it for CI-run RLS tests later I'll ask for it as a GitHub Actions secret only.
-- Done when: sign-up, sign-in, sign-out work end-to-end against your real Supabase project; RLS test proves cross-user profile access is denied.
+Shipped: `supabase/migrations/20260714120000_profiles.sql` (profiles table, min-age trigger, unique username index, default-deny RLS); `supabase/seed.sql`; `src/lib/supabase.ts` client (LargeSecureStore on native, AsyncStorage on web, SSR-safe); sign-up/sign-in/sign-out screens; `setup-profile` screen (display name, username, birth year, age acknowledgement); `Stack.Protected`-based auth routing; `scripts/test-db.sh` + `supabase/tests/profiles_rls.test.sql`, a committed Docker-free RLS test suite wired into CI.
+
+Verified: lint/typecheck/test/format/test:db all pass; the DB test harness was confirmed to actually fail on a broken assertion (not a rubber-stamp); full sign-up → setup-profile → tabs → sign-out → sign-in loop driven live in a browser against the real linked Supabase project (`noshot-dev`), zero console errors. **Not verified on iOS/Android** (same gap as Milestone 0). Full detail in `PROJECT_STATUS.md`.
+
+Not done / tracked follow-ups: `DECISIONS.md` #6 (email confirmation currently OFF for dev convenience, must re-enable before real users) and #7 (no `emailRedirectTo` deep-link callback yet, no account-enumeration handling on sign-up — should land before #6 is reversed).
 
 ### Milestone 2 — Google + Apple sign-in
 

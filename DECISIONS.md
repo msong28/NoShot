@@ -32,6 +32,19 @@ Lightweight ADR log. Each entry: context, decision, status. Newest at bottom of 
 **Decision:** admin lives at a gated route group inside the same app (web-oriented, but not web-only at the routing level), not a separate package/monorepo.
 **Status:** decided. Revisit only if admin needs diverge substantially (e.g., a different release cadence).
 
+### 6. Email confirmation is OFF in Supabase Auth — dev convenience, must flip back before launch
+
+**Context:** the project shipped with "Confirm email" ON (Supabase's default). During Milestone 1 verification, sign-up + email-confirm-click flow was built and works, but confirming via a disposable-inbox link proved slow to test live. You turned "Confirm email" OFF in the dashboard so sign-up returns a session immediately, no email step.
+**Consequence:** right now, anyone can sign up with any email address (real or fake) and get in immediately — fine for development, **not** acceptable for a real launch (spam accounts, unverifiable emails).
+**Status:** must be turned back ON before any real-user testing or launch. Tracked here so it doesn't get forgotten. Re-enabling is a dashboard toggle (Authentication → Sign In / Providers → Email → "Confirm email"), no code change needed — the sign-up screen already handles both the confirmation-required and instant-session cases.
+
+### 7. Confirmation/reset emails don't yet redirect back into the app
+
+**Context:** compared against a working pattern from a prior project (FoundrV1): that project passes `emailRedirectTo` (signup) / `redirectTo` (password reset) pointing at a deep link, so clicking the emailed link lands back in the app already authenticated, rather than on Supabase's generic hosted confirmation page. Our current `signUp()` call doesn't set this.
+**Why it matters:** cosmetic/UX now (Confirm email is off, so this path isn't exercised), but becomes a real gap once Confirm email is turned back on (Decision #6) — users would confirm via a generic Supabase page with no path back to the app.
+**Decision:** not built in Milestone 1 — deliberately deferred, since it needs a dedicated auth-callback route handling both web (URL-based) and native (deep link + PKCE code exchange), which is more than a one-line change. Also worth adding then: Supabase's account-enumeration protection (a signup for an already-registered, already-confirmed email returns a fake-success with an empty `identities` array rather than an error) isn't handled in the sign-up screen yet either — small, cheap addition to pair with this work.
+**Status:** open, not blocking. Should land before Decision #6 is flipped back on (turning email confirmation back on without this means confirmed users land on a dead-end generic page).
+
 ## Store/legal risks to track (not decisions I can make for you)
 
 - **App-store classification risk.** NoShot's ratio/odds mechanic is adjacent to gambling even without cash stakes. PRD §16 already mandates safe positioning language and hard content blocks; final risk sign-off needs review against Apple/Google's then-current policies and, per the PRD itself, qualified counsel — I cannot make this determination or guarantee approval.

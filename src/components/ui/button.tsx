@@ -10,15 +10,17 @@ type ButtonProps = PressableProps & {
   variant?: 'accent' | 'muted';
 };
 
-export function Button({ children, variant = 'accent', style, ...rest }: ButtonProps) {
+export function Button({ children, variant = 'accent', style, disabled, ...rest }: ButtonProps) {
   const theme = useTheme();
 
   return (
     <Pressable
+      disabled={disabled}
       style={(state) => [
         styles.base,
         { backgroundColor: variant === 'accent' ? theme.accent : theme.backgroundElement },
         state.pressed && styles.pressed,
+        disabled && styles.disabled,
         typeof style === 'function' ? style(state) : style,
       ]}
       {...rest}
@@ -43,6 +45,9 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
+  },
+  disabled: {
+    opacity: 0.4,
   },
   label: {
     textAlign: 'center',

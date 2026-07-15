@@ -1,8 +1,8 @@
 # NoShot — Architecture
 
-Status: Milestone 0 (repo & tooling foundation) implemented; product milestones (1+) not yet started. This document describes the target architecture for the MVP described in `NoShot_PRD.docx`. It will be revised as milestones complete; material changes should be logged in `DECISIONS.md`.
+Status: Milestones 0 (repo & tooling foundation) and 1 (Supabase bootstrap + email/password auth) implemented; Milestone 2+ not yet started. This document describes the target architecture for the MVP described in `NoShot_PRD.docx`. It will be revised as milestones complete; material changes should be logged in `DECISIONS.md`.
 
-## 1. Confirmed baseline (audited 2026-07-14, updated after Milestone 0)
+## 1. Confirmed baseline (audited 2026-07-14, updated after Milestone 1)
 
 | Layer                 | Version                                                                                   |
 | --------------------- | ----------------------------------------------------------------------------------------- |
@@ -15,7 +15,7 @@ Status: Milestone 0 (repo & tooling foundation) implemented; product milestones 
 | Package manager       | npm                                                                                       |
 | `expo-doctor`         | 20/20 checks passed                                                                       |
 
-The project started as the stock `create-expo-app` template: a single Expo Router app under `src/app`, path-aliased via `@/*`, with `typedRoutes` and `reactCompiler` experiments on, and a hand-rolled `ThemedText`/`ThemedView` token system (`src/constants/theme.ts`). As of Milestone 0: the tab bar now uses a cross-platform `expo-router/ui`-based component (`src/components/app-tabs.tsx`, see §3) instead of the original `NativeTabs`; `@supabase/supabase-js`, `@tanstack/react-query`, and `expo-secure-store` are installed (not yet wired to a project); Jest + RNTL, ESLint + Prettier, and a GitHub Actions CI workflow are in place; git history and a `src/components/ui` primitive set (`Button`, `Card`, `Badge`) exist. No Supabase project, no CI runs yet (no remote pushed).
+The project started as the stock `create-expo-app` template: a single Expo Router app under `src/app`, path-aliased via `@/*`, with `typedRoutes` and `reactCompiler` experiments on, and a hand-rolled `ThemedText`/`ThemedView` token system (`src/constants/theme.ts`). As of Milestone 0: the tab bar now uses a cross-platform `expo-router/ui`-based component (`src/components/app-tabs.tsx`, see §3) instead of the original `NativeTabs`; Jest + RNTL, ESLint + Prettier, and a GitHub Actions CI workflow are in place; a `src/components/ui` primitive set (`Button`, `Card`, `Badge`, `TextField`) exists. As of Milestone 1: a real linked Supabase project (`noshot-dev`) exists with a `profiles` migration + RLS deployed; `src/lib/supabase.ts` wires up the client (secure session storage per §5); email/password sign-up/sign-in/sign-out and a minimal profile-setup screen work end-to-end, gated by `Stack.Protected`-based routing (see §3 sibling doc updates as they land). No CI runs yet (no remote pushed).
 
 ## 2. One-codebase principle
 
