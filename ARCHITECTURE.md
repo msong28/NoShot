@@ -1,21 +1,21 @@
 # NoShot — Architecture
 
-Status: proposed, not yet implemented. This document describes the target architecture for the MVP described in `NoShot_PRD.docx`. It will be revised as milestones complete; material changes should be logged in `DECISIONS.md`.
+Status: Milestone 0 (repo & tooling foundation) implemented; product milestones (1+) not yet started. This document describes the target architecture for the MVP described in `NoShot_PRD.docx`. It will be revised as milestones complete; material changes should be logged in `DECISIONS.md`.
 
-## 1. Confirmed baseline (audited 2026-07-14)
+## 1. Confirmed baseline (audited 2026-07-14, updated after Milestone 0)
 
-| Layer | Version |
-|---|---|
-| Expo SDK | 57.0.4 |
-| Expo Router | 57.0.4 |
-| React Native | 0.86.0 (New Architecture only — there is no old-architecture fallback in this RN version) |
-| React | 19.2.3 |
-| TypeScript | 6.0.3 |
-| Reanimated / Worklets | 4.5.0 / 0.10.0 |
-| Package manager | npm |
-| `expo-doctor` | 20/20 checks passed |
+| Layer                 | Version                                                                                   |
+| --------------------- | ----------------------------------------------------------------------------------------- |
+| Expo SDK              | 57.0.4                                                                                    |
+| Expo Router           | 57.0.4                                                                                    |
+| React Native          | 0.86.0 (New Architecture only — there is no old-architecture fallback in this RN version) |
+| React                 | 19.2.3                                                                                    |
+| TypeScript            | 6.0.3                                                                                     |
+| Reanimated / Worklets | 4.5.0 / 0.10.0                                                                            |
+| Package manager       | npm                                                                                       |
+| `expo-doctor`         | 20/20 checks passed                                                                       |
 
-The project is the stock `create-expo-app` template: a single Expo Router app under `src/app`, path-aliased via `@/*`, with `typedRoutes` and `reactCompiler` experiments on, a hand-rolled `ThemedText`/`ThemedView` token system (`src/constants/theme.ts`), and a two-tab `NativeTabs` layout (`src/components/app-tabs.tsx`) using `expo-router/unstable-native-tabs`. No backend, state-management, styling framework, or test tooling has been added yet. No git commits, no remote, no CI.
+The project started as the stock `create-expo-app` template: a single Expo Router app under `src/app`, path-aliased via `@/*`, with `typedRoutes` and `reactCompiler` experiments on, and a hand-rolled `ThemedText`/`ThemedView` token system (`src/constants/theme.ts`). As of Milestone 0: the tab bar now uses a cross-platform `expo-router/ui`-based component (`src/components/app-tabs.tsx`, see §3) instead of the original `NativeTabs`; `@supabase/supabase-js`, `@tanstack/react-query`, and `expo-secure-store` are installed (not yet wired to a project); Jest + RNTL, ESLint + Prettier, and a GitHub Actions CI workflow are in place; git history and a `src/components/ui` primitive set (`Button`, `Card`, `Badge`) exist. No Supabase project, no CI runs yet (no remote pushed).
 
 ## 2. One-codebase principle
 
@@ -23,7 +23,7 @@ Per project instructions, one Expo Router app serves iOS, Android, and responsiv
 
 ## 3. Navigation
 
-**Decision:** replace `NativeTabs` (`expo-router/unstable-native-tabs`) with a JS-rendered custom tab bar built on top of `expo-router`'s `Tabs` (custom `tabBar` renderer) before product screens are built. Rationale in `DECISIONS.md` (#1). Target IA, per PRD §7.1:
+**Done (Milestone 0):** replaced `NativeTabs` (`expo-router/unstable-native-tabs`) with a headless, cross-platform tab bar built on `expo-router/ui` (`Tabs`/`TabList`/`TabTrigger`/`TabSlot`) — see `src/components/app-tabs.tsx`. Rationale and verification notes in `DECISIONS.md`. IA, per PRD §7.1:
 
 - Home — net position summary, pending approvals, recent activity
 - Groups — group list with per-currency net indicators
@@ -78,14 +78,14 @@ Both are adapter interfaces (`src/services/analytics`, `src/services/monitoring`
 
 ## 11. Testing strategy
 
-| Layer | Tool |
-|---|---|
-| Unit (odds/payout math, balance aggregation, allocation logic) | Jest + `jest-expo` |
-| Component | Jest + React Native Testing Library |
-| DB/RLS/RPC integration | Scripted tests against a local `supabase start` instance (pgTAP and/or supabase-js-driven scripts asserting unauthorized reads/writes fail) |
-| Web e2e | Playwright |
-| Native e2e (iOS/Android) | Maestro (chosen over Detox — no native rebuild cycle required, works against Expo dev/preview builds) |
-| CI | GitHub Actions: lint, typecheck, unit tests, migration-apply + RLS test job on every PR; e2e as a separate, slower job |
+| Layer                                                          | Tool                                                                                                                                        |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit (odds/payout math, balance aggregation, allocation logic) | Jest + `jest-expo`                                                                                                                          |
+| Component                                                      | Jest + React Native Testing Library                                                                                                         |
+| DB/RLS/RPC integration                                         | Scripted tests against a local `supabase start` instance (pgTAP and/or supabase-js-driven scripts asserting unauthorized reads/writes fail) |
+| Web e2e                                                        | Playwright                                                                                                                                  |
+| Native e2e (iOS/Android)                                       | Maestro (chosen over Detox — no native rebuild cycle required, works against Expo dev/preview builds)                                       |
+| CI                                                             | GitHub Actions: lint, typecheck, unit tests, migration-apply + RLS test job on every PR; e2e as a separate, slower job                      |
 
 ## 12. What still requires external accounts/credentials
 

@@ -14,6 +14,11 @@ export const Colors = {
     backgroundElement: '#F0F0F3',
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
+    border: '#E3E4E8',
+    accent: '#7C5CFF',
+    accentText: '#FFFFFF',
+    positive: '#1E9E5A',
+    negative: '#E23F5D',
   },
   dark: {
     text: '#ffffff',
@@ -21,7 +26,28 @@ export const Colors = {
     backgroundElement: '#212225',
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
+    border: '#303236',
+    accent: '#9B7BFF',
+    accentText: '#FFFFFF',
+    positive: '#3ED686',
+    negative: '#FF5D7A',
   },
+} as const;
+
+/**
+ * Distinct accent colours for currency categories, per the PRD's "distinct iconography
+ * and accent treatment" requirement. Never the sole signal of owed/owing status.
+ */
+export const CurrencyCategoryColors = {
+  food: '#FF8A3D',
+  drinks: '#3DB8FF',
+  items: '#9B7BFF',
+  favours: '#3ED686',
+  chores: '#FFD23D',
+  actions: '#FF5D9E',
+  points: '#5DE3FF',
+  money: '#7C5CFF',
+  custom: '#B0B4BA',
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
@@ -59,6 +85,13 @@ export const Spacing = {
   four: 24,
   five: 32,
   six: 64,
+} as const;
+
+export const Radii = {
+  small: 8,
+  medium: 16,
+  large: 24,
+  pill: 999,
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
