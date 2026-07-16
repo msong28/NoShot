@@ -1,6 +1,5 @@
-import { render, screen } from '@testing-library/react-native';
-
 import { ThemedText } from '@/components/themed-text';
+import { render, screen } from '@/test/render';
 
 test('renders its children as text', async () => {
   await render(<ThemedText>Hello NoShot</ThemedText>);

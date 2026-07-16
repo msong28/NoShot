@@ -1,67 +1,105 @@
 import { Link } from 'expo-router';
-import { ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Avatar } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ListRow } from '@/components/ui/list-row';
+import { Screen } from '@/components/ui/screen';
+import { SectionHeader } from '@/components/ui/section-header';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { BottomTabInset, Spacing } from '@/constants/theme';
+import { useFriends } from '@/hooks/use-friends';
+import { useMyGroups } from '@/hooks/use-groups';
+import { useSession } from '@/hooks/use-session';
 
 export default function HomeScreen() {
-  const insets = useSafeAreaInsets();
+  const { session } = useSession();
+  const userId = session?.user.id;
+
+  const { incomingRequests } = useFriends(userId);
+  const { activeGroups, pendingInvites } = useMyGroups(userId);
+
+  const attentionCount = incomingRequests.length + pendingInvites.length;
 
   return (
-    <ThemedView style={styles.screen}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          {
-            paddingTop: insets.top + Spacing.six,
-            paddingBottom: insets.bottom + BottomTabInset + Spacing.four,
-          },
-        ]}
-      >
-        <ThemedText type="title">Home</ThemedText>
-        <ThemedText themeColor="textSecondary">
-          Your owed/owing summary by currency, pending approvals, and recent activity will live
-          here.
+    <Screen bottomInset={BottomTabInset + Spacing.four} topInset={Spacing.six}>
+      <ThemedText type="headingXL">Home</ThemedText>
+
+      <Card>
+        <ThemedText type="label" themeColor="textSecondary">
+          Balances
         </ThemedText>
+        <ThemedText type="bodySM" themeColor="textMuted">
+          Your owed/owing summary by currency will live here once bets and the ledger exist.
+        </ThemedText>
+      </Card>
 
-        <Link href="/friends" asChild>
-          <Card style={styles.friendsCard}>
-            <ThemedText type="smallBold">Friends</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              Search for friends, manage requests, and invite people.
-            </ThemedText>
-          </Card>
-        </Link>
+      {attentionCount > 0 ? (
+        <>
+          <SectionHeader title="Needs your attention" />
+          {incomingRequests.map(({ friendship, profile }) => (
+            <Link key={friendship.id} href="/friends" asChild>
+              <ListRow
+                leading={<Avatar id={profile.id} name={profile.display_name} />}
+                title={profile.display_name}
+                subtitle="Wants to be friends"
+                trailing={<StatusBadge label="Review" variant="info" />}
+              />
+            </Link>
+          ))}
+          {pendingInvites.map((invite) => (
+            <Link key={invite.group_id} href="/groups" asChild>
+              <ListRow
+                title={invite.groups.name}
+                subtitle="Invited you to a group"
+                trailing={<StatusBadge label="Review" variant="info" />}
+              />
+            </Link>
+          ))}
+        </>
+      ) : null}
 
-        <Link href="/currencies" asChild>
-          <Card style={styles.friendsCard}>
-            <ThemedText type="smallBold">Currencies</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              Browse built-in currencies and create your own.
-            </ThemedText>
-          </Card>
-        </Link>
-      </ScrollView>
-    </ThemedView>
+      <SectionHeader title="Your groups" />
+      {activeGroups.length === 0 ? (
+        <EmptyState
+          icon="groups"
+          title="No groups yet"
+          description="Create one to start tracking bets with friends."
+        />
+      ) : (
+        activeGroups.map((group) => (
+          <Link key={group.id} href={`/group/${group.id}`} asChild>
+            <ListRow title={group.name} />
+          </Link>
+        ))
+      )}
+
+      <SectionHeader title="Shortcuts" />
+      <Link href="/friends" asChild>
+        <Card style={styles.shortcutCard}>
+          <ThemedText type="smallBold">Friends</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Search for friends, manage requests, and invite people.
+          </ThemedText>
+        </Card>
+      </Link>
+
+      <Link href="/currencies" asChild>
+        <Card style={styles.shortcutCard}>
+          <ThemedText type="smallBold">Currencies</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Browse built-in currencies and create your own.
+          </ThemedText>
+        </Card>
+      </Link>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  content: {
-    alignSelf: 'center',
-    width: '100%',
-    maxWidth: MaxContentWidth,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.two,
-  },
-  friendsCard: {
-    marginTop: Spacing.three,
+  shortcutCard: {
     gap: Spacing.half,
   },
 });

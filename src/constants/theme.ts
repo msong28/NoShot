@@ -7,30 +7,93 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+/**
+ * Semantic tokens, see DESIGN_SYSTEM.md §2. Same warm undertone and same
+ * roles in both themes -- only the values differ (light mode isn't dark
+ * mode inverted: `primary`/`competitive` are deliberately darker/more
+ * saturated in light mode, since the neon value that pops on near-black
+ * washes out on off-white).
+ */
+const light = {
+  background: '#FBF7F0',
+  surface: '#FFFFFF',
+  surfaceRaised: '#F5F0E6',
+  surfaceMuted: '#F1ECE1',
+  textPrimary: '#1A1713',
+  textSecondary: '#5A5548',
+  textMuted: '#8B8576',
+  border: '#E6E0D2',
+  primary: '#77A600',
+  primaryPressed: '#5E8700',
+  onPrimary: '#FFFFFF',
+  secondary: '#6C4FE0',
+  secondaryPressed: '#5A3FC2',
+  onSecondary: '#FFFFFF',
+  competitive: '#E1512E',
+  onCompetitive: '#FFFFFF',
+  success: '#1E9E5A',
+  onSuccess: '#FFFFFF',
+  warning: '#B8860B',
+  onWarning: '#FFFFFF',
+  danger: '#E23F5D',
+  onDanger: '#FFFFFF',
+  info: '#1D6FC4',
+  onInfo: '#FFFFFF',
+  overlay: 'rgba(26, 23, 19, 0.4)',
+} as const;
+
+const dark = {
+  background: '#100F0D',
+  surface: '#1C1A17',
+  surfaceRaised: '#242119',
+  surfaceMuted: '#16140F',
+  textPrimary: '#F7F4EE',
+  textSecondary: '#B6B0A2',
+  textMuted: '#7C776A',
+  border: '#302B22',
+  primary: '#C6F135',
+  primaryPressed: '#A9D428',
+  onPrimary: '#14130F',
+  secondary: '#9B7BFF',
+  secondaryPressed: '#8362E8',
+  onSecondary: '#FFFFFF',
+  competitive: '#FF6B4A',
+  onCompetitive: '#14130F',
+  success: '#3ED686',
+  onSuccess: '#0F1F16',
+  warning: '#FFB020',
+  onWarning: '#1F1506',
+  danger: '#FF5D7A',
+  onDanger: '#FFFFFF',
+  info: '#5AA9E6',
+  onInfo: '#0B1B26',
+  overlay: 'rgba(10, 9, 7, 0.64)',
+} as const;
+
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-    border: '#E3E4E8',
-    accent: '#7C5CFF',
-    accentText: '#FFFFFF',
-    positive: '#1E9E5A',
-    negative: '#E23F5D',
+    ...light,
+    focus: light.primary,
+    // Legacy aliases -- kept so existing screens (friends.tsx, groups.tsx,
+    // etc.) don't break. New code should prefer the semantic names above.
+    text: light.textPrimary,
+    backgroundElement: light.surface,
+    backgroundSelected: light.surfaceMuted,
+    accent: light.secondary,
+    accentText: light.onSecondary,
+    positive: light.success,
+    negative: light.danger,
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-    border: '#303236',
-    accent: '#9B7BFF',
-    accentText: '#FFFFFF',
-    positive: '#3ED686',
-    negative: '#FF5D7A',
+    ...dark,
+    focus: dark.primary,
+    text: dark.textPrimary,
+    backgroundElement: dark.surface,
+    backgroundSelected: dark.surfaceMuted,
+    accent: dark.secondary,
+    accentText: dark.onSecondary,
+    positive: dark.success,
+    negative: dark.danger,
   },
 } as const;
 

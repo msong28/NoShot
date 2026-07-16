@@ -1,26 +1,38 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider as RouterThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { ActivityIndicator, StyleSheet, useColorScheme } from 'react-native';
+import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { ThemedView } from '@/components/themed-view';
+import { ToastProvider } from '@/components/ui/toast';
 import { useProfile } from '@/hooks/use-profile';
 import { useSession } from '@/hooks/use-session';
 import { queryClient } from '@/lib/query-client';
+import { ThemeProvider as AppThemeProvider, useThemeMode } from '@/providers/theme-provider';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  return (
+    <AppThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemedRouterProvider />
+      </QueryClientProvider>
+    </AppThemeProvider>
+  );
+}
+
+function ThemedRouterProvider() {
+  const { scheme } = useThemeMode();
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <RouterThemeProvider value={scheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <ToastProvider>
         <AnimatedSplashOverlay />
         <RootNavigator />
-      </ThemeProvider>
-    </QueryClientProvider>
+      </ToastProvider>
+    </RouterThemeProvider>
   );
 }
 
@@ -50,6 +62,7 @@ function RootNavigator() {
         <Stack.Screen name="friends" />
         <Stack.Screen name="currencies" />
         <Stack.Screen name="group/[groupId]" />
+        <Stack.Screen name="design-system" />
       </Stack.Protected>
       {/* Not inside any guard above: reachable regardless of auth state, so a
           non-user can preview an invite before creating an account (FR-04). */}

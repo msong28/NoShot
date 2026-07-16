@@ -1,3 +1,4 @@
+import { Link } from 'expo-router';
 import { ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -38,6 +39,10 @@ export default function AccountScreen() {
         <Button variant="muted" onPress={() => supabase.auth.signOut()} style={styles.signOut}>
           Sign out
         </Button>
+
+        <Link href="/design-system" asChild>
+          <Button variant="ghost">Design system</Button>
+        </Link>
       </ScrollView>
     </ThemedView>
   );

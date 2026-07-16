@@ -1,10 +1,10 @@
-import { render, screen } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CurrencyCategoryColors } from '@/constants/theme';
+import { render, screen } from '@/test/render';
 
 test('Button renders its label', async () => {
   await render(<Button onPress={() => {}}>Confirm</Button>);

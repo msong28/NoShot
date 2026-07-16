@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import { TabList, TabSlot, TabTrigger, Tabs, type TabTriggerSlotProps } from 'expo-router/ui';
-import { Pressable, StyleSheet, useColorScheme, View, type ViewProps } from 'react-native';
+import { Pressable, StyleSheet, View, type ViewProps } from 'react-native';
 
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
-import { Colors, MaxContentWidth, Radii, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Radii, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 export default function AppTabs() {
   return (
@@ -58,8 +59,7 @@ function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
 }
 
 function AddButton() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  const theme = useTheme();
 
   return (
     <Pressable
@@ -68,11 +68,11 @@ function AddButton() {
       onPress={() => router.push('/create')}
       style={({ pressed }) => [
         styles.addButton,
-        { backgroundColor: colors.accent },
+        { backgroundColor: theme.primary },
         pressed && styles.pressed,
       ]}
     >
-      <ThemedText type="smallBold" themeColor="accentText">
+      <ThemedText type="smallBold" themeColor="onPrimary">
         +
       </ThemedText>
     </Pressable>

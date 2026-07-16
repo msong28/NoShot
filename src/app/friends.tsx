@@ -1,15 +1,19 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
 
 import { InviteQrCard } from '@/components/invite-qr-card';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { InlineError } from '@/components/ui/inline-error';
+import { ListRow } from '@/components/ui/list-row';
+import { Screen } from '@/components/ui/screen';
+import { SectionHeader } from '@/components/ui/section-header';
 import { TextField } from '@/components/ui/text-field';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import {
   useBlockUser,
   useCancelFriendRequest,
@@ -24,7 +28,6 @@ import { getErrorMessage } from '@/lib/errors';
 import type { PublicProfile } from '@/lib/friend';
 
 export default function FriendsScreen() {
-  const insets = useSafeAreaInsets();
   const { session } = useSession();
   const userId = session?.user.id;
   const { data: profile } = useProfile(userId);
@@ -38,6 +41,7 @@ export default function FriendsScreen() {
 
   const [query, setQuery] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
+  const [blockTarget, setBlockTarget] = useState<PublicProfile | null>(null);
 
   useEffect(() => {
     if (query.trim().length < 3) return;
@@ -58,57 +62,55 @@ export default function FriendsScreen() {
   }
 
   return (
-    <ThemedView style={styles.screen}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: insets.top + Spacing.four, paddingBottom: insets.bottom + Spacing.four },
-        ]}
-      >
-        <Button variant="muted" onPress={() => router.back()} style={styles.backButton}>
-          Back
-        </Button>
-        <ThemedText type="title">Friends</ThemedText>
+    <Screen>
+      <Button variant="muted" onPress={() => router.back()}>
+        Back
+      </Button>
+      <ThemedText type="headingXL">Friends</ThemedText>
 
-        {profile ? <InviteQrCard username={profile.username} /> : null}
+      {profile ? <InviteQrCard username={profile.username} /> : null}
 
-        <ThemedText type="smallBold">Find friends</ThemedText>
-        <TextField
-          label="Username"
-          placeholder="Search by username"
-          value={query}
-          onChangeText={setQuery}
-          autoCapitalize="none"
+      <SectionHeader title="Find friends" />
+      <TextField
+        label="Username"
+        variant="search"
+        placeholder="Search by username"
+        value={query}
+        onChangeText={setQuery}
+        autoCapitalize="none"
+      />
+      <InlineError
+        message={search.isError ? getErrorMessage(search.error, 'Search failed') : null}
+      />
+      {(search.data ?? []).map((result) => (
+        <ListRow
+          key={result.id}
+          leading={<Avatar id={result.id} name={result.display_name} />}
+          title={result.display_name}
+          subtitle={`@${result.username}`}
+          trailing={
+            <Button variant="primary" onPress={() => runAction(sendRequest.mutateAsync(result.id))}>
+              Add
+            </Button>
+          }
         />
-        {search.isError ? (
-          <ThemedText type="small" themeColor="negative">
-            {getErrorMessage(search.error, 'Search failed')}
-          </ThemedText>
-        ) : null}
-        {(search.data ?? []).map((result) => (
-          <SearchResultRow
-            key={result.id}
-            profile={result}
-            onSendRequest={() => runAction(sendRequest.mutateAsync(result.id))}
-          />
-        ))}
+      ))}
 
-        {actionError ? (
-          <ThemedText type="small" themeColor="negative">
-            {actionError}
-          </ThemedText>
-        ) : null}
+      <InlineError message={actionError} />
 
-        {incomingRequests.length > 0 ? (
-          <>
-            <ThemedText type="smallBold">Requests</ThemedText>
-            {incomingRequests.map(({ friendship, profile: requesterProfile }) => (
-              <Card key={friendship.id} style={styles.row}>
-                <ThemedText>
-                  @{requesterProfile.username} · {requesterProfile.display_name}
-                </ThemedText>
-                <ThemedView style={styles.rowActions}>
+      {incomingRequests.length > 0 ? (
+        <>
+          <SectionHeader title="Requests" />
+          {incomingRequests.map(({ friendship, profile: requesterProfile }) => (
+            <ListRow
+              key={friendship.id}
+              leading={<Avatar id={requesterProfile.id} name={requesterProfile.display_name} />}
+              title={requesterProfile.display_name}
+              subtitle={`@${requesterProfile.username}`}
+              trailing={
+                <View style={styles.rowActions}>
                   <Button
+                    variant="primary"
                     onPress={() =>
                       runAction(
                         respondRequest.mutateAsync({ friendshipId: friendship.id, accept: true }),
@@ -127,93 +129,75 @@ export default function FriendsScreen() {
                   >
                     Decline
                   </Button>
-                </ThemedView>
-              </Card>
-            ))}
-          </>
-        ) : null}
+                </View>
+              }
+            />
+          ))}
+        </>
+      ) : null}
 
-        {outgoingRequests.length > 0 ? (
-          <>
-            <ThemedText type="smallBold">Sent requests</ThemedText>
-            {outgoingRequests.map(({ friendship, profile: addresseeProfile }) => (
-              <Card key={friendship.id} style={styles.row}>
-                <ThemedText>
-                  @{addresseeProfile.username} · {addresseeProfile.display_name}
-                </ThemedText>
+      {outgoingRequests.length > 0 ? (
+        <>
+          <SectionHeader title="Sent requests" />
+          {outgoingRequests.map(({ friendship, profile: addresseeProfile }) => (
+            <ListRow
+              key={friendship.id}
+              leading={<Avatar id={addresseeProfile.id} name={addresseeProfile.display_name} />}
+              title={addresseeProfile.display_name}
+              subtitle={`@${addresseeProfile.username}`}
+              trailing={
                 <Button
                   variant="muted"
                   onPress={() => runAction(cancelRequest.mutateAsync(friendship.id))}
                 >
                   Cancel
                 </Button>
-              </Card>
-            ))}
-          </>
-        ) : null}
+              }
+            />
+          ))}
+        </>
+      ) : null}
 
-        <ThemedText type="smallBold">Your friends</ThemedText>
-        {friends.length === 0 ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            No friends yet — search for a username above or share your invite link.
-          </ThemedText>
-        ) : (
-          friends.map(({ friendship, profile: friendProfile }) => (
-            <Card key={friendship.id} style={styles.row}>
-              <ThemedText>
-                @{friendProfile.username} · {friendProfile.display_name}
-              </ThemedText>
-              <Button
-                variant="muted"
-                onPress={() => runAction(blockUser.mutateAsync(friendProfile.id))}
-              >
+      <SectionHeader title="Your friends" />
+      {friends.length === 0 ? (
+        <EmptyState
+          icon="friends"
+          title="No friends yet"
+          description="Search for a username above or share your invite link."
+        />
+      ) : (
+        friends.map(({ friendship, profile: friendProfile }) => (
+          <ListRow
+            key={friendship.id}
+            leading={<Avatar id={friendProfile.id} name={friendProfile.display_name} />}
+            title={friendProfile.display_name}
+            subtitle={`@${friendProfile.username}`}
+            trailing={
+              <Button variant="muted" onPress={() => setBlockTarget(friendProfile)}>
                 Block
               </Button>
-            </Card>
-          ))
-        )}
-      </ScrollView>
-    </ThemedView>
-  );
-}
+            }
+          />
+        ))
+      )}
 
-function SearchResultRow({
-  profile,
-  onSendRequest,
-}: {
-  profile: PublicProfile;
-  onSendRequest: () => void;
-}) {
-  return (
-    <Card style={styles.row}>
-      <ThemedText>
-        @{profile.username} · {profile.display_name}
-      </ThemedText>
-      <Button onPress={onSendRequest}>Add</Button>
-    </Card>
+      <ConfirmationDialog
+        visible={blockTarget !== null}
+        title={blockTarget ? `Block ${blockTarget.display_name}?` : 'Block this friend?'}
+        description="They won't be able to see your profile, invite you, or message you, and this removes your friendship."
+        confirmLabel="Block"
+        destructive
+        onConfirm={() => {
+          if (blockTarget) runAction(blockUser.mutateAsync(blockTarget.id));
+          setBlockTarget(null);
+        }}
+        onCancel={() => setBlockTarget(null)}
+      />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  content: {
-    alignSelf: 'center',
-    width: '100%',
-    maxWidth: MaxContentWidth,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.three,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
-  },
   rowActions: {
     flexDirection: 'row',
     gap: Spacing.two,

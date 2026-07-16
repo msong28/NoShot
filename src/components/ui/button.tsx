@@ -1,37 +1,69 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, type PressableProps } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, type PressableProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import {
+  ButtonVariants,
+  type ButtonVariant as NamedButtonVariant,
+} from '@/constants/component-variants';
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
+// 'accent'/'muted' are the original two variants, kept exactly as they
+// rendered before so existing screens don't change look until Phase 4
+// migrates them to the named set in component-variants.ts.
+export type ButtonVariant = 'accent' | 'muted' | NamedButtonVariant;
+
 type ButtonProps = PressableProps & {
   children: ReactNode;
-  variant?: 'accent' | 'muted';
+  variant?: ButtonVariant;
+  loading?: boolean;
 };
 
-export function Button({ children, variant = 'accent', style, disabled, ...rest }: ButtonProps) {
+export function Button({
+  children,
+  variant = 'accent',
+  loading = false,
+  style,
+  disabled,
+  ...rest
+}: ButtonProps) {
   const theme = useTheme();
+  const named = variant !== 'accent' && variant !== 'muted' ? ButtonVariants[variant] : null;
+
+  const backgroundColor = named
+    ? theme[named.bg]
+    : variant === 'accent'
+      ? theme.accent
+      : theme.backgroundElement;
+  const textColor = named
+    ? theme[named.text]
+    : variant === 'accent'
+      ? theme.accentText
+      : theme.text;
+  const isDisabled = disabled || loading;
 
   return (
     <Pressable
-      disabled={disabled}
+      disabled={isDisabled}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
       style={(state) => [
         styles.base,
-        { backgroundColor: variant === 'accent' ? theme.accent : theme.backgroundElement },
+        { backgroundColor },
+        variant === 'outline' && { borderWidth: 1, borderColor: theme.border },
         state.pressed && styles.pressed,
-        disabled && styles.disabled,
+        isDisabled && !loading && styles.disabled,
         typeof style === 'function' ? style(state) : style,
       ]}
       {...rest}
     >
-      <ThemedText
-        type="smallBold"
-        themeColor={variant === 'accent' ? 'accentText' : 'text'}
-        style={styles.label}
-      >
-        {children}
-      </ThemedText>
+      {loading ? (
+        <ActivityIndicator color={textColor} size="small" />
+      ) : (
+        <ThemedText type="smallBold" style={[styles.label, { color: textColor }]}>
+          {children}
+        </ThemedText>
+      )}
     </Pressable>
   );
 }
@@ -42,6 +74,9 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pressed: {
     opacity: 0.7,
