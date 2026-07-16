@@ -28,4 +28,8 @@ jobs:
 
       - run: sudo apt-get update && sudo apt-get install -y postgresql
 
+      # apt's postgresql package doesn't put initdb/postgres/psql on PATH --
+      # they live under a version-specific dir, unlike Homebrew locally.
+      - run: echo "/usr/lib/postgresql/$(ls /usr/lib/postgresql)/bin" >> "$GITHUB_PATH"
+
       - run: npm run test:db
