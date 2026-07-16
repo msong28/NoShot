@@ -6,25 +6,25 @@ Rule for all milestones: complete and test one before starting the next. Each mi
 
 ## Milestone map
 
-| #   | Milestone                                           | Depends on | PRD refs                                      |
-| --- | --------------------------------------------------- | ---------- | --------------------------------------------- |
-| 0   | Repo & tooling foundation — **done**                | —          | §9.1, §14.1, §14.3                            |
-| 1   | Supabase bootstrap + email/password auth — **done** | 0          | AUTH-01..05, §9                               |
-| 2   | Google + Apple sign-in — **Google done**, Apple built/unverified | 1 | AUTH-01                                       |
-| 3   | Friends & blocks — **done**                         | 1          | FR-01..05                                     |
-| 4   | Groups & membership — **done**                      | 3          | GR-01..06                                     |
-| 5   | Currencies — **done**                               | 1          | §5.1                                          |
-| 6   | Bet engine core (draft → versions → approvals)      | 4, 5       | BET-01..10                                    |
-| 7   | Bet cancellation                                    | 6          | §5.2                                          |
-| 8   | Resolution & disputes                               | 6          | RES-01..07 (needs Decision #2 resolved first) |
-| 9   | Ledger & balances                                   | 8          | BAL-01, 02, 08; §5.5                          |
-| 10  | Manual obligations & adjustments                    | 4, 5       | BAL-03, 04                                    |
-| 11  | Redemption & forgiveness                            | 9          | BAL-05..07                                    |
-| 12  | Social layer (comments, chat, polls, proof)         | 6, 4       | SOC-01..06                                    |
-| 13  | Trust & safety (reports, moderation, admin)         | 12         | MOD-01..06                                    |
-| 14  | Account deletion & privacy                          | 1          | AUTH-05, §9.5                                 |
-| 15  | Accessibility, performance, observability           | all        | §11, §12                                      |
-| 16  | Store readiness                                     | all        | §10.5                                         |
+| #   | Milestone                                                        | Depends on | PRD refs                                      |
+| --- | ---------------------------------------------------------------- | ---------- | --------------------------------------------- |
+| 0   | Repo & tooling foundation — **done**                             | —          | §9.1, §14.1, §14.3                            |
+| 1   | Supabase bootstrap + email/password auth — **done**              | 0          | AUTH-01..05, §9                               |
+| 2   | Google + Apple sign-in — **Google done**, Apple built/unverified | 1          | AUTH-01                                       |
+| 3   | Friends & blocks — **done**                                      | 1          | FR-01..05                                     |
+| 4   | Groups & membership — **done**                                   | 3          | GR-01..06                                     |
+| 5   | Currencies — **done**                                            | 1          | §5.1                                          |
+| 6   | Bet engine core (draft → versions → approvals)                   | 4, 5       | BET-01..10                                    |
+| 7   | Bet cancellation                                                 | 6          | §5.2                                          |
+| 8   | Resolution & disputes                                            | 6          | RES-01..07 (needs Decision #2 resolved first) |
+| 9   | Ledger & balances                                                | 8          | BAL-01, 02, 08; §5.5                          |
+| 10  | Manual obligations & adjustments                                 | 4, 5       | BAL-03, 04                                    |
+| 11  | Redemption & forgiveness                                         | 9          | BAL-05..07                                    |
+| 12  | Social layer (comments, chat, polls, proof)                      | 6, 4       | SOC-01..06                                    |
+| 13  | Trust & safety (reports, moderation, admin)                      | 12         | MOD-01..06                                    |
+| 14  | Account deletion & privacy                                       | 1          | AUTH-05, §9.5                                 |
+| 15  | Accessibility, performance, observability                        | all        | §11, §12                                      |
+| 16  | Store readiness                                                  | all        | §10.5                                         |
 
 This is deliberately finer-grained than the PRD's own 8 phases, so each milestone is small enough to fully test before moving on.
 
@@ -129,19 +129,19 @@ Not done / tracked follow-ups: `DECISIONS.md` #6 (email confirmation currently O
 
 ## Full external-dependency summary
 
-| Need                                          | First required at                                         | Type                                          |
-| --------------------------------------------- | --------------------------------------------------------- | --------------------------------------------- |
-| Supabase project                              | Milestone 1                                               | Account + dashboard config                    |
-| Google Cloud OAuth clients                    | Milestone 2                                               | Done (2026-07-15) — Web + iOS clients          |
-| Apple Developer Program + Sign in with Apple  | Milestone 2                                               | Done (2026-07-15) — native flow only           |
-| GitHub remote                                 | Milestone 0 (optional, for CI to run)                     | Account                                       |
-| Domain for universal/app links                | Optional, improves Milestone 3 invite links               | Purchase + DNS config                         |
-| Expo/EAS account                              | Milestone 16 (or earlier if you want cloud builds sooner) | Account                                       |
-| Apple App Store Connect / Google Play Console | Milestone 16                                              | Paid accounts                                 |
-| Sentry (or similar)                           | Optional, Milestone 15                                    | Account + DSN                                 |
-| Analytics SaaS                                | Optional, Milestone 15                                    | Account + key                                 |
-| SMS provider (phone auth)                     | Deferred post-MVP per PRD                                 | Account + key                                 |
-| Legal counsel                                 | Milestone 14/16                                           | Not something I can provide                   |
+| Need                                          | First required at                                         | Type                                  |
+| --------------------------------------------- | --------------------------------------------------------- | ------------------------------------- |
+| Supabase project                              | Milestone 1                                               | Account + dashboard config            |
+| Google Cloud OAuth clients                    | Milestone 2                                               | Done (2026-07-15) — Web + iOS clients |
+| Apple Developer Program + Sign in with Apple  | Milestone 2                                               | Done (2026-07-15) — native flow only  |
+| GitHub remote                                 | Milestone 0 (optional, for CI to run)                     | Account                               |
+| Domain for universal/app links                | Optional, improves Milestone 3 invite links               | Purchase + DNS config                 |
+| Expo/EAS account                              | Milestone 16 (or earlier if you want cloud builds sooner) | Account                               |
+| Apple App Store Connect / Google Play Console | Milestone 16                                              | Paid accounts                         |
+| Sentry (or similar)                           | Optional, Milestone 15                                    | Account + DSN                         |
+| Analytics SaaS                                | Optional, Milestone 15                                    | Account + key                         |
+| SMS provider (phone auth)                     | Deferred post-MVP per PRD                                 | Account + key                         |
+| Legal counsel                                 | Milestone 14/16                                           | Not something I can provide           |
 
 ---
 

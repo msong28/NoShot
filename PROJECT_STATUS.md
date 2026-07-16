@@ -122,15 +122,15 @@ Pushed to GitHub (`origin/master`). **CI has run and is currently failing** on b
 
 ## Milestone status
 
-| #    | Milestone                                | Status                                                                                                  |
-| ---- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| 0    | Repo & tooling foundation                | Done                                                                                                    |
-| 1    | Supabase bootstrap + email/password auth | Done — see above                                                                                        |
-| 2    | Google + Apple sign-in                   | Google done & verified live; Apple built, unverified (no iOS simulator)        |
-| 3    | Friends & blocks                         | Done — committed and pushed                                                                             |
-| 4    | Groups & membership                      | Done — committed and pushed                                                                             |
-| 5    | Currencies                               | Done — committed and pushed                                                                             |
-| 6–16 | See `IMPLEMENTATION_PLAN.md`             | Not started                                                                                             |
+| #    | Milestone                                | Status                                                                  |
+| ---- | ---------------------------------------- | ----------------------------------------------------------------------- |
+| 0    | Repo & tooling foundation                | Done                                                                    |
+| 1    | Supabase bootstrap + email/password auth | Done — see above                                                        |
+| 2    | Google + Apple sign-in                   | Google done & verified live; Apple built, unverified (no iOS simulator) |
+| 3    | Friends & blocks                         | Done — committed and pushed                                             |
+| 4    | Groups & membership                      | Done — committed and pushed                                             |
+| 5    | Currencies                               | Done — committed and pushed                                             |
+| 6–16 | See `IMPLEMENTATION_PLAN.md`             | Not started                                                             |
 
 ## Open items waiting on you
 
