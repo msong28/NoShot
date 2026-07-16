@@ -1,15 +1,37 @@
 # NoShot — Project Status
 
-Last updated: 2026-07-15 (Milestones 4 and 5 complete).
+Last updated: 2026-07-15 (Milestone 2 — Google sign-in built and verified live; Apple sign-in built, unverified).
 
 ## Where things stand
 
-- Milestones 0, 1, 3, 4, and 5 are complete and verified. See below. (Milestone 2 — Google/Apple sign-in — is skipped for now, blocked on external dashboard accounts; Milestones 3-5 don't depend on it, so they were done out of order.)
+- Milestones 0, 1, 2 (Google half), 3, 4, and 5 are complete. See below. (Milestone 2's Apple half is built but not live-verified — no iOS simulator/device available in this environment, same gap as the rest of the app's iOS-specific code.)
 - Real Supabase project is live and linked: `noshot-dev` (ref `tckpbwvzxxovnsvdtwee`). `profiles`, `friendships`, `blocks`, `username_search_log`, `groups`, `group_members`, and `currencies` tables + RLS are deployed to it.
-- Email/password auth works end-to-end against the real project: sign-up, setup-profile, sign-out, sign-in all verified live in a browser.
-- Milestone 3 is committed and pushed (`origin/master` on GitHub). Milestones 4 and 5 are not yet committed as of this writeup.
-- No CI run has happened yet: the workflow exists but nothing has triggered it (needs a push).
+- Email/password **and now Google** sign-in both work end-to-end against the real project, verified live in a browser. Apple sign-in is coded but untested (native-only, no simulator here).
+- Milestones 3, 4, and 5 are committed (`8b14dc5` and earlier) and pushed. Milestone 2 is not yet committed as of this writeup.
+- **CI is currently red** on both pushes so far (`tsc --noEmit` failure, unrelated to product code — see the Milestone 1 section below and "Open items"). Not fixed as part of this milestone; flagging so it doesn't get lost.
 - Planning docs: `ARCHITECTURE.md`, `DECISIONS.md`, `IMPLEMENTATION_PLAN.md`, this file.
+
+## Milestone 2 — Google half done, Apple built but unverified
+
+Dashboard setup (done earlier by you): Google Cloud OAuth consent screen + Web/iOS clients, Apple Developer App ID `com.noshot.app.ram` with Sign in with Apple (native-flow only), both providers enabled in Supabase Auth settings for `noshot-dev`.
+
+What shipped:
+
+- `src/lib/supabase.ts`: added `flowType: 'pkce'` — needed so the OAuth redirect carries a single-use `code` rather than tokens directly in the URL.
+- `src/lib/oauth.ts`: `signInWithGoogle()` — a browser-redirect flow (`expo-web-browser` + `supabase.auth.signInWithOAuth`), chosen over the native `@react-native-google-signin` module specifically because it works from one code path on web/iOS/Android and doesn't need a custom dev client to test (see the question I asked before starting — you picked this option). `signInWithApple()` — the native `expo-apple-authentication` modal, which hands Supabase an identity token directly via `signInWithIdToken`, no browser redirect involved. `createSessionFromUrl()` is the shared PKCE code-exchange helper both the callback screen and the native Google path use.
+- `src/app/auth-callback.tsx`: where the web OAuth redirect lands (native usually resolves in-flow via `expo-web-browser`'s own promise and never needs this screen, but it's a safe fallback for that path too). Reads `code`/`error_description` from the URL, exchanges the code for a session, then routes to `/`.
+- `src/app/(auth)/index.tsx`: added "Continue with Google" (always shown) and Apple's official native button component (iOS only, gated by `isAppleSignInAvailable()`).
+- `app.json`: added the `expo-apple-authentication` config plugin (adds the `com.apple.developer.applesignin` entitlement on an EAS build — confirmed by reading the plugin source directly, not just assuming).
+- `_layout.tsx`: registered `auth-callback` as an ungated route (reachable before a session exists, same reasoning as `invite/[username]`).
+
+Verification performed:
+
+- `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:db` all pass.
+- **Google sign-in verified live end-to-end** against the real project, using your real Google account (you drove the actual Google account-chooser/consent steps yourself, not me — that's your real identity, not a disposable test fixture): Continue with Google → Google's real account chooser → consent → redirect through Supabase → our `/auth-callback` → code exchange → landed on the existing `/setup-profile` screen (no code changes needed there — it already handles a session without a profile row regardless of how the session was created) → filled in profile → landed on Home with the full tab bar → Account tab showed the real new profile (`@fluffypancake28`).
+  - First attempt failed with "unable to exchange external code" — a Supabase-server-side failure exchanging Google's authorization code for Google tokens, entirely before our app code ever ran. Diagnosed (not something I could see the cause of directly) as almost certainly a Google Cloud/Supabase dashboard mismatch (redirect URI, client secret, or wrong client ID) rather than an app bug, since that exchange happens between Supabase and Google directly. You fixed something on your end and the retry succeeded.
+- **Not verified**: Apple sign-in (no iOS simulator/device in this environment — same standing gap as every other iOS-specific piece of this app); Android for either provider (Google's Android OAuth client is deliberately deferred until a real keystore SHA-1 exists from an EAS build).
+
+Known gap: no provider-linking UI (letting an existing email/password user also attach a Google/Apple identity to the same account) — not required by AUTH-01's P0 wording ("support email/password, Google, and Apple sign-in"), so it wasn't built this pass; each sign-in method currently creates/uses its own independent identity.
 
 ## Milestones 4 and 5 — done
 
@@ -43,8 +65,6 @@ Verification performed:
 - Both migrations pushed to the real `noshot-dev` project (`supabase db push`).
 - Live in a real browser: created a group as `alicetest2`, invited an existing user by username, confirmed a duplicate-invite-while-still-pending shows the real Postgres error (not a generic fallback), created a group currency and hit all three moderation tiers live (benign → approved, "Cocaine Run" → hard-blocked with the real message, "Tequila Shots" → created but flagged "Pending review"), created a fresh account (`davetest4@example.com`) specifically to verify the invite-accept flow end-to-end (saw the invite, accepted, saw the full roster and both group currencies including the pending-review one, then left the group and confirmed it disappeared from his list), and created a personal currency on the standalone Currencies screen. Also confirmed username search correctly excludes a user with an active block (incidental: `caroltest3` had blocked `alicetest2` during Milestone 3's verification, so Alice's search for "carol" correctly returned nothing — not a bug).
 - **Not verified**: iOS/Android native (web-only again, same gap as every prior milestone); decline-invite and remove-member weren't clicked through live this pass (both are covered by the DB test suite).
-
-## Milestone 3 — done
 
 ## Milestone 3 — done
 
@@ -98,7 +118,7 @@ Known, tracked gaps (see `DECISIONS.md` #6 and #7):
 - **"Confirm email" is currently OFF** in the Supabase project's Auth settings — a deliberate dev-convenience change made during this milestone's verification. **Must be turned back on before any real-user testing or launch.**
 - Sign-up doesn't yet pass `emailRedirectTo`, so once email confirmation is back on, clicking the confirmation link lands on a generic Supabase page rather than back in the app. Also not yet handling Supabase's account-enumeration protection (fake-success on an already-registered email). Both are small, well-understood follow-ups, not done yet.
 
-Not pushed to GitHub — no remote configured. CI will not run until you create one and push.
+Pushed to GitHub (`origin/master`). **CI has run and is currently failing** on both pushes so far — `tsc --noEmit` errors on `import '@/global.css'` in `src/constants/theme.ts` because CI never regenerates the gitignored `expo-env.d.ts`/`.expo/types/**` that `tsconfig.json` depends on for that ambient module type (works locally only because those files already exist on disk from a prior `expo start`). Needs a CI-workflow fix (e.g. a step to regenerate those types before typecheck, or committing a small dedicated `.d.ts` for the CSS module declaration) — not yet fixed as of this writeup.
 
 ## Milestone status
 
@@ -106,21 +126,23 @@ Not pushed to GitHub — no remote configured. CI will not run until you create 
 | ---- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | 0    | Repo & tooling foundation                | Done                                                                                                    |
 | 1    | Supabase bootstrap + email/password auth | Done — see above                                                                                        |
-| 2    | Google + Apple sign-in                   | Not started — blocked on Google Cloud / Apple Developer Program accounts (see `IMPLEMENTATION_PLAN.md`) |
+| 2    | Google + Apple sign-in                   | Google done & verified live; Apple built, unverified (no iOS simulator)        |
 | 3    | Friends & blocks                         | Done — committed and pushed                                                                             |
-| 4    | Groups & membership                      | Done — see above, not yet committed                                                                     |
-| 5    | Currencies                               | Done — see above, not yet committed                                                                     |
+| 4    | Groups & membership                      | Done — committed and pushed                                                                             |
+| 5    | Currencies                               | Done — committed and pushed                                                                             |
 | 6–16 | See `IMPLEMENTATION_PLAN.md`             | Not started                                                                                             |
 
 ## Open items waiting on you
 
-- Milestones 4 and 5 aren't committed yet — `git status` shows them as modified/untracked. Let me know when you want them committed (one bundled commit per milestone, matching how Milestone 3 was done, unless you'd rather bundle both together).
-- Four test accounts now exist in the real `noshot-dev` project from live verification across Milestones 3-5 (`bobtest`, `alicetest2@example.com`, `caroltest3@example.com`, `davetest4@example.com`, all test passwords `TestPass123!` except `bobtest` which predates this session) — harmless, but flagging in case you want to clean them out of the dashboard later.
+- **CI is red** — both GitHub Actions runs so far have failed on `npm run typecheck` (`Cannot find module or type declarations for side-effect import of '@/global.css'`), because CI never regenerates the gitignored `expo-env.d.ts`/`.expo/types` that `tsconfig.json` relies on. Needs a workflow fix; flagging here so it doesn't get missed since local `npm run typecheck` still passes and hides the problem. Not touched this session — say the word if you want it fixed.
+- Milestone 2 isn't committed yet — let me know when you want it committed/pushed.
+- Apple sign-in needs testing on a real device or simulator whenever you have one available — the code path has never actually run.
+- A fifth Google-created account now exists in `noshot-dev` from live verification (`fluffypancake28`, a real Google identity, not one of the disposable test-password accounts) — nothing to clean up on my end, just flagging it exists.
+- Four test accounts also exist from Milestones 3-5 verification (`bobtest`, `alicetest2@example.com`, `caroltest3@example.com`, `davetest4@example.com`, test password `TestPass123!` except `bobtest`) — harmless, flagging in case you want to clean them out of the dashboard later.
 - `DECISIONS.md` #6 — turn "Confirm email" back on in Supabase Auth settings before any real-user testing (exact dashboard path is in that entry). Not urgent while still in solo dev/testing.
 - `DECISIONS.md` #7 — decide whether to add the `emailRedirectTo` deep-link callback flow now or later; should land before #6 is flipped back on.
 - `DECISIONS.md` #2 — resolve the PRD's judge/group-vote vs. "random fallback" contradiction (needed before Milestone 8, not before Milestone 6).
-- For Milestone 2 (Google + Apple sign-in): Google Cloud Console OAuth client setup, Apple Developer Program enrollment — see `IMPLEMENTATION_PLAN.md` Milestone 2 for exact steps, only needed when you're ready to start that milestone.
-- Optional: recommend a native (iOS/Android) smoke test before building further, since only web has been verified live so far (every milestone to date).
+- Optional: recommend a native (iOS/Android) smoke test before building further, since only web has been verified live so far (every milestone to date) — this is now more pressing given Apple sign-in specifically needs it.
 
 ## How to keep this file useful
 

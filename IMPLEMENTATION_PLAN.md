@@ -10,7 +10,7 @@ Rule for all milestones: complete and test one before starting the next. Each mi
 | --- | --------------------------------------------------- | ---------- | --------------------------------------------- |
 | 0   | Repo & tooling foundation — **done**                | —          | §9.1, §14.1, §14.3                            |
 | 1   | Supabase bootstrap + email/password auth — **done** | 0          | AUTH-01..05, §9                               |
-| 2   | Google + Apple sign-in                              | 1          | AUTH-01                                       |
+| 2   | Google + Apple sign-in — **Google done**, Apple built/unverified | 1 | AUTH-01                                       |
 | 3   | Friends & blocks — **done**                         | 1          | FR-01..05                                     |
 | 4   | Groups & membership — **done**                      | 3          | GR-01..06                                     |
 | 5   | Currencies — **done**                               | 1          | §5.1                                          |
@@ -52,9 +52,9 @@ Not done / tracked follow-ups: `DECISIONS.md` #6 (email confirmation currently O
 
 ### Milestone 2 — Google + Apple sign-in
 
-- I can do directly: client-side OAuth flow wiring once provider credentials exist in Supabase's Auth settings; provider-linking UI.
-- Needs you at a dashboard: Google Cloud Console (OAuth consent screen + Web/iOS/Android OAuth client IDs, matching bundle ID/package name and, for Android, a SHA-1 fingerprint I'll help you generate from your build); Apple Developer Program enrollment ($99/yr) + an App ID with "Sign in with Apple" capability + a Services ID/key for Supabase's Apple provider config; enter both providers' credentials into Supabase Auth settings.
-- Credentials needed from you: Google OAuth client IDs (can live in app config, not secret); Apple Services ID/Team ID/Key ID/private key (go into Supabase dashboard only, never into the repo).
+- **Dashboard setup done** (2026-07-15): Google Cloud OAuth consent screen configured, Web + iOS OAuth clients created (Android client deferred — needs a real keystore SHA-1, which doesn't exist until an EAS/dev build is made). Apple Developer App ID `com.noshot.app.ram` has Sign in with Apple enabled, native-flow only (no Services ID/key needed — no separate website using Apple sign-in yet). Both providers enabled and configured in Supabase Auth settings for `noshot-dev`.
+- I can do directly, now unblocked: client-side OAuth flow wiring (`expo-apple-authentication`, native Google sign-in via ID token, `supabase.auth.signInWithIdToken()`), provider-linking UI.
+- Needs you at a dashboard: nothing left for the native flow. Only if Android sign-in is wanted before an EAS build exists, or Apple sign-in is later needed on a real website (would require adding the web Services ID + `.p8` key flow on top of the existing native one).
 - Done when: Google and Apple sign-in both complete and create/link a `profiles` row.
 
 ### Milestone 3 — Friends & blocks
@@ -132,8 +132,8 @@ Not done / tracked follow-ups: `DECISIONS.md` #6 (email confirmation currently O
 | Need                                          | First required at                                         | Type                                          |
 | --------------------------------------------- | --------------------------------------------------------- | --------------------------------------------- |
 | Supabase project                              | Milestone 1                                               | Account + dashboard config                    |
-| Google Cloud OAuth clients                    | Milestone 2                                               | Account + dashboard config + credentials      |
-| Apple Developer Program + Sign in with Apple  | Milestone 2                                               | Paid account + dashboard config + credentials |
+| Google Cloud OAuth clients                    | Milestone 2                                               | Done (2026-07-15) — Web + iOS clients          |
+| Apple Developer Program + Sign in with Apple  | Milestone 2                                               | Done (2026-07-15) — native flow only           |
 | GitHub remote                                 | Milestone 0 (optional, for CI to run)                     | Account                                       |
 | Domain for universal/app links                | Optional, improves Milestone 3 invite links               | Purchase + DNS config                         |
 | Expo/EAS account                              | Milestone 16 (or earlier if you want cloud builds sooner) | Account                                       |

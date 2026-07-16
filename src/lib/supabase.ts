@@ -98,5 +98,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    // PKCE (not the default implicit flow) so the OAuth redirect carries a
+    // single-use `code` rather than the access/refresh tokens themselves --
+    // needed for the Google/Apple sign-in flow in src/lib/oauth.ts.
+    flowType: 'pkce',
   },
 });
