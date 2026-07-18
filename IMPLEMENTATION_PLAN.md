@@ -19,7 +19,7 @@ Rule for all milestones: complete and test one before starting the next. Each mi
 | 8   | Resolution & disputes                                            | 6          | RES-01..07           |
 | 9   | Ledger & balances — **done**                                     | 8          | BAL-01, 02, 08; §5.5 |
 | 10  | Manual obligations & adjustments — **done**                      | 4, 5       | BAL-03, 04           |
-| 11  | Redemption & forgiveness                                         | 9          | BAL-05..07           |
+| 11  | Redemption & forgiveness — **done**                              | 9          | BAL-05..07           |
 | 12  | Social layer (comments, chat, polls, proof)                      | 6, 4       | SOC-01..06           |
 | 13  | Trust & safety (reports, moderation, admin)                      | 12         | MOD-01..06           |
 | 14  | Account deletion & privacy                                       | 1          | AUTH-05, §9.5        |
@@ -95,7 +95,7 @@ Shipped: `ledger_entries` (append-only, trigger-enforced against update/delete) 
 
 14 pgTAP assertions; live-verified end-to-end with two real accounts (proposed and approved a manual obligation, watched the ledger entry appear on both the Home card and the `/balances` drill-down with the correct direction and source label). Full detail in `PROJECT_STATUS.md`. Branch `milestone-9-ledger-balances`.
 
-Not done: no dedicated redemption/forgiveness UI yet (that's Milestone 11's `entry_type`s — the enum values exist, nothing writes them yet); the bet-settlement ledger path itself is RPC/pgTAP-verified only, not live-clicked through, since it requires resolving a bet the way Milestone 8 already exercised live and re-doing that wasn't the point of this pass.
+Not done at the time this milestone shipped: no dedicated redemption/forgiveness UI yet (that's Milestone 11's `entry_type`s — the enum values exist, nothing writes them yet); the bet-settlement ledger path itself is RPC/pgTAP-verified only, not live-clicked through, since it requires resolving a bet the way Milestone 8 already exercised live and re-doing that wasn't the point of this pass. Both now done -- see Milestone 11's own section.
 
 ### Milestone 10 — Manual obligations & adjustments — **done** (2026-07-18)
 
@@ -105,9 +105,13 @@ Verified: `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:db`, `n
 
 Deliberately deferred: this does **not** write to a ledger — `ledger_entries` doesn't exist yet (Milestone 9). An approved row sits in `approved` state; wiring the actual balance-affecting write is left for whenever Milestone 9 lands. Also scoped narrower than the milestone's original one-line description: obligations are friends-only (not group-scoped) and can only use built-in or shared-group currencies, not a party's personal currency — see the migration's comments for why (a personal currency would be invisible to the other party under currencies' own RLS). Flagging both as judgment calls worth a second look, not settled facts.
 
-### Milestone 11 — Redemption & forgiveness
+### Milestone 11 — Redemption & forgiveness — **done** (2026-07-20)
 
-- I can do directly: `redemption_requests`, `request_redemption()` (allocation reservation, double-spend prevention), `confirm_redemption()`, `forgive_obligation()`, Redeem UI (select obligations, partial/full).
+Shipped: `redemption_requests` + `redemption_status` enum ('pending'/'confirmed'/'declined'/'cancelled'), `forgiveness_events`, and `obligation_allocations` (the PRD's own named table mapping a redemption/forgiveness event back to the specific original ledger entries it draws down, with a per-source amount -- this is what makes BAL-05's "select which underlying obligations" and per-source outstanding tracking possible). `get_outstanding_obligations()` (what's left to redeem/forgive per source, after subtracting reserved-or-settled allocations). `request_redemption()` (debtor-only, locks each selected source row `FOR UPDATE` so concurrent requests against the same obligation can't double-reserve it), `confirm_redemption()`/`decline_redemption()` (creditor-only), `cancel_redemption()` (debtor-only, releases the reservation) -- mirroring the propose/approve/decline/cancel shape from Milestone 10. `forgive_obligation()` (creditor-only, single atomic step -- unlike redemption, forgiveness needs no counterparty approval per BAL-07, so there's no separate request/confirm pair). Both settlement paths reuse Milestone 9's signed-netting trick: a redemption or forgiveness ledger entry is inserted with debtor/creditor _swapped_ relative to the original, so `get_my_balances()` needs zero entry-type-specific logic to net it down correctly. `src/lib/redemption.ts`, `src/hooks/use-redemption.ts`, and a "Settle up" section added to the `/balances` screen's drill-down (per-obligation Redeem/Forgive with an editable amount, defaulting to the full outstanding amount) plus pending-redemption confirm/decline/cancel UI; Home's "Needs your attention" now also surfaces redemptions awaiting the caller's confirmation.
+
+Scope note: only `bet_settlement` and `manual_obligation` entries are redeemable/forgivable sources. `correction` is left out entirely -- nothing writes that entry_type yet (defined in Milestone 9, still unused), and §8.1's phrasing suggests it behaves more like a further deduction than a fresh obligation, which isn't a question this milestone needed to answer. UI scope note, same shape as Milestone 6's direct-1:1-only creation form over a fully general N-way schema: the backend's `p_allocations` accepts a batch of obligations in one call, but the UI acts on one obligation at a time (each "Settle up" row has its own amount field and button) rather than a multi-select batch flow.
+
+18 pgTAP assertions; live-verified end-to-end with two real accounts on the real 3-Chore manual obligation created during Milestone 9's own verification (Alice owed Dave): Alice partially redeemed 1 -- outstanding correctly dropped from 3 to 2 immediately (the reservation counts before confirmation) -- Dave's Home screen surfaced it under "Needs your attention," confirmed it, and the balance correctly dropped to 2 with a "Redemption" entry appearing in history; Dave then forgave the remaining 2, and the balance zeroed out and disappeared from the list entirely, landing on the "All settled up" empty state. Full detail in `PROJECT_STATUS.md`. Branch `milestone-11-redemption-forgiveness`.
 
 ### Milestone 12 — Social layer
 
