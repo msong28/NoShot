@@ -17,6 +17,7 @@ export const Icons = {
   activity: 'time-outline',
   account: 'person-circle-outline',
   currency: 'pricetag-outline',
+  bet: 'flag-outline',
   add: 'add',
   back: 'chevron-back',
   forward: 'chevron-forward',

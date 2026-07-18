@@ -1,15 +1,48 @@
 # NoShot — Project Status
 
-Last updated: 2026-07-15 (Milestone 2 — Google sign-in built and verified live; Apple sign-in built, unverified).
+Last updated: 2026-07-18 (Milestone 6 — bet engine core, done and live-verified).
 
 ## Where things stand
 
-- Milestones 0, 1, 2 (Google half), 3, 4, and 5 are complete. See below. (Milestone 2's Apple half is built but not live-verified — no iOS simulator/device available in this environment, same gap as the rest of the app's iOS-specific code.)
-- Real Supabase project is live and linked: `noshot-dev` (ref `tckpbwvzxxovnsvdtwee`). `profiles`, `friendships`, `blocks`, `username_search_log`, `groups`, `group_members`, and `currencies` tables + RLS are deployed to it.
-- Email/password **and now Google** sign-in both work end-to-end against the real project, verified live in a browser. Apple sign-in is coded but untested (native-only, no simulator here).
-- Milestones 3, 4, and 5 are committed (`8b14dc5` and earlier) and pushed. Milestone 2 is not yet committed as of this writeup.
-- **CI is currently red** on both pushes so far (`tsc --noEmit` failure, unrelated to product code — see the Milestone 1 section below and "Open items"). Not fixed as part of this milestone; flagging so it doesn't get lost.
+- Milestones 0–6 are complete (Apple sign-in within Milestone 2 is built but still not live-verified — no iOS simulator/device available in this environment). See below for Milestone 6 detail; earlier milestones are further down this file.
+- Real Supabase project is live and linked: `noshot-dev` (ref `tckpbwvzxxovnsvdtwee`). `profiles`, `friendships`, `blocks`, `username_search_log`, `groups`, `group_members`, `currencies`, and now `bets`/`bet_versions`/`bet_sides`/`bet_participants`/`bet_commitments`/`bet_approvals` tables + RLS are deployed to it.
+- CI is green (fixed in an earlier session — see git history if you need the detail; this file no longer tracks it as an open item).
+- A separate branch, `milestone-10-manual-obligations`, has Milestone 10 (manual obligations & adjustments) built and quality-bar-passing, ready for review/merge whenever you want it — built in parallel with Milestone 6 by a background agent, not yet merged to master.
 - Planning docs: `ARCHITECTURE.md`, `DECISIONS.md`, `IMPLEMENTATION_PLAN.md`, this file.
+
+## Milestone 6 — Bet engine core — done (2026-07-18)
+
+What shipped:
+
+- `supabase/migrations/20260718090000_bets_core.sql`: `bets`/`bet_versions`/`bet_sides`/`bet_participants`/`bet_commitments`/`bet_approvals` tables + enums, all RPC-only (no direct client insert/update — extends the RPC-only list in `ARCHITECTURE.md` §6, which previously only named `bet_versions`/`bet_approvals`); `create_or_counter_bet()` (handles both a brand-new proposal and a counteroffer/amendment on an existing one, in one function — validates funding per BET-05, currency consistency, moderates title/description); `approve_bet_version()` (accept/decline, activates on unanimous approval, an outright decline before activation voids the bet outright rather than routing through the bilateral-cancellation flow that's reserved for undoing an already-agreed bet in Milestone 7); `propose_bet_amendment()` (thin wrapper restricted to already-active bets); `submit_draft_bet()` (BET-10's minimal draft-save support); `get_bet_payout_preview()` and `get_bet_participant_profiles()` read helpers.
+- `supabase/migrations/20260718091500_bets_participant_profiles.sql`: small follow-up migration adding `get_bet_participant_profiles()` (missed in the first pass — profiles' own RLS is self-select-only, same gap groups/friends already solved with their own helpers). Added as a separate migration rather than editing the already-pushed one.
+- Payout model: each commitment declares its own stake and a personal odds ratio (risk:reward, in lowest terms, per PRD §5.3's "ratios only, A:B" rule); `payout_if_win = stake * odds_denominator / odds_numerator`. Funding validation checks, for every possible winning side, that side's total payout doesn't exceed every other side's staked total. Full person-to-person ledger allocation across multiple winners/losers is deliberately left to Milestone 9's `confirm_bet_result()`, which is where the PRD actually scopes that calculation — this milestone only needed creation-time validation and a preview.
+- `src/lib/bet.ts`: types + a client-side mirror of the payout/funding math (`computePayoutPreview`, `computeFundingChecks`) for instant UI feedback, advisory only — same pattern as the moderation filter (client checks are fast feedback, the server RPC is authoritative).
+- `src/hooks/use-bets.ts`: `useMyBets` (active bets + bets awaiting _this specific user's_ approval — not just "the bet as a whole is unresolved," which would wrongly nag the proposer about their own bet), `useBetDetail`, `useCreateOrCounterBet`, `useApproveBetVersion`, `useProposeBetAmendment`, `useSubmitDraftBet`.
+- `src/app/create.tsx`: rebuilt as a real single-screen creation form for a direct 1v1 bet (friend picker, currency picker, title/description, stake+odds for both sides, live payout preview, submit). Scoped to the direct 1v1 case for this first pass — the schema/RPC layer is fully general (group-scoped bets, N participants, N sides all work server-side and are pgTAP-tested), but the wizard UI for those cases isn't built yet. Group-scoped and multi-way bet creation UI, plus counteroffer/amendment UI, are the natural next slice of Milestone 6 if you want more UI surface before moving to Milestone 7.
+- `src/app/bet/[betId].tsx` (new route, registered in `_layout.tsx`): bet detail — status, roster with per-participant approval state, payout preview, Approve/Decline (Decline behind a `ConfirmationDialog`, since it's irreversible).
+- `src/app/(tabs)/index.tsx`: added an "Active bets" section and folded bet proposals into "Needs your attention", per the design-system decision already on record that bet visibility on Home doesn't require a dedicated nav tab.
+- `src/constants/icons.ts`: added `bet: 'flag-outline'` (avoiding gambling-adjacent iconography per PRD §7 constraints).
+
+Two real bugs found and fixed during live verification, not just cosmetic:
+
+1. The outcome label was written from the creator's own perspective ("You win"), so when the _other_ participant viewed the same bet, their screen would show "You win" under the creator's name — confusing and just wrong. Fixed by storing labels in fixed third person ("Dave wins") always, with the creation form's live preview speaking to the composer in first person separately, without persisting that phrasing.
+2. `useMyBets`'s "needs your attention" list only checked whether the _bet as a whole_ was still pending, not whether _this specific user_ had already responded — so a proposer kept seeing their own freshly-sent bet nagging them to review it, even though they'd already implicitly approved it by proposing it. Fixed by cross-referencing the caller's own `bet_approvals` rows against the bet's current version.
+3. `useInvalidateBetDetail` only invalidated the top-level bet query, not the sides/participants/commitments/approvals sub-queries `useBetDetail` also depends on — so after approving, the top status badge updated but the roster below stayed stale (showing "Pending" and an Approve button for a decision the user had just made). Fixed by restructuring all of `useBetDetail`'s query keys under a shared `['bet-detail', betId, ...]` prefix so one invalidation call catches everything via React Query's default prefix matching.
+
+Verification performed:
+
+- `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:db` all pass.
+- `supabase/tests/bets_core.test.sql`: 17 pgTAP assertions — creator-must-be-participant, direct-insert-denied, payout preview matches the PRD's own worked example exactly, RLS boundaries (uninvolved user sees nothing; group member sees a group bet exists but not its commitments; anon has zero access), unanimous approval activates, duplicate approval rejected, amending an active bet bumps the version and resets approval, approving a stale version rejected, mismatched currencies rejected, an underfunded payout rejected, an outright decline before activation voids the bet, roster-profile helper scoped correctly to participants.
+- Live in a real browser against the real `noshot-dev` project, driving two real test accounts (`davetest4`, `alicetest2`) through the full loop: propose a direct bet reproducing the PRD §5.3 worked example exactly (1 meal at 1:2 vs. 2 meals at 2:1) → payout preview matched → the other party saw it under "Needs your attention" (and the proposer did not, confirming bug #2's fix) → approved → bet went active on both accounts' Home screens and detail screens with correct roster/approval state (confirming bug #3's fix) → separately, proposed and declined a second bet, confirming it voids correctly with an instant, correct UI update.
+- **Not live-verified**: native iOS/Android (same standing gap as every milestone to date — web only, no simulator/device in this environment).
+
+Known, deliberate scope gaps for this milestone (not bugs, just not built yet):
+
+- Creation UI only covers direct 1:1 bets, not group-scoped or multi-participant/multi-side bets — the backend fully supports both (pgTAP-tested), just no wizard UI yet.
+- No counteroffer/amendment UI yet (the RPC and pgTAP coverage exist; a participant can't currently _submit_ a counteroffer from the app, only accept or decline the original terms).
+- `random_fallback_enabled` is stored (defaulting `false`) but not exposed as a UI toggle yet — real dispute-resolution logic using it doesn't exist until Milestone 8, so there's nothing yet for a toggle to meaningfully control.
+- BET-10 draft-save (`submit_draft_bet()`) is built and RLS-correct but has no UI entry point yet (P1 priority in the PRD).
 
 ## Milestone 2 — Google half done, Apple built but unverified
 
@@ -122,27 +155,30 @@ Pushed to GitHub (`origin/master`). **CI has run and is currently failing** on b
 
 ## Milestone status
 
-| #    | Milestone                                | Status                                                                  |
-| ---- | ---------------------------------------- | ----------------------------------------------------------------------- |
-| 0    | Repo & tooling foundation                | Done                                                                    |
-| 1    | Supabase bootstrap + email/password auth | Done — see above                                                        |
-| 2    | Google + Apple sign-in                   | Google done & verified live; Apple built, unverified (no iOS simulator) |
-| 3    | Friends & blocks                         | Done — committed and pushed                                             |
-| 4    | Groups & membership                      | Done — committed and pushed                                             |
-| 5    | Currencies                               | Done — committed and pushed                                             |
-| 6–16 | See `IMPLEMENTATION_PLAN.md`             | Not started                                                             |
+| #     | Milestone                                | Status                                                                  |
+| ----- | ---------------------------------------- | ----------------------------------------------------------------------- |
+| 0     | Repo & tooling foundation                | Done                                                                    |
+| 1     | Supabase bootstrap + email/password auth | Done — see below                                                        |
+| 2     | Google + Apple sign-in                   | Google done & verified live; Apple built, unverified (no iOS simulator) |
+| 3     | Friends & blocks                         | Done — committed and pushed                                             |
+| 4     | Groups & membership                      | Done — committed and pushed                                             |
+| 5     | Currencies                               | Done — committed and pushed                                             |
+| 6     | Bet engine core                          | Done and live-verified — see above. Direct 1:1 creation UI only so far. |
+| 7     | Bet cancellation                         | Not started (up next)                                                   |
+| 8     | Resolution & disputes                    | Not started — unblocked (Decision #2 resolved 2026-07-18)               |
+| 9     | Ledger & balances                        | Not started                                                             |
+| 10    | Manual obligations & adjustments         | Built on branch `milestone-10-manual-obligations`, not yet merged       |
+| 11–16 | See `IMPLEMENTATION_PLAN.md`             | Not started                                                             |
 
 ## Open items waiting on you
 
-- **CI is red** — both GitHub Actions runs so far have failed on `npm run typecheck` (`Cannot find module or type declarations for side-effect import of '@/global.css'`), because CI never regenerates the gitignored `expo-env.d.ts`/`.expo/types` that `tsconfig.json` relies on. Needs a workflow fix; flagging here so it doesn't get missed since local `npm run typecheck` still passes and hides the problem. Not touched this session — say the word if you want it fixed.
-- Milestone 2 isn't committed yet — let me know when you want it committed/pushed.
+- Review and merge (or ask for changes to) branch `milestone-10-manual-obligations` whenever convenient — built in parallel with Milestone 6 by a background agent, quality-bar-passing, not yet pushed to a shared remote.
 - Apple sign-in needs testing on a real device or simulator whenever you have one available — the code path has never actually run.
-- A fifth Google-created account now exists in `noshot-dev` from live verification (`fluffypancake28`, a real Google identity, not one of the disposable test-password accounts) — nothing to clean up on my end, just flagging it exists.
-- Four test accounts also exist from Milestones 3-5 verification (`bobtest`, `alicetest2@example.com`, `caroltest3@example.com`, `davetest4@example.com`, test password `TestPass123!` except `bobtest`) — harmless, flagging in case you want to clean them out of the dashboard later.
-- `DECISIONS.md` #6 — turn "Confirm email" back on in Supabase Auth settings before any real-user testing (exact dashboard path is in that entry). Not urgent while still in solo dev/testing.
+- Native iOS/Android still has zero live verification across every milestone to date — web is the only platform actually driven in a real browser so far. Worth a native smoke test before the app gets much bigger.
+- Bet creation UI currently only covers direct 1:1 bets, and there's no counteroffer/amendment UI yet — both are natural next slices of Milestone 6 if you want more UI surface before Milestone 7.
+- Test accounts in `noshot-dev`: `bobtest`, `alicetest2@example.com`, `caroltest3@example.com`, `davetest4@example.com` (password `TestPass123!` except `bobtest`), plus a real Google identity (`fluffypancake28`) from earlier OAuth verification — harmless, flagging in case you want to clean the dashboard later. Dave and Alice are now friends and have two test bets between them (one active, one voided) from this milestone's live verification.
+- `DECISIONS.md` #6 — turn "Confirm email" back on in Supabase Auth settings before any real-user testing. Not urgent while still in solo dev/testing.
 - `DECISIONS.md` #7 — decide whether to add the `emailRedirectTo` deep-link callback flow now or later; should land before #6 is flipped back on.
-- `DECISIONS.md` #2 — resolve the PRD's judge/group-vote vs. "random fallback" contradiction (needed before Milestone 8, not before Milestone 6).
-- Optional: recommend a native (iOS/Android) smoke test before building further, since only web has been verified live so far (every milestone to date) — this is now more pressing given Apple sign-in specifically needs it.
 
 ## How to keep this file useful
 
