@@ -1,14 +1,34 @@
 # NoShot — Project Status
 
-Last updated: 2026-07-19 (Milestone 9 — ledger & balances, done and live-verified).
+Last updated: 2026-07-20 (Milestone 11 — redemption & forgiveness, done and live-verified).
 
 ## Where things stand
 
-- Milestones 0–9 are complete (Apple sign-in within Milestone 2 is built but still not live-verified — no iOS simulator/device available in this environment). Milestone 10 (manual obligations) is also done, built in parallel by a background agent. See below for detail; earlier milestones are further down this file.
-- Real Supabase project is live and linked: `noshot-dev` (ref `tckpbwvzxxovnsvdtwee`). `profiles`, `friendships`, `blocks`, `username_search_log`, `groups`, `group_members`, `currencies`, `bets`/`bet_versions`/`bet_sides`/`bet_participants`/`bet_commitments`/`bet_approvals`/`bet_cancellation_approvals`/`bet_result_submissions`/`bet_result_confirmations`/`bet_dispute_votes`/`dispute_resolutions`, `manual_obligation_proposals`, and `ledger_entries` tables + RLS are all deployed to it.
+- Milestones 0–11 are complete (Apple sign-in within Milestone 2 is built but still not live-verified — no iOS simulator/device available in this environment). See below for detail; earlier milestones are further down this file.
+- Real Supabase project is live and linked: `noshot-dev` (ref `tckpbwvzxxovnsvdtwee`). `profiles`, `friendships`, `blocks`, `username_search_log`, `groups`, `group_members`, `currencies`, `bets`/`bet_versions`/`bet_sides`/`bet_participants`/`bet_commitments`/`bet_approvals`/`bet_cancellation_approvals`/`bet_result_submissions`/`bet_result_confirmations`/`bet_dispute_votes`/`dispute_resolutions`, `manual_obligation_proposals`, `ledger_entries`, `redemption_requests`, `forgiveness_events`, and `obligation_allocations` tables + RLS are all deployed to it.
 - CI is green (fixed in an earlier session — see git history if you need the detail; this file no longer tracks it as an open item).
-- Master, `milestone-6-bet-engine`, `milestone-7-bet-cancellation`, `milestone-8-resolution-disputes`, and `milestone-10-manual-obligations` are all merged together on `master` and pushed. `milestone-9-ledger-balances` is done locally, not yet merged.
+- Master, `milestone-6-bet-engine`, `milestone-7-bet-cancellation`, `milestone-8-resolution-disputes`, `milestone-9-ledger-balances`, and `milestone-10-manual-obligations` are all merged together on `master` and pushed. `milestone-11-redemption-forgiveness` is done locally, not yet merged.
 - Planning docs: `ARCHITECTURE.md`, `DECISIONS.md`, `IMPLEMENTATION_PLAN.md`, this file.
+
+## Milestone 11 — Redemption & forgiveness — done (2026-07-20)
+
+What shipped:
+
+- `supabase/migrations/20260720090000_redemption_forgiveness.sql`: `redemption_requests` (+ `redemption_status` enum: `pending`/`confirmed`/`declined`/`cancelled`), `forgiveness_events`, and `obligation_allocations` — the PRD's own named table (§8) mapping a redemption or forgiveness event back to the specific original ledger entries ("obligations") it draws down, with a per-source amount. This is what makes BAL-05's "user selection of underlying obligations" and per-source outstanding tracking possible, and what Appendix B's "redemption amount cannot exceed selected outstanding allocation" is checked against.
+- `get_outstanding_obligations(counterparty, currency, group)`: what's left to redeem/forgive per original ledger entry, after subtracting whatever's already reserved (a pending redemption) or settled (a confirmed redemption or a forgiveness) against it.
+- `request_redemption(allocations)` — debtor-only; locks each selected source row `FOR UPDATE` so two concurrent redemption requests against the same obligation can't both reserve the same outstanding amount (the second waits for the first's transaction to commit, then sees the real remaining amount). `confirm_redemption()`/`decline_redemption()` — creditor-only. `cancel_redemption()` — debtor-only, releases the reservation. Same propose/approve/decline/cancel shape as Milestone 10's manual obligations.
+- `forgive_obligation(allocations, note)` — creditor-only, single atomic step. Unlike redemption, BAL-07 doesn't require the debtor's agreement to be forgiven, so there's no separate request/confirm pair — the reservation and the ledger write happen together.
+- Both settlement paths reuse Milestone 9's signed-netting trick: a redemption or forgiveness ledger entry is inserted with debtor/creditor **swapped** relative to the original obligation, so `get_my_balances()` needs zero entry-type-specific logic to net it down correctly — it already just sums by direction.
+- Scope note: only `bet_settlement` and `manual_obligation` entries are treated as redeemable/forgivable sources. `correction` is left out entirely — nothing writes that entry_type yet (defined in Milestone 9, still unused), and §8.1's own phrasing suggests it behaves more like a further deduction than a fresh obligation, which isn't a question this milestone needed to answer.
+- `src/lib/redemption.ts`, `src/hooks/use-redemption.ts` (`useOutstandingObligations`, `useMyRedemptions`, and mutations for each RPC). The `/balances` screen's drill-down gained a "Settle up" section (per-obligation Redeem/Forgive, with an amount field defaulting to the full outstanding amount) and pending-redemption confirm/decline/cancel UI. Home's "Needs your attention" now also surfaces redemptions awaiting the caller's confirmation.
+- UI scope note, same shape as Milestone 6's direct-1:1-only creation form sitting on top of a fully general N-way schema: the backend's `p_allocations` parameter accepts a batch of obligations in one call, but the UI acts on one obligation at a time (each "Settle up" row has its own amount field and button) rather than a multi-select batch flow. The schema/RPCs don't need to change if that's wanted later.
+
+Verification performed:
+
+- `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:db` all pass — all ten pgTAP suites run together against one fresh database with no conflicts.
+- `supabase/tests/redemption_forgiveness.test.sql`: 18 pgTAP assertions — outstanding starts at the full amount; only the debtor can request redemption; a pending request reserves its amount immediately (before confirmation); a second request exceeding what's left is rejected; only the creditor can confirm (the debtor can't confirm their own request); confirming posts a swapped-direction settlement entry and correctly reduces the net balance; a confirmed request can't be confirmed twice; cancelling releases the reservation; declining releases the reservation; only the creditor can forgive; forgiving posts a swapped-direction entry with its note and correctly reduces the net balance; forgiving more than what's outstanding is rejected; direct writes to all three new tables are denied; an uninvolved user has zero visibility; anon has zero table access.
+- Live in a real browser against `noshot-dev`, on the real 3-Chore manual obligation between `davetest4` and `alicetest2` created during Milestone 9's own verification (Alice owed Dave): Alice partially redeemed 1 of the 3 — the "Settle up" outstanding amount immediately dropped from 3 to 2 (the reservation counting before confirmation), and a "Waiting on them" row appeared with a working Cancel action → Dave's Home screen correctly surfaced "Alice Test — Says they've settled up, needs your confirmation" under "Needs your attention" → Dave confirmed it, and the balance correctly dropped to 2 Chore with a new "Redemption / You owed" entry in Dave's history (correctly swapped direction) → Dave then forgave the remaining 2 outstanding, and the balance zeroed out and disappeared from the list entirely, landing correctly on the "All settled up" empty state.
+- **Not live-verified**: forgiving/redeeming a `bet_settlement`-sourced obligation specifically (the live pass used the manual obligation from Milestone 9's own verification, since it was already on hand) — the RPCs don't distinguish source type, and pgTAP doesn't either, so this is a low-risk gap, not an untested code path. Native iOS/Android (same standing gap as every milestone to date).
 
 ## Milestone 9 — Ledger & balances — done (2026-07-19)
 
@@ -236,17 +256,19 @@ Did **not** run `supabase db push` from this branch, to avoid colliding with the
 | 6     | Bet engine core                          | Done and live-verified — see above. Direct 1:1 creation UI only so far. |
 | 7     | Bet cancellation                         | Done — merged to master                                                 |
 | 8     | Resolution & disputes                    | Done — merged to master                                                 |
-| 9     | Ledger & balances                        | Done and live-verified — see above, not yet merged to master            |
+| 9     | Ledger & balances                        | Done — merged to master                                                 |
 | 10    | Manual obligations & adjustments         | Done — merged to master                                                 |
-| 11–16 | See `IMPLEMENTATION_PLAN.md`             | Not started                                                             |
+| 11    | Redemption & forgiveness                 | Done and live-verified — see above, not yet merged to master            |
+| 12–16 | See `IMPLEMENTATION_PLAN.md`             | Not started                                                             |
 
 ## Open items waiting on you
 
-- Merge branch `milestone-9-ledger-balances` to master whenever convenient — quality-bar-passing, live-verified on the manual-obligation ledger path (BAL-01/02 UI); bet-settlement ledger path verified via pgTAP only.
+- Merge branch `milestone-11-redemption-forgiveness` to master whenever convenient — quality-bar-passing, live-verified end-to-end (partial redemption, confirmation, and forgiveness all driven live with two real accounts).
 - Apple sign-in needs testing on a real device or simulator whenever you have one available — the code path has never actually run.
 - Native iOS/Android still has zero live verification across every milestone to date — web is the only platform actually driven in a real browser so far. Worth a native smoke test before the app gets much bigger.
 - Bet creation UI currently only covers direct 1:1 `participant_submission` bets — no UI yet for group-scoped/multi-way bets, counteroffers, or configuring a judge/group-vote/random-fallback resolution method. All of that is fully built and tested on the backend, just not reachable through the creation form yet.
-- Test accounts in `noshot-dev`: `bobtest`, `alicetest2@example.com`, `caroltest3@example.com`, `davetest4@example.com` (password `TestPass123!` except `bobtest`), plus a real Google identity (`fluffypancake28`) from earlier OAuth verification — harmless, flagging in case you want to clean the dashboard later. Dave and Alice have two resolved test bets between them from Milestone 8's live verification (one "resolved," one "tied") that predate the ledger and so post no balance, plus a fresh 3-Chore manual obligation from Milestone 9's live verification that does.
+- Redeem/forgive UI acts on one outstanding obligation at a time (own amount field and button per row) rather than a multi-select batch flow — the backend already accepts a batch in one call if that's wanted later.
+- Test accounts in `noshot-dev`: `bobtest`, `alicetest2@example.com`, `caroltest3@example.com`, `davetest4@example.com` (password `TestPass123!` except `bobtest`), plus a real Google identity (`fluffypancake28`) from earlier OAuth verification — harmless, flagging in case you want to clean the dashboard later. Dave and Alice have two resolved test bets between them from Milestone 8's live verification (one "resolved," one "tied") that predate the ledger and so post no balance; their 3-Chore manual obligation from Milestone 9's verification is now fully settled (1 redeemed, 2 forgiven) from Milestone 11's live verification.
 - `DECISIONS.md` #6 — turn "Confirm email" back on in Supabase Auth settings before any real-user testing. Not urgent while still in solo dev/testing.
 - `DECISIONS.md` #7 — decide whether to add the `emailRedirectTo` deep-link callback flow now or later; should land before #6 is flipped back on.
 

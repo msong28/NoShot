@@ -15,6 +15,7 @@ import { useMyBets } from '@/hooks/use-bets';
 import { useFriends } from '@/hooks/use-friends';
 import { useMyGroups } from '@/hooks/use-groups';
 import { useMyBalances } from '@/hooks/use-ledger';
+import { useMyRedemptions } from '@/hooks/use-redemption';
 import { useSession } from '@/hooks/use-session';
 
 export default function HomeScreen() {
@@ -26,13 +27,15 @@ export default function HomeScreen() {
   const { activeBets, pendingBets, cancellationPendingBets, resolutionPendingBets, resolvedBets } =
     useMyBets(userId);
   const { rows: balanceRows } = useMyBalances(userId);
+  const { needsMyConfirmation: redemptionsNeedingConfirmation } = useMyRedemptions(userId);
 
   const attentionCount =
     incomingRequests.length +
     pendingInvites.length +
     pendingBets.length +
     cancellationPendingBets.length +
-    resolutionPendingBets.length;
+    resolutionPendingBets.length +
+    redemptionsNeedingConfirmation.length;
 
   return (
     <Screen bottomInset={BottomTabInset + Spacing.four} topInset={Spacing.six}>
@@ -113,6 +116,20 @@ export default function HomeScreen() {
                 subtitle={
                   bet.status === 'disputed' ? 'Result disputed' : 'Result awaiting confirmation'
                 }
+                trailing={<StatusBadge label="Review" variant="info" />}
+              />
+            </Link>
+          ))}
+          {redemptionsNeedingConfirmation.map(({ request, counterparty }) => (
+            <Link key={request.id} href="/balances" asChild>
+              <ListRow
+                leading={
+                  counterparty ? (
+                    <Avatar id={counterparty.id} name={counterparty.display_name} />
+                  ) : undefined
+                }
+                title={counterparty?.display_name ?? 'Someone'}
+                subtitle="Says they've settled up -- needs your confirmation"
                 trailing={<StatusBadge label="Review" variant="info" />}
               />
             </Link>
