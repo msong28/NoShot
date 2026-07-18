@@ -21,13 +21,15 @@ export default function HomeScreen() {
 
   const { incomingRequests } = useFriends(userId);
   const { activeGroups, pendingInvites } = useMyGroups(userId);
-  const { activeBets, pendingBets, cancellationPendingBets } = useMyBets(userId);
+  const { activeBets, pendingBets, cancellationPendingBets, resolutionPendingBets, resolvedBets } =
+    useMyBets(userId);
 
   const attentionCount =
     incomingRequests.length +
     pendingInvites.length +
     pendingBets.length +
-    cancellationPendingBets.length;
+    cancellationPendingBets.length +
+    resolutionPendingBets.length;
 
   return (
     <Screen bottomInset={BottomTabInset + Spacing.four} topInset={Spacing.six}>
@@ -82,6 +84,17 @@ export default function HomeScreen() {
               />
             </Link>
           ))}
+          {resolutionPendingBets.map((bet) => (
+            <Link key={bet.id} href={`/bet/${bet.id}`} asChild>
+              <ListRow
+                title={bet.title}
+                subtitle={
+                  bet.status === 'disputed' ? 'Result disputed' : 'Result awaiting confirmation'
+                }
+                trailing={<StatusBadge label="Review" variant="info" />}
+              />
+            </Link>
+          ))}
         </>
       ) : null}
 
@@ -99,6 +112,25 @@ export default function HomeScreen() {
           </Link>
         ))
       )}
+
+      {resolvedBets.length > 0 ? (
+        <>
+          <SectionHeader title="Recently resolved" />
+          {resolvedBets.map((bet) => (
+            <Link key={bet.id} href={`/bet/${bet.id}`} asChild>
+              <ListRow
+                title={bet.title}
+                trailing={
+                  <StatusBadge
+                    label={bet.status === 'tied' ? 'Tied' : 'Resolved'}
+                    variant={bet.status === 'tied' ? 'neutral' : 'success'}
+                  />
+                }
+              />
+            </Link>
+          ))}
+        </>
+      ) : null}
 
       <SectionHeader title="Your groups" />
       {activeGroups.length === 0 ? (

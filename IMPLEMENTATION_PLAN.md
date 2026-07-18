@@ -83,11 +83,11 @@ Not done in this pass, left for a follow-up UI slice before Milestone 7 if wante
 
 Shipped: `cancellation_pending` bet status (own migration, since Postgres won't let a freshly added enum value be used inside the same transaction it was added in — Supabase applies each migration as one transaction); `bet_cancellation_approvals` + `propose_cancel_bet()`/`approve_cancel_bet()` (mutual-approval, mirrors the negotiation-approval pattern from Milestone 6); bet-detail UI (Cancel bet, cancellation roster, Confirm/Keep actions); Home surfaces cancellation-pending bets under "Needs your attention". 10 pgTAP assertions; live-verified end-to-end (propose → decline → reverts to active → propose again → confirm → voids) with two real accounts. Full detail in `PROJECT_STATUS.md`. Branch `milestone-7-bet-cancellation`, not yet merged.
 
-### Milestone 8 — Resolution & disputes
+### Milestone 8 — Resolution & disputes — **done** (2026-07-19)
 
-Unblocked (2026-07-18) — see `DECISIONS.md` "Decided" section for the resolved random-fallback approach.
+Shipped: `pending_result`/`disputed`/`resolved`/`tied` bet statuses; `bet_result_submissions`/`bet_result_confirmations`/`dispute_resolutions`/`bet_dispute_votes` + RLS (all RPC-only); `submit_bet_result()`, `confirm_bet_result()` (converging confirmations resolve a dispute with no fallback needed), `resolve_dispute()` (judge), `vote_on_dispute()` (group vote, majority after full participation), `trigger_random_fallback()` (submitted outcomes only). Full "Result" UI on the bet detail screen covering every resolution path. 15 pgTAP assertions; live-verified end-to-end for the participant-submission path (submit, dispute via conflicting submissions, confirm-to-converge, tie) with two real accounts. Full detail in `PROJECT_STATUS.md`. Branch `milestone-8-resolution-disputes`, not yet merged.
 
-- I can do directly: result submission/confirmation tables, `submit_bet_result()`, `confirm_bet_result()`, `dispute_resolutions`, `resolve_dispute()`, disputed-state UI, judge/group-vote/random-fallback UI (including the toggle + disclosure copy at bet creation).
+Not UI-reachable yet (RPC/pgTAP-verified, no creation-form support): judge resolution, group-vote resolution, random fallback — Milestone 6's creation form only builds `participant_submission` bets. Ledger entries are deliberately not written here — `resolved_outcome_key` is what Milestone 9 needs to post real obligations once its ledger table exists.
 
 ### Milestone 9 — Ledger & balances
 

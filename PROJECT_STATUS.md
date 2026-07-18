@@ -1,14 +1,35 @@
 # NoShot — Project Status
 
-Last updated: 2026-07-18 (Milestone 7 — bet cancellation, done and live-verified).
+Last updated: 2026-07-19 (Milestone 8 — resolution & disputes, done and live-verified).
 
 ## Where things stand
 
-- Milestones 0–7 are complete (Apple sign-in within Milestone 2 is built but still not live-verified — no iOS simulator/device available in this environment). Milestone 10 (manual obligations) is also done, built in parallel by a background agent. See below for detail; earlier milestones are further down this file.
-- Real Supabase project is live and linked: `noshot-dev` (ref `tckpbwvzxxovnsvdtwee`). `profiles`, `friendships`, `blocks`, `username_search_log`, `groups`, `group_members`, `currencies`, `bets`/`bet_versions`/`bet_sides`/`bet_participants`/`bet_commitments`/`bet_approvals`/`bet_cancellation_approvals`, and `manual_obligation_proposals` tables + RLS are all deployed to it.
+- Milestones 0–8 are complete (Apple sign-in within Milestone 2 is built but still not live-verified — no iOS simulator/device available in this environment). Milestone 10 (manual obligations) is also done, built in parallel by a background agent. See below for detail; earlier milestones are further down this file.
+- Real Supabase project is live and linked: `noshot-dev` (ref `tckpbwvzxxovnsvdtwee`). `profiles`, `friendships`, `blocks`, `username_search_log`, `groups`, `group_members`, `currencies`, `bets`/`bet_versions`/`bet_sides`/`bet_participants`/`bet_commitments`/`bet_approvals`/`bet_cancellation_approvals`/`bet_result_submissions`/`bet_result_confirmations`/`bet_dispute_votes`/`dispute_resolutions`, and `manual_obligation_proposals` tables + RLS are all deployed to it.
 - CI is green (fixed in an earlier session — see git history if you need the detail; this file no longer tracks it as an open item).
-- Master, `milestone-6-bet-engine`, and `milestone-10-manual-obligations` are all merged together on `master` and pushed. `milestone-7-bet-cancellation` is done locally, not yet merged.
+- Master, `milestone-6-bet-engine`, `milestone-7-bet-cancellation`, and `milestone-10-manual-obligations` are all merged together on `master` and pushed. `milestone-8-resolution-disputes` is done locally, not yet merged.
 - Planning docs: `ARCHITECTURE.md`, `DECISIONS.md`, `IMPLEMENTATION_PLAN.md`, this file.
+
+## Milestone 8 — Resolution & disputes — done (2026-07-19)
+
+What shipped:
+
+- `supabase/migrations/20260719090000_bet_resolution_status.sql`: adds `pending_result`/`disputed`/`resolved`/`tied` to the `bet_status` enum (own migration, same same-transaction restriction as every other enum addition this project). Deliberately does _not_ add a `settled` status, even though Appendix A.1 shows "resolved -> settled" — nothing in RES-01..07 or §9.3 operates on a bet-level settled state; settlement is a ledger/obligation-level concept (§5.5), Milestone 11's territory, not this bet's own status.
+- `supabase/migrations/20260719090500_bet_resolution.sql`: `bet_result_submissions`/`bet_result_confirmations`/`dispute_resolutions` (all three already named RPC-only in `ARCHITECTURE.md` §6 from the start) plus `bet_dispute_votes` (an addition beyond the PRD's own table list, same treatment as `bet_cancellation_approvals`, needed to implement group-vote fairly). `submit_bet_result()`, `confirm_bet_result()` (unanimous confirmation on any single submission finalizes it — including a disputed bet, which is exactly how a dispute with no configured fallback organically resolves per §5.4: "remains disputed until affected participants agree"), `resolve_dispute()` (judge only), `vote_on_dispute()` (group vote, finalizes once every active group member has voted, plurality wins), `trigger_random_fallback()` (picks uniformly among _submitted_ outcomes only, per Appendix B — never an outcome nobody actually claimed). "Tie" is a reserved outcome key always valid regardless of whether the bet has an explicit tie side, since Milestone 6's creation UI doesn't expose adding one yet but PRD §5.2 treats tie as a default outcome.
+- Scope note, same pattern as Milestone 10's ledger deferral: this determines and records the final outcome (`bets.resolved_outcome_key`, status -> `resolved`/`tied`) but does **not** write ledger entries — `ledger_entries` doesn't exist until Milestone 9. RES-07's "create all ledger entries atomically" is deliberately deferred; `resolved_outcome_key` is exactly what Milestone 9 needs to compute and post real obligations once its table exists.
+- `src/hooks/use-bets.ts`: `useSubmitBetResult`, `useConfirmBetResult`, `useResolveDispute`, `useVoteOnDispute`, `useTriggerRandomFallback`; `useBetDetail` returns `resultSubmissions`/`resultConfirmations`/`disputeVotes`/`disputeResolution`/`participantProfiles`; `useMyBets` gained `resolutionPendingBets` (same "needs _your_ attention" logic as pending/cancellation) and `resolvedBets`.
+- `src/app/bet/[betId].tsx`: a "Result" section covering every status from `active` through `resolved`/`tied` — submission form (outcome picker built from the bet's sides plus a "Tie" option, optional rationale), a list of all submissions with per-submission confirm state, a vote tally when a group-vote dispute is in progress, and resolution-method-specific action panels (submit for whoever's authorized per the configured method; judge-resolve panel only for the actual judge; vote panel for group members; a random-fallback trigger behind a `ConfirmationDialog` since it's irreversible).
+- `src/app/(tabs)/index.tsx`: bets awaiting the user's result confirmation now show under "Needs your attention"; a new "Recently resolved" section lists resolved/tied bets (previously they'd have had nowhere to go once they left "Active bets").
+
+One real bug found and fixed during live verification: the "Result" card read "Dave Test wins wins" — Milestone 6 already stores side labels as "{name} wins" (fixed grammar there for the same reason), so appending " wins" again in this new resolved-state display duplicated it. Fixed by using the stored label as-is.
+
+Verification performed:
+
+- `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:db` all pass — all eight pgTAP suites run together against one fresh database with no conflicts.
+- `supabase/tests/bet_resolution.test.sql`: 15 pgTAP assertions covering every resolution path — unanimous confirmation resolves; conflicting submissions dispute the bet; a disputed bet resolves once participants converge on one submission (no fallback needed); only the judge can submit/resolve on a judge-method bet, and a judge's own second conflicting submission is what disputes a judge-method bet (since only the judge may submit at all); group vote requires full participation and the majority outcome wins; random fallback always selects one of the outcomes actually submitted; a unanimously confirmed "tie" moves the bet to `tied` rather than `resolved`; RLS boundaries and anon zero-access.
+- Live in a real browser against `noshot-dev`, driving `davetest4` and `alicetest2` through every UI-reachable path on real bets: submit a result → the other party sees "Needs your attention" → submitting a _conflicting_ result correctly disputes the bet, showing both submissions with independent confirm state → confirming the other side's submission (rather than insisting on your own) correctly converges the dispute to `resolved` with the right outcome, matching pgTAP's coverage of that exact path → a separate bet resolved via a unanimously confirmed "Tie" correctly lands on `tied` (not `resolved`) with the right messaging. Home screen checked throughout: resolved/tied bets move into the new "Recently resolved" section and out of "Active bets"; "Needs your attention" correctly scopes to whichever party hasn't yet responded.
+- **Not UI-reachable in this pass, but RPC/pgTAP-verified**: judge resolution, group-vote resolution, and random fallback. Milestone 6's creation form only builds direct 1:1 `participant_submission` bets — there's no UI yet to configure a judge, a group-vote bet, or `random_fallback_enabled`, so those panels in `bet/[betId].tsx` exist and are correct but can't be exercised end-to-end without extending the creation form. Same category of gap as Milestone 6's own "group-scoped/multi-way bet creation has no UI yet."
+- **Not live-verified**: native iOS/Android (same standing gap as every milestone to date).
 
 ## Milestone 7 — Bet cancellation — done (2026-07-18)
 
@@ -197,19 +218,19 @@ Did **not** run `supabase db push` from this branch, to avoid colliding with the
 | 4     | Groups & membership                      | Done — committed and pushed                                             |
 | 5     | Currencies                               | Done — committed and pushed                                             |
 | 6     | Bet engine core                          | Done and live-verified — see above. Direct 1:1 creation UI only so far. |
-| 7     | Bet cancellation                         | Done and live-verified — see above, not yet merged to master            |
-| 8     | Resolution & disputes                    | Not started — unblocked (Decision #2 resolved 2026-07-18)               |
-| 9     | Ledger & balances                        | Not started                                                             |
+| 7     | Bet cancellation                         | Done — merged to master                                                 |
+| 8     | Resolution & disputes                    | Done and live-verified — see above, not yet merged to master            |
+| 9     | Ledger & balances                        | Not started (up next)                                                   |
 | 10    | Manual obligations & adjustments         | Done — merged to master                                                 |
 | 11–16 | See `IMPLEMENTATION_PLAN.md`             | Not started                                                             |
 
 ## Open items waiting on you
 
-- Merge branch `milestone-7-bet-cancellation` to master whenever convenient — quality-bar-passing, live-verified.
+- Merge branch `milestone-8-resolution-disputes` to master whenever convenient — quality-bar-passing, live-verified on every UI-reachable path.
 - Apple sign-in needs testing on a real device or simulator whenever you have one available — the code path has never actually run.
 - Native iOS/Android still has zero live verification across every milestone to date — web is the only platform actually driven in a real browser so far. Worth a native smoke test before the app gets much bigger.
-- Bet creation UI currently only covers direct 1:1 bets, and there's no counteroffer/amendment UI yet — both are natural next slices of Milestone 6 if you want more UI surface before Milestone 8.
-- Test accounts in `noshot-dev`: `bobtest`, `alicetest2@example.com`, `caroltest3@example.com`, `davetest4@example.com` (password `TestPass123!` except `bobtest`), plus a real Google identity (`fluffypancake28`) from earlier OAuth verification — harmless, flagging in case you want to clean the dashboard later. Dave and Alice are now friends; the test bet between them from live verification ended up `voided` (cancelled) by the end of Milestone 7's testing.
+- Bet creation UI currently only covers direct 1:1 `participant_submission` bets — no UI yet for group-scoped/multi-way bets, counteroffers, or configuring a judge/group-vote/random-fallback resolution method. All of that is fully built and tested on the backend, just not reachable through the creation form yet.
+- Test accounts in `noshot-dev`: `bobtest`, `alicetest2@example.com`, `caroltest3@example.com`, `davetest4@example.com` (password `TestPass123!` except `bobtest`), plus a real Google identity (`fluffypancake28`) from earlier OAuth verification — harmless, flagging in case you want to clean the dashboard later. Dave and Alice have two resolved test bets between them from Milestone 8's live verification (one "resolved," one "tied").
 - `DECISIONS.md` #6 — turn "Confirm email" back on in Supabase Auth settings before any real-user testing. Not urgent while still in solo dev/testing.
 - `DECISIONS.md` #7 — decide whether to add the `emailRedirectTo` deep-link callback flow now or later; should land before #6 is flipped back on.
 
