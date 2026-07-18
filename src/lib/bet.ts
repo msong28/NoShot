@@ -1,4 +1,5 @@
-export type BetStatus = 'draft' | 'pending_acceptance' | 'active' | 'voided';
+export type BetStatus =
+  'draft' | 'pending_acceptance' | 'active' | 'cancellation_pending' | 'voided';
 
 export type BetVersionStatus = 'draft' | 'proposed' | 'approved';
 
@@ -64,6 +65,15 @@ export type BetApproval = {
   version_no: number;
   user_id: string;
   decision: BetApprovalDecision;
+  created_at: string;
+};
+
+export type BetCancellationApproval = {
+  id: string;
+  bet_id: string;
+  user_id: string;
+  decision: BetApprovalDecision;
+  reason: string | null;
   created_at: string;
 };
 

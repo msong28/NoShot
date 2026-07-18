@@ -21,9 +21,13 @@ export default function HomeScreen() {
 
   const { incomingRequests } = useFriends(userId);
   const { activeGroups, pendingInvites } = useMyGroups(userId);
-  const { activeBets, pendingBets } = useMyBets(userId);
+  const { activeBets, pendingBets, cancellationPendingBets } = useMyBets(userId);
 
-  const attentionCount = incomingRequests.length + pendingInvites.length + pendingBets.length;
+  const attentionCount =
+    incomingRequests.length +
+    pendingInvites.length +
+    pendingBets.length +
+    cancellationPendingBets.length;
 
   return (
     <Screen bottomInset={BottomTabInset + Spacing.four} topInset={Spacing.six}>
@@ -66,6 +70,15 @@ export default function HomeScreen() {
                 title={bet.title}
                 subtitle="Bet proposal awaiting your response"
                 trailing={<StatusBadge label="Review" variant="info" />}
+              />
+            </Link>
+          ))}
+          {cancellationPendingBets.map((bet) => (
+            <Link key={bet.id} href={`/bet/${bet.id}`} asChild>
+              <ListRow
+                title={bet.title}
+                subtitle="Someone wants to cancel this bet"
+                trailing={<StatusBadge label="Review" variant="warning" />}
               />
             </Link>
           ))}

@@ -79,9 +79,9 @@ Shipped: `bets`/`bet_versions`/`bet_participants`/`bet_sides`/`bet_commitments`/
 
 Not done in this pass, left for a follow-up UI slice before Milestone 7 if wanted: group-scoped/multi-participant bet creation UI and counteroffer/amendment UI (the backend supports both today, pgTAP-tested — just no wizard UI yet). `random_fallback_enabled` is stored but has no UI toggle (nothing to control until Milestone 8).
 
-### Milestone 7 — Bet cancellation
+### Milestone 7 — Bet cancellation — **done** (2026-07-18)
 
-- I can do directly: `propose_cancel_bet()`/`approve_cancel_bet()`, UI affordances.
+Shipped: `cancellation_pending` bet status (own migration, since Postgres won't let a freshly added enum value be used inside the same transaction it was added in — Supabase applies each migration as one transaction); `bet_cancellation_approvals` + `propose_cancel_bet()`/`approve_cancel_bet()` (mutual-approval, mirrors the negotiation-approval pattern from Milestone 6); bet-detail UI (Cancel bet, cancellation roster, Confirm/Keep actions); Home surfaces cancellation-pending bets under "Needs your attention". 10 pgTAP assertions; live-verified end-to-end (propose → decline → reverts to active → propose again → confirm → voids) with two real accounts. Full detail in `PROJECT_STATUS.md`. Branch `milestone-7-bet-cancellation`, not yet merged.
 
 ### Milestone 8 — Resolution & disputes
 

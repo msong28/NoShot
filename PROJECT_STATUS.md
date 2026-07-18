@@ -1,14 +1,31 @@
 # NoShot — Project Status
 
-Last updated: 2026-07-18 (Milestone 6 — bet engine core, done and live-verified).
+Last updated: 2026-07-18 (Milestone 7 — bet cancellation, done and live-verified).
 
 ## Where things stand
 
-- Milestones 0–6 are complete (Apple sign-in within Milestone 2 is built but still not live-verified — no iOS simulator/device available in this environment). See below for Milestone 6 detail; earlier milestones are further down this file.
-- Real Supabase project is live and linked: `noshot-dev` (ref `tckpbwvzxxovnsvdtwee`). `profiles`, `friendships`, `blocks`, `username_search_log`, `groups`, `group_members`, `currencies`, and now `bets`/`bet_versions`/`bet_sides`/`bet_participants`/`bet_commitments`/`bet_approvals` tables + RLS are deployed to it.
+- Milestones 0–7 are complete (Apple sign-in within Milestone 2 is built but still not live-verified — no iOS simulator/device available in this environment). Milestone 10 (manual obligations) is also done, built in parallel by a background agent. See below for detail; earlier milestones are further down this file.
+- Real Supabase project is live and linked: `noshot-dev` (ref `tckpbwvzxxovnsvdtwee`). `profiles`, `friendships`, `blocks`, `username_search_log`, `groups`, `group_members`, `currencies`, `bets`/`bet_versions`/`bet_sides`/`bet_participants`/`bet_commitments`/`bet_approvals`/`bet_cancellation_approvals`, and `manual_obligation_proposals` tables + RLS are all deployed to it.
 - CI is green (fixed in an earlier session — see git history if you need the detail; this file no longer tracks it as an open item).
-- A separate branch, `milestone-10-manual-obligations`, has Milestone 10 (manual obligations & adjustments) built and quality-bar-passing, ready for review/merge whenever you want it — built in parallel with Milestone 6 by a background agent, not yet merged to master.
+- Master, `milestone-6-bet-engine`, and `milestone-10-manual-obligations` are all merged together on `master` and pushed. `milestone-7-bet-cancellation` is done locally, not yet merged.
 - Planning docs: `ARCHITECTURE.md`, `DECISIONS.md`, `IMPLEMENTATION_PLAN.md`, this file.
+
+## Milestone 7 — Bet cancellation — done (2026-07-18)
+
+What shipped:
+
+- `supabase/migrations/20260718120000_bet_cancellation_status.sql`: adds `cancellation_pending` to the `bet_status` enum, split into its own migration since Postgres rejects using a freshly added enum value inside the same transaction it was added in, and Supabase applies each migration file as one transaction.
+- `supabase/migrations/20260718120500_bet_cancellation.sql`: `bet_cancellation_approvals` table (RPC-only, same rationale as the rest of the bet engine) + `propose_cancel_bet()` / `approve_cancel_bet()`. Only applies to an _active_ bet — killing a not-yet-activated proposal already goes through `approve_bet_version()`'s decline path from Milestone 6, since nothing was agreed to yet. Mutual approval required to actually void (BET-09, §5.2); a decline reverts the bet to `active` and clears the failed attempt so a fresh proposal starts clean rather than inheriting stale decisions.
+- `src/hooks/use-bets.ts`: `useProposeCancelBet`, `useApproveCancelBet`; `useMyBets` now also surfaces cancellation-pending bets the current user hasn't responded to yet (mirroring the same "needs _your_ attention, not just anyone's" logic from Milestone 6); `useBetDetail` returns `cancellationApprovals`.
+- `src/app/bet/[betId].tsx`: a "Cancel bet" action on active bets (behind a `ConfirmationDialog`, since proposing ties up the bet), a "Cancellation" roster section mirroring the main participant list while one is in progress, and "Confirm cancellation" / "Keep this bet" actions for whoever hasn't responded yet.
+- `src/app/(tabs)/index.tsx`: cancellation-pending bets needing the current user's response now show under "Needs your attention" too.
+
+Verification performed:
+
+- `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:db` all pass — all seven pgTAP suites (including the two new ones) run together against one fresh database with no conflicts.
+- `supabase/tests/bet_cancellation.test.sql`: 10 pgTAP assertions — only a participant can propose, direct-insert-denied, only an active bet can have cancellation proposed, RLS (uninvolved user sees nothing), a decline reverts to active and clears the attempt, responding to a cancellation that isn't in progress is rejected, unanimous approval voids the bet, anon has zero access.
+- Live in a real browser against `noshot-dev`, driving `davetest4` and `alicetest2` through the full loop on the real active bet from Milestone 6's own verification: Alice proposes cancellation → her own bet detail correctly shows no response buttons for her (she already responded by proposing) → Dave's Home screen shows "Someone wants to cancel this bet" under "Needs your attention" (and the bet has dropped out of "Active bets") → Dave declines ("Keep this bet") → bet correctly reverts to `active`, cancellation section clears, "Cancel bet" reappears → Dave proposes again → Alice confirms this time → bet correctly goes `voided`, with the cancellation UI and action buttons both correctly gone.
+- **Not live-verified**: native iOS/Android (same standing gap as every milestone to date).
 
 ## Milestone 6 — Bet engine core — done (2026-07-18)
 
@@ -180,19 +197,19 @@ Did **not** run `supabase db push` from this branch, to avoid colliding with the
 | 4     | Groups & membership                      | Done — committed and pushed                                             |
 | 5     | Currencies                               | Done — committed and pushed                                             |
 | 6     | Bet engine core                          | Done and live-verified — see above. Direct 1:1 creation UI only so far. |
-| 7     | Bet cancellation                         | Not started (up next)                                                   |
+| 7     | Bet cancellation                         | Done and live-verified — see above, not yet merged to master            |
 | 8     | Resolution & disputes                    | Not started — unblocked (Decision #2 resolved 2026-07-18)               |
 | 9     | Ledger & balances                        | Not started                                                             |
-| 10    | Manual obligations & adjustments         | Built on branch `milestone-10-manual-obligations`, not yet merged       |
+| 10    | Manual obligations & adjustments         | Done — merged to master                                                 |
 | 11–16 | See `IMPLEMENTATION_PLAN.md`             | Not started                                                             |
 
 ## Open items waiting on you
 
-- Review and merge (or ask for changes to) branch `milestone-10-manual-obligations` whenever convenient — built in parallel with Milestone 6 by a background agent, quality-bar-passing, not yet pushed to a shared remote.
+- Merge branch `milestone-7-bet-cancellation` to master whenever convenient — quality-bar-passing, live-verified.
 - Apple sign-in needs testing on a real device or simulator whenever you have one available — the code path has never actually run.
 - Native iOS/Android still has zero live verification across every milestone to date — web is the only platform actually driven in a real browser so far. Worth a native smoke test before the app gets much bigger.
-- Bet creation UI currently only covers direct 1:1 bets, and there's no counteroffer/amendment UI yet — both are natural next slices of Milestone 6 if you want more UI surface before Milestone 7.
-- Test accounts in `noshot-dev`: `bobtest`, `alicetest2@example.com`, `caroltest3@example.com`, `davetest4@example.com` (password `TestPass123!` except `bobtest`), plus a real Google identity (`fluffypancake28`) from earlier OAuth verification — harmless, flagging in case you want to clean the dashboard later. Dave and Alice are now friends and have two test bets between them (one active, one voided) from this milestone's live verification.
+- Bet creation UI currently only covers direct 1:1 bets, and there's no counteroffer/amendment UI yet — both are natural next slices of Milestone 6 if you want more UI surface before Milestone 8.
+- Test accounts in `noshot-dev`: `bobtest`, `alicetest2@example.com`, `caroltest3@example.com`, `davetest4@example.com` (password `TestPass123!` except `bobtest`), plus a real Google identity (`fluffypancake28`) from earlier OAuth verification — harmless, flagging in case you want to clean the dashboard later. Dave and Alice are now friends; the test bet between them from live verification ended up `voided` (cancelled) by the end of Milestone 7's testing.
 - `DECISIONS.md` #6 — turn "Confirm email" back on in Supabase Auth settings before any real-user testing. Not urgent while still in solo dev/testing.
 - `DECISIONS.md` #7 — decide whether to add the `emailRedirectTo` deep-link callback flow now or later; should land before #6 is flipped back on.
 
