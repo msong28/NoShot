@@ -11,7 +11,12 @@ import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
 import { SectionHeader } from '@/components/ui/section-header';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { useApproveBetVersion, useBetDetail } from '@/hooks/use-bets';
+import {
+  useApproveBetVersion,
+  useApproveCancelBet,
+  useBetDetail,
+  useProposeCancelBet,
+} from '@/hooks/use-bets';
 import { useSession } from '@/hooks/use-session';
 import { ResolutionMethods, computePayoutPreview, type BetApprovalDecision } from '@/lib/bet';
 import { getErrorMessage } from '@/lib/errors';
@@ -21,15 +26,24 @@ export default function BetDetailScreen() {
   const { session } = useSession();
   const userId = session?.user.id;
 
-  const { bet, sides, roster, isLoading } = useBetDetail(betId);
+  const { bet, sides, roster, cancellationApprovals, isLoading } = useBetDetail(betId);
   const approveBetVersion = useApproveBetVersion(betId, userId);
+  const proposeCancelBet = useProposeCancelBet(betId, userId);
+  const approveCancelBet = useApproveCancelBet(betId, userId);
 
   const [error, setError] = useState<string | null>(null);
   const [showDeclineConfirm, setShowDeclineConfirm] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showKeepConfirm, setShowKeepConfirm] = useState(false);
 
   const me = roster.find((row) => row.participant.user_id === userId);
   const myApproval = me?.approval;
-  const canRespond = bet && ['pending_acceptance', 'active'].includes(bet.status) && !myApproval;
+  const canRespond = bet && bet.status === 'pending_acceptance' && !myApproval;
+
+  const myCancellationResponse = cancellationApprovals.find((a) => a.user_id === userId);
+  const canProposeCancel = bet && bet.status === 'active' && !!me;
+  const canRespondToCancel =
+    bet && bet.status === 'cancellation_pending' && !myCancellationResponse;
 
   const payoutPreview = useMemo(() => {
     const sideDrafts = sides.map((s) => ({ outcomeKey: s.outcome_key, label: s.label }));
@@ -53,6 +67,20 @@ export default function BetDetailScreen() {
       { versionNo: bet.current_version, decision },
       { onError: (err) => setError(getErrorMessage(err, 'Something went wrong')) },
     );
+  }
+
+  function proposeCancel() {
+    setError(null);
+    proposeCancelBet.mutate(undefined, {
+      onError: (err) => setError(getErrorMessage(err, 'Something went wrong')),
+    });
+  }
+
+  function respondToCancel(decision: BetApprovalDecision) {
+    setError(null);
+    approveCancelBet.mutate(decision, {
+      onError: (err) => setError(getErrorMessage(err, 'Something went wrong')),
+    });
   }
 
   if (isLoading || !bet) {
@@ -106,6 +134,38 @@ export default function BetDetailScreen() {
         />
       ))}
 
+      {bet.status === 'cancellation_pending' ? (
+        <>
+          <SectionHeader title="Cancellation" />
+          {roster.map((row) => {
+            const response = cancellationApprovals.find(
+              (a) => a.user_id === row.participant.user_id,
+            );
+            return (
+              <ListRow
+                key={row.participant.id}
+                leading={
+                  row.profile ? (
+                    <Avatar id={row.profile.id} name={row.profile.display_name} />
+                  ) : undefined
+                }
+                title={row.profile?.display_name ?? 'Unknown'}
+                trailing={
+                  response ? (
+                    <StatusBadge
+                      label={response.decision === 'approved' ? 'Wants to cancel' : 'Declined'}
+                      variant={response.decision === 'approved' ? 'warning' : 'danger'}
+                    />
+                  ) : (
+                    <StatusBadge label="Pending" variant="warning" />
+                  )
+                }
+              />
+            );
+          })}
+        </>
+      ) : null}
+
       {payoutPreview.length > 0 ? (
         <>
           <SectionHeader title="Payout preview" />
@@ -146,6 +206,27 @@ export default function BetDetailScreen() {
         </>
       ) : null}
 
+      {canProposeCancel ? (
+        <Button variant="muted" onPress={() => setShowCancelConfirm(true)}>
+          Cancel bet
+        </Button>
+      ) : null}
+
+      {canRespondToCancel ? (
+        <>
+          <Button
+            variant="muted"
+            onPress={() => respondToCancel('approved')}
+            disabled={approveCancelBet.isPending}
+          >
+            Confirm cancellation
+          </Button>
+          <Button variant="primary" onPress={() => setShowKeepConfirm(true)}>
+            Keep this bet
+          </Button>
+        </>
+      ) : null}
+
       <ConfirmationDialog
         visible={showDeclineConfirm}
         title="Decline this bet?"
@@ -157,6 +238,31 @@ export default function BetDetailScreen() {
           respond('declined');
         }}
         onCancel={() => setShowDeclineConfirm(false)}
+      />
+
+      <ConfirmationDialog
+        visible={showCancelConfirm}
+        title="Propose cancelling this bet?"
+        description="Everyone involved needs to agree before it's actually cancelled."
+        confirmLabel="Propose cancellation"
+        destructive
+        onConfirm={() => {
+          setShowCancelConfirm(false);
+          proposeCancel();
+        }}
+        onCancel={() => setShowCancelConfirm(false)}
+      />
+
+      <ConfirmationDialog
+        visible={showKeepConfirm}
+        title="Keep this bet active?"
+        description="This rejects the cancellation -- the bet continues exactly as it was."
+        confirmLabel="Keep it"
+        onConfirm={() => {
+          setShowKeepConfirm(false);
+          respondToCancel('declined');
+        }}
+        onCancel={() => setShowKeepConfirm(false)}
       />
     </Screen>
   );

@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import type {
   Bet,
   BetApprovalDecision,
+  BetCancellationApproval,
   BetCommitment,
   BetParticipant,
   BetParticipantDraft,
@@ -60,6 +61,10 @@ export function useMyBets(userId: string | undefined) {
     () => bets.filter((bet) => bet.status === 'pending_acceptance').map((bet) => bet.id),
     [bets],
   );
+  const cancellationPendingBetIds = useMemo(
+    () => bets.filter((bet) => bet.status === 'cancellation_pending').map((bet) => bet.id),
+    [bets],
+  );
 
   const myApprovalsQuery = useQuery({
     queryKey: ['my-bet-approvals', userId, pendingBetIds],
@@ -75,6 +80,20 @@ export function useMyBets(userId: string | undefined) {
     enabled: !!userId && pendingBetIds.length > 0,
   });
 
+  const myCancellationApprovalsQuery = useQuery({
+    queryKey: ['my-bet-cancellation-approvals', userId, cancellationPendingBetIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('bet_cancellation_approvals')
+        .select('bet_id')
+        .eq('user_id', userId as string)
+        .in('bet_id', cancellationPendingBetIds);
+      if (error) throw error;
+      return data as { bet_id: string }[];
+    },
+    enabled: !!userId && cancellationPendingBetIds.length > 0,
+  });
+
   const pendingBets = useMemo(() => {
     const myApprovedVersions = new Map(
       (myApprovalsQuery.data ?? []).map((a) => [a.bet_id, a.version_no]),
@@ -86,11 +105,22 @@ export function useMyBets(userId: string | undefined) {
     );
   }, [bets, myApprovalsQuery.data]);
 
+  const cancellationPendingBets = useMemo(() => {
+    const myRespondedBetIds = new Set(
+      (myCancellationApprovalsQuery.data ?? []).map((a) => a.bet_id),
+    );
+    return bets.filter(
+      (bet) => bet.status === 'cancellation_pending' && !myRespondedBetIds.has(bet.id),
+    );
+  }, [bets, myCancellationApprovalsQuery.data]);
+
   return {
     bets,
     activeBets,
     pendingBets,
-    isLoading: query.isLoading || myApprovalsQuery.isLoading,
+    cancellationPendingBets,
+    isLoading:
+      query.isLoading || myApprovalsQuery.isLoading || myCancellationApprovalsQuery.isLoading,
   };
 }
 
@@ -189,6 +219,19 @@ export function useBetDetail(betId: string | undefined) {
     enabled: !!betId && !!currentVersion,
   });
 
+  const cancellationApprovalsQuery = useQuery({
+    queryKey: [...betDetailQueryKey(betId), 'cancellation-approvals'],
+    queryFn: async (): Promise<BetCancellationApproval[]> => {
+      const { data, error } = await supabase
+        .from('bet_cancellation_approvals')
+        .select('*')
+        .eq('bet_id', betId as string);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!betId,
+  });
+
   const roster = useMemo(() => {
     const sidesById = new Map((sidesQuery.data ?? []).map((s) => [s.id, s]));
     const profilesById = new Map((profilesQuery.data ?? []).map((p) => [p.id, p]));
@@ -218,6 +261,7 @@ export function useBetDetail(betId: string | undefined) {
     bet: betQuery.data,
     sides: sidesQuery.data ?? [],
     roster,
+    cancellationApprovals: cancellationApprovalsQuery.data ?? [],
     isLoading:
       betQuery.isLoading ||
       sidesQuery.isLoading ||
@@ -344,5 +388,43 @@ export function useSubmitDraftBet(userId: string | undefined) {
       return data;
     },
     onSuccess: invalidateMyBets,
+  });
+}
+
+export function useProposeCancelBet(betId: string | undefined, userId: string | undefined) {
+  const invalidateBet = useInvalidateBetDetail(betId);
+  const invalidateMyBets = useInvalidateMyBets(userId);
+  return useMutation({
+    mutationFn: async (reason?: string): Promise<Bet> => {
+      const { data, error } = await supabase.rpc('propose_cancel_bet', {
+        p_bet_id: betId as string,
+        p_reason: reason ?? null,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      invalidateBet();
+      invalidateMyBets();
+    },
+  });
+}
+
+export function useApproveCancelBet(betId: string | undefined, userId: string | undefined) {
+  const invalidateBet = useInvalidateBetDetail(betId);
+  const invalidateMyBets = useInvalidateMyBets(userId);
+  return useMutation({
+    mutationFn: async (decision: BetApprovalDecision): Promise<Bet> => {
+      const { data, error } = await supabase.rpc('approve_cancel_bet', {
+        p_bet_id: betId as string,
+        p_decision: decision,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      invalidateBet();
+      invalidateMyBets();
+    },
   });
 }
