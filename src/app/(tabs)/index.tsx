@@ -10,6 +10,7 @@ import { Screen } from '@/components/ui/screen';
 import { SectionHeader } from '@/components/ui/section-header';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { BottomTabInset, Spacing } from '@/constants/theme';
+import { useMyBets } from '@/hooks/use-bets';
 import { useFriends } from '@/hooks/use-friends';
 import { useMyGroups } from '@/hooks/use-groups';
 import { useSession } from '@/hooks/use-session';
@@ -20,8 +21,9 @@ export default function HomeScreen() {
 
   const { incomingRequests } = useFriends(userId);
   const { activeGroups, pendingInvites } = useMyGroups(userId);
+  const { activeBets, pendingBets } = useMyBets(userId);
 
-  const attentionCount = incomingRequests.length + pendingInvites.length;
+  const attentionCount = incomingRequests.length + pendingInvites.length + pendingBets.length;
 
   return (
     <Screen bottomInset={BottomTabInset + Spacing.four} topInset={Spacing.six}>
@@ -58,8 +60,32 @@ export default function HomeScreen() {
               />
             </Link>
           ))}
+          {pendingBets.map((bet) => (
+            <Link key={bet.id} href={`/bet/${bet.id}`} asChild>
+              <ListRow
+                title={bet.title}
+                subtitle="Bet proposal awaiting your response"
+                trailing={<StatusBadge label="Review" variant="info" />}
+              />
+            </Link>
+          ))}
         </>
       ) : null}
+
+      <SectionHeader title="Active bets" />
+      {activeBets.length === 0 ? (
+        <EmptyState
+          icon="bet"
+          title="No active bets"
+          description="Propose one from the Add button below."
+        />
+      ) : (
+        activeBets.map((bet) => (
+          <Link key={bet.id} href={`/bet/${bet.id}`} asChild>
+            <ListRow title={bet.title} />
+          </Link>
+        ))
+      )}
 
       <SectionHeader title="Your groups" />
       {activeGroups.length === 0 ? (

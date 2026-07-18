@@ -4,16 +4,6 @@ Lightweight ADR log. Each entry: context, decision, status. Newest at bottom of 
 
 ## Open items requiring your sign-off
 
-### 2. Dispute "random fallback" — contradiction in the PRD
-
-**Context:** PRD §5.4 and RES-04 define exactly two dispute-resolution fallbacks: a pre-agreed judge, or a group vote. If neither was configured, the bet stays disputed indefinitely — "no automatic timeout resolution in V1." But the data model (`bets.random_fallback_enabled`) and the Appendix B test scenario ("approved random fallback selects only among submitted outcomes") describe a third mechanism: a random selection among the conflicting submitted outcomes.
-**Why it matters:** this changes the `resolve_dispute()` contract, the bet-creation UI (would need a toggle + explanation), and the disclosure/consent language shown before activation (PRD requires any fallback be disclosed and approved pre-activation).
-**Options:**
-
-- (a) Add "random fallback among submitted outcomes" as a third pre-agreed, disclosed, opt-in resolution method, alongside judge and group vote.
-- (b) Drop `random_fallback_enabled` and the random-fallback test scenario; disputes with no judge/vote configured simply stay disputed, full stop.
-  **Status:** needs your decision before Milestone 8 (Resolution & disputes). Not blocking Milestone 0/1.
-
 ### 3. Moderation approach for MVP
 
 **Context:** PRD MOD-03 requires "automated text checks at creation time" for severe-harm categories. Real ML moderation (OpenAI moderation endpoint, Perspective API, etc.) needs an external account/API key.
@@ -54,6 +44,7 @@ Lightweight ADR log. Each entry: context, decision, status. Newest at bottom of 
 
 ## Decided (and why)
 
+- **Dispute "random fallback" is a third opt-in resolution method (2026-07-18).** PRD §5.4/RES-04 describe only judge or group-vote fallbacks, but the data model (`bets.random_fallback_enabled`) and the Appendix B test scenario describe a third mechanism. Resolved: random selection among the conflicting submitted outcomes ships as a third pre-agreed, disclosed, opt-in resolution method alongside judge and group vote. `resolve_dispute()`, the bet-creation UI (toggle + explanation), and pre-activation disclosure/consent language all need to account for it — scope for Milestone 8.
 - **UI design system initiative (2026-07-16)**, and two conflicts resolved against your brief for it:
   - **Phase 3 "representative screens" swapped.** Your brief listed Bet detail, Bet creation, and Balances/friend-detail as representative screens to restyle first. None have real functionality behind them yet — `bets`/`bet_versions`/`ledger_entries` etc. don't exist until Milestones 6/9. Designing polished screens against fake data now is exactly the anti-pattern the PRD itself warns against ("Do not scaffold every screen first while leaving core state transitions insecure or incomplete"). Swapped in Home, Group detail, Friends, Currencies, and the sign-in screen instead — all have real data today. Bet/Balance screens get the system applied when Milestones 6/9 actually ship, not before.
   - **Nav kept as Home/Groups/Add/Activity/Account.** Your brief suggested a persistent "Bets" tab in place of "Add." PRD §7.1 explicitly recommends the current 5 tabs, and the Milestone-0 entry below already documents _why_ "Add" is a modal action rather than a tab. Kept the nav as-is; bet visibility instead comes from a prominent "Active bets" section on Home once Milestone 6 exists.

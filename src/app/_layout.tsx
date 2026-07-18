@@ -62,6 +62,7 @@ function RootNavigator() {
         <Stack.Screen name="friends" />
         <Stack.Screen name="currencies" />
         <Stack.Screen name="group/[groupId]" />
+        <Stack.Screen name="bet/[betId]" />
         <Stack.Screen name="design-system" />
       </Stack.Protected>
       {/* Not inside any guard above: reachable regardless of auth state, so a
