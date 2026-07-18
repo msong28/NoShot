@@ -5,8 +5,8 @@ set -euo pipefail
 #
 # Applies every migration in supabase/migrations/ (in order) to a fresh
 # database first, alongside a minimal stand-in for the parts of Supabase's
-# schema our migrations depend on (auth.users, auth.uid(), the anon/
-# authenticated roles) -- then runs the test files.
+# schema our migrations depend on (auth.users, auth.sessions, auth.uid(),
+# the anon/authenticated roles) -- then runs the test files.
 #
 # Needs only `postgres`/`initdb`/`psql` on PATH (e.g. `brew install
 # postgresql@17`). Does not need Docker or `supabase start`.
@@ -38,6 +38,7 @@ create role authenticated;
 create extension if not exists pgcrypto;
 create schema auth;
 create table auth.users (id uuid primary key default gen_random_uuid());
+create table auth.sessions (id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users (id));
 create function auth.uid() returns uuid language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $$;
