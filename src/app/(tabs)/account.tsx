@@ -33,12 +33,16 @@ export default function AccountScreen() {
           </ThemedText>
         ) : null}
         <ThemedText themeColor="textSecondary">
-          Blocked users, privacy settings, and delete account will live here.
+          Blocked users and privacy settings will live here.
         </ThemedText>
 
         <Button variant="muted" onPress={() => supabase.auth.signOut()} style={styles.signOut}>
           Sign out
         </Button>
+
+        <Link href="/delete-account" asChild>
+          <Button variant="destructive">Delete account</Button>
+        </Link>
 
         <Link href="/design-system" asChild>
           <Button variant="ghost">Design system</Button>

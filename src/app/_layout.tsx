@@ -62,6 +62,7 @@ function RootNavigator() {
         <Stack.Screen name="friends" />
         <Stack.Screen name="currencies" />
         <Stack.Screen name="obligations" />
+        <Stack.Screen name="delete-account" />
         <Stack.Screen name="group/[groupId]" />
         <Stack.Screen name="bet/[betId]" />
         <Stack.Screen name="design-system" />
