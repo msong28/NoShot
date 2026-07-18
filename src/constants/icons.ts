@@ -19,6 +19,7 @@ export const Icons = {
   currency: 'pricetag-outline',
   bet: 'flag-outline',
   obligations: 'receipt-outline',
+  balances: 'swap-horizontal-outline',
   add: 'add',
   back: 'chevron-back',
   forward: 'chevron-forward',

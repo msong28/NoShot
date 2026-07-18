@@ -17,7 +17,7 @@ Rule for all milestones: complete and test one before starting the next. Each mi
 | 6   | Bet engine core (draft → versions → approvals) — **done**        | 4, 5       | BET-01..10           |
 | 7   | Bet cancellation                                                 | 6          | §5.2                 |
 | 8   | Resolution & disputes                                            | 6          | RES-01..07           |
-| 9   | Ledger & balances                                                | 8          | BAL-01, 02, 08; §5.5 |
+| 9   | Ledger & balances — **done**                                     | 8          | BAL-01, 02, 08; §5.5 |
 | 10  | Manual obligations & adjustments — **done**                      | 4, 5       | BAL-03, 04           |
 | 11  | Redemption & forgiveness                                         | 9          | BAL-05..07           |
 | 12  | Social layer (comments, chat, polls, proof)                      | 6, 4       | SOC-01..06           |
@@ -89,9 +89,13 @@ Shipped: `pending_result`/`disputed`/`resolved`/`tied` bet statuses; `bet_result
 
 Not UI-reachable yet (RPC/pgTAP-verified, no creation-form support): judge resolution, group-vote resolution, random fallback — Milestone 6's creation form only builds `participant_submission` bets. Ledger entries are deliberately not written here — `resolved_outcome_key` is what Milestone 9 needs to post real obligations once its ledger table exists.
 
-### Milestone 9 — Ledger & balances
+### Milestone 9 — Ledger & balances — **done** (2026-07-19)
 
-- I can do directly: `ledger_entries` (append-only, trigger-enforced), `obligation_allocations`, atomic ledger writes inside `confirm_bet_result()`/`resolve_dispute()`, balance-aggregation queries/views, Balances UI with drill-down to source events, per-currency separation (never cross-currency netting), CAD/USD kept separate.
+Shipped: `ledger_entries` (append-only, trigger-enforced against update/delete) + RLS (visible only to the two parties on an entry); `get_my_balances()` (per-counterparty/currency/group net aggregation); `get_ledger_counterparty_profiles()` and `get_ledger_currency_names()` (two new relationship-gated read helpers — a balance's counterparty or currency isn't always visible via friendship/ownership RLS alone, since bets don't require friendship and a currency only has to be visible to its creator). `_finalize_bet_resolution()` (Milestone 8) and `approve_manual_obligation()` (Milestone 10) both extended via `CREATE OR REPLACE FUNCTION` to post ledger entries on resolution/approval, closing the two seams both milestones deliberately left open — a tie posts no entries. Pro-rata payout formula generalizes BET-05's funding-guarantee math to N-way settlement, verified against the PRD's own §5.3 worked example. `src/lib/ledger.ts`, `src/hooks/use-ledger.ts` (`useMyBalances`, `useLedgerEntriesBetween`), a new `/balances` screen (BAL-01 consolidated list + BAL-02 tap-to-drill-down into source ledger entries), and the Home screen's Balances card now shows real data instead of a placeholder.
+
+14 pgTAP assertions; live-verified end-to-end with two real accounts (proposed and approved a manual obligation, watched the ledger entry appear on both the Home card and the `/balances` drill-down with the correct direction and source label). Full detail in `PROJECT_STATUS.md`. Branch `milestone-9-ledger-balances`.
+
+Not done: no dedicated redemption/forgiveness UI yet (that's Milestone 11's `entry_type`s — the enum values exist, nothing writes them yet); the bet-settlement ledger path itself is RPC/pgTAP-verified only, not live-clicked through, since it requires resolving a bet the way Milestone 8 already exercised live and re-doing that wasn't the point of this pass.
 
 ### Milestone 10 — Manual obligations & adjustments — **done** (2026-07-18)
 
