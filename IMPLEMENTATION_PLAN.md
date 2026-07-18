@@ -16,7 +16,7 @@ Rule for all milestones: complete and test one before starting the next. Each mi
 | 5   | Currencies — **done**                                            | 1          | §5.1                                          |
 | 6   | Bet engine core (draft → versions → approvals)                   | 4, 5       | BET-01..10                                    |
 | 7   | Bet cancellation                                                 | 6          | §5.2                                          |
-| 8   | Resolution & disputes                                            | 6          | RES-01..07 (needs Decision #2 resolved first) |
+| 8   | Resolution & disputes                                            | 6          | RES-01..07                                    |
 | 9   | Ledger & balances                                                | 8          | BAL-01, 02, 08; §5.5                          |
 | 10  | Manual obligations & adjustments                                 | 4, 5       | BAL-03, 04                                    |
 | 11  | Redemption & forgiveness                                         | 9          | BAL-05..07                                    |
@@ -84,10 +84,9 @@ Not done / tracked follow-ups: `DECISIONS.md` #6 (email confirmation currently O
 
 ### Milestone 8 — Resolution & disputes
 
-**Blocked on Decision #2 (random fallback) being resolved.**
+Unblocked (2026-07-18) — see `DECISIONS.md` "Decided" section for the resolved random-fallback approach.
 
-- I can do directly, once Decision #2 is settled: result submission/confirmation tables, `submit_bet_result()`, `confirm_bet_result()`, `dispute_resolutions`, `resolve_dispute()`, disputed-state UI, judge/group-vote fallback UI.
-- Needs you: pick option (a) or (b) in `DECISIONS.md` #2.
+- I can do directly: result submission/confirmation tables, `submit_bet_result()`, `confirm_bet_result()`, `dispute_resolutions`, `resolve_dispute()`, disputed-state UI, judge/group-vote/random-fallback UI (including the toggle + disclosure copy at bet creation).
 
 ### Milestone 9 — Ledger & balances
 
