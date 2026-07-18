@@ -120,6 +120,22 @@ Known, tracked gaps (see `DECISIONS.md` #6 and #7):
 
 Pushed to GitHub (`origin/master`). **CI has run and is currently failing** on both pushes so far — `tsc --noEmit` errors on `import '@/global.css'` in `src/constants/theme.ts` because CI never regenerates the gitignored `expo-env.d.ts`/`.expo/types/**` that `tsconfig.json` depends on for that ambient module type (works locally only because those files already exist on disk from a prior `expo start`). Needs a CI-workflow fix (e.g. a step to regenerate those types before typecheck, or committing a small dedicated `.d.ts` for the CSS module declaration) — not yet fixed as of this writeup.
 
+## Milestone 10 — Manual obligations & adjustments — done (2026-07-18)
+
+Built independently on branch `milestone-10-manual-obligations`, in parallel with live work on Milestone 6 elsewhere — see that branch's own history for the actual commit(s). Summary:
+
+Shipped: `manual_obligation_proposals` table + `propose_manual_obligation()` / `approve_manual_obligation()` / `decline_manual_obligation()` / `cancel_manual_obligation()` RPCs (RPC-only, per `ARCHITECTURE.md` §6); a pgTAP behavior test covering the full propose/approve/decline/cancel lifecycle, RLS boundaries, and validation errors; an Obligations screen reachable from Friends.
+
+Verified: `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:db`, `npm run format:check` all pass. **Not live-verified in a browser** — no browser available in this environment.
+
+Deliberately deferred / scoped down (see `IMPLEMENTATION_PLAN.md`'s Milestone 10 entry for the full reasoning):
+
+- No ledger write yet — `ledger_entries` doesn't exist until Milestone 9. Approved obligations sit in `approved` state, ready for that wiring once it lands.
+- Scoped to friends only (an accepted friendship is required between the two parties), not general group members.
+- Currency choice is restricted to built-ins or shared-group currencies — a party's personal currency was deliberately excluded, since the other party's own `currencies` RLS wouldn't let them see it to render it.
+
+Did **not** run `supabase db push` from this branch, to avoid colliding with the concurrent Milestone 6 work's real pushes — the real push against `noshot-dev` is left for whenever this branch gets merged and reviewed.
+
 ## Milestone status
 
 | #    | Milestone                                | Status                                                                  |

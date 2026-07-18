@@ -18,7 +18,7 @@ Rule for all milestones: complete and test one before starting the next. Each mi
 | 7   | Bet cancellation                                                 | 6          | §5.2                                          |
 | 8   | Resolution & disputes                                            | 6          | RES-01..07 (needs Decision #2 resolved first) |
 | 9   | Ledger & balances                                                | 8          | BAL-01, 02, 08; §5.5                          |
-| 10  | Manual obligations & adjustments                                 | 4, 5       | BAL-03, 04                                    |
+| 10  | Manual obligations & adjustments — **done**                      | 4, 5       | BAL-03, 04                                    |
 | 11  | Redemption & forgiveness                                         | 9          | BAL-05..07                                    |
 | 12  | Social layer (comments, chat, polls, proof)                      | 6, 4       | SOC-01..06                                    |
 | 13  | Trust & safety (reports, moderation, admin)                      | 12         | MOD-01..06                                    |
@@ -93,9 +93,13 @@ Not done / tracked follow-ups: `DECISIONS.md` #6 (email confirmation currently O
 
 - I can do directly: `ledger_entries` (append-only, trigger-enforced), `obligation_allocations`, atomic ledger writes inside `confirm_bet_result()`/`resolve_dispute()`, balance-aggregation queries/views, Balances UI with drill-down to source events, per-currency separation (never cross-currency netting), CAD/USD kept separate.
 
-### Milestone 10 — Manual obligations & adjustments
+### Milestone 10 — Manual obligations & adjustments — **done** (2026-07-18)
 
-- I can do directly: `manual_obligation_proposals`, propose/approve RPCs (ledger entries only after all affected approvals), UI.
+Shipped: `supabase/migrations/20260718100000_manual_obligations.sql` (`manual_obligation_proposals` table, RPC-only per `ARCHITECTURE.md` §6, friends-only scope, builtin-or-shared-group currency scope); `propose_manual_obligation()`, `approve_manual_obligation()`, `decline_manual_obligation()`, `cancel_manual_obligation()`; `supabase/tests/manual_obligations.test.sql`; `src/lib/manual-obligation.ts`, `src/hooks/use-manual-obligations.ts`, `src/app/obligations.tsx` (reachable via a "Manual obligations" button on the Friends screen); a new `obligations` semantic icon.
+
+Verified: `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:db`, `npm run format:check` all pass. Behavior test covers propose/approve/decline/cancel, the proposer being unable to approve their own proposal, RLS (uninvolved user sees nothing, anon has zero table access), direct-insert denial, non-friend rejection, currency-not-shared rejection, non-positive-amount rejection, and blocking canceling the friendship (and thus blocking new proposals). **Not live-verified in a browser** — no browser available in this environment, same gap as every other native/UI-only surface in this project.
+
+Deliberately deferred: this does **not** write to a ledger — `ledger_entries` doesn't exist yet (Milestone 9). An approved row sits in `approved` state; wiring the actual balance-affecting write is left for whenever Milestone 9 lands. Also scoped narrower than the milestone's original one-line description: obligations are friends-only (not group-scoped) and can only use built-in or shared-group currencies, not a party's personal currency — see the migration's comments for why (a personal currency would be invisible to the other party under currencies' own RLS). Flagging both as judgment calls worth a second look, not settled facts.
 
 ### Milestone 11 — Redemption & forgiveness
 

@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -67,6 +67,10 @@ export default function FriendsScreen() {
         Back
       </Button>
       <ThemedText type="headingXL">Friends</ThemedText>
+
+      <Link href="/obligations" asChild>
+        <Button variant="outline">Manual obligations</Button>
+      </Link>
 
       {profile ? <InviteQrCard username={profile.username} /> : null}
 
