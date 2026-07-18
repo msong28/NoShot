@@ -1,5 +1,13 @@
 export type BetStatus =
-  'draft' | 'pending_acceptance' | 'active' | 'cancellation_pending' | 'voided';
+  | 'draft'
+  | 'pending_acceptance'
+  | 'active'
+  | 'cancellation_pending'
+  | 'voided'
+  | 'pending_result'
+  | 'disputed'
+  | 'resolved'
+  | 'tied';
 
 export type BetVersionStatus = 'draft' | 'proposed' | 'approved';
 
@@ -26,6 +34,7 @@ export type Bet = {
   created_at: string;
   activated_at: string | null;
   resolved_at: string | null;
+  resolved_outcome_key: string | null;
 };
 
 export type BetSide = {
@@ -76,6 +85,46 @@ export type BetCancellationApproval = {
   reason: string | null;
   created_at: string;
 };
+
+export type BetResultSubmission = {
+  id: string;
+  bet_id: string;
+  submitter_id: string;
+  proposed_outcome_key: string;
+  rationale: string | null;
+  created_at: string;
+};
+
+export type BetResultConfirmation = {
+  id: string;
+  bet_id: string;
+  result_submission_id: string;
+  user_id: string;
+  decision: BetApprovalDecision;
+  created_at: string;
+};
+
+export type BetDisputeVote = {
+  id: string;
+  bet_id: string;
+  voter_id: string;
+  outcome_key: string;
+  created_at: string;
+};
+
+export type DisputeResolution = {
+  id: string;
+  bet_id: string;
+  eligible_outcomes_json: string[] | null;
+  resolution_method: BetResolutionMethod;
+  judge_or_vote_snapshot_json: Record<string, unknown> | null;
+  selected_outcome_key: string;
+  created_at: string;
+};
+
+/** Reserved outcome key always valid for a result, independent of whatever
+ * sides exist on the bet -- see the resolution migration's own comment. */
+export const TIE_OUTCOME_KEY = 'tie';
 
 export const ResolutionMethods: { value: BetResolutionMethod; label: string }[] = [
   { value: 'participant_submission', label: 'Either of us reports the result' },
