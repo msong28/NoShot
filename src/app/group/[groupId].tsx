@@ -1,9 +1,11 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { CategoryPicker } from '@/components/category-picker';
 import { PollCard } from '@/components/poll-card';
 import { PollCreateForm } from '@/components/poll-create-form';
+import { ReportDialog } from '@/components/report-dialog';
 import { ThemedText } from '@/components/themed-text';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -14,6 +16,7 @@ import { Screen } from '@/components/ui/screen';
 import { SectionHeader } from '@/components/ui/section-header';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { TextField } from '@/components/ui/text-field';
+import { Spacing } from '@/constants/theme';
 import type { CurrencyCategory } from '@/lib/currency';
 import { useChatAuthorProfiles, useChatMessages, usePostChatMessage } from '@/hooks/use-chat';
 import { useCreateCurrency, useCurrencies } from '@/hooks/use-currencies';
@@ -59,6 +62,7 @@ export default function GroupDetailScreen() {
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [chatBody, setChatBody] = useState('');
   const [chatError, setChatError] = useState<string | null>(null);
+  const [reportChatMessageId, setReportChatMessageId] = useState<string | null>(null);
 
   const me = members.find((row) => row.profile.id === userId);
   const isOwner = me?.member.role === 'owner' && me.member.status === 'active';
@@ -114,9 +118,14 @@ export default function GroupDetailScreen() {
               title={author?.display_name ?? 'Someone'}
               subtitle={message.body}
               trailing={
-                message.moderation_status === 'pending_review' ? (
-                  <StatusBadge label="Pending review" variant="warning" />
-                ) : undefined
+                <View style={styles.chatTrailing}>
+                  {message.moderation_status === 'pending_review' ? (
+                    <StatusBadge label="Pending review" variant="warning" />
+                  ) : null}
+                  <Button variant="ghost" onPress={() => setReportChatMessageId(message.id)}>
+                    Report
+                  </Button>
+                </View>
               }
             />
           );
@@ -267,6 +276,21 @@ export default function GroupDetailScreen() {
         }}
         onCancel={() => setShowArchiveConfirm(false)}
       />
+
+      <ReportDialog
+        visible={reportChatMessageId !== null}
+        targetType="chat_message"
+        targetId={reportChatMessageId}
+        onClose={() => setReportChatMessageId(null)}
+      />
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  chatTrailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+});

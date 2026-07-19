@@ -1,15 +1,42 @@
 # NoShot — Project Status
 
-Last updated: 2026-07-22 (Milestones 12 and 14 — social layer and account deletion, both done and live-verified, merged together).
+Last updated: 2026-07-18 (Milestone 13 — trust & safety, my scope — built and fully tested locally; not yet pushed to `noshot-dev`).
 
 ## Where things stand
 
-- Milestones 0–12 and 14 are complete (Apple sign-in within Milestone 2 is built but still not live-verified — no iOS simulator/device available in this environment). Milestone 13 (trust & safety) is in progress on the cofounder's own branch; Milestone 14 was built out of order, in parallel, since it has no dependency on the ledger or social layer existing. See below for detail; earlier milestones are further down this file.
-- Real Supabase project is live and linked: `noshot-dev` (ref `tckpbwvzxxovnsvdtwee`). `profiles`, `friendships`, `blocks`, `username_search_log`, `groups`, `group_members`, `currencies`, `bets`/`bet_versions`/`bet_sides`/`bet_participants`/`bet_commitments`/`bet_approvals`/`bet_cancellation_approvals`/`bet_result_submissions`/`bet_result_confirmations`/`bet_dispute_votes`/`dispute_resolutions`, `manual_obligation_proposals`, `ledger_entries`, `redemption_requests`, `forgiveness_events`, `obligation_allocations`, `comments`, `chat_messages`, `polls`/`poll_options`/`poll_votes`, and `proof_assets` tables + RLS are all deployed to it, along with a private `proof-assets` Storage bucket and its own RLS policies, and `delete_account_request()`.
+- Milestones 0–12 and 14 are complete (Apple sign-in within Milestone 2 is built but still not live-verified — no iOS simulator/device available in this environment). Milestone 13 (trust & safety) is now done for the MOD-01/03/04/05/06 scope covered here, built on `milestone-13-trust-safety` off master; MOD-02 (blocking enforcement) remains separate, per this milestone's own guardrail against touching bets/currencies/comments/chat_messages/poll RLS. Milestone 14 was built out of order, in parallel, since it has no dependency on the ledger or social layer existing. See below for detail; earlier milestones are further down this file.
+- **Cofounder coordination needed before pushing Milestone 13's migrations**: `IMPLEMENTATION_PLAN.md` records that the cofounder was independently building this exact scope (reports, automated-check coverage, admin dashboard, audit log) on their own branch. That branch isn't on the `origin` remote as of this writing, so it couldn't be checked for overlap before starting. Confirm with the cofounder before pushing `20260723090000_admin_users.sql` through `20260723093000_moderation_actions.sql` to `noshot-dev` — same category of near-miss this file already documents twice above (the account-deletion revert and the `comments_chat`/`account_deletion` timestamp collision).
+- Real Supabase project is live and linked: `noshot-dev` (ref `tckpbwvzxxovnsvdtwee`). `profiles`, `friendships`, `blocks`, `username_search_log`, `groups`, `group_members`, `currencies`, `bets`/`bet_versions`/`bet_sides`/`bet_participants`/`bet_commitments`/`bet_approvals`/`bet_cancellation_approvals`/`bet_result_submissions`/`bet_result_confirmations`/`bet_dispute_votes`/`dispute_resolutions`, `manual_obligation_proposals`, `ledger_entries`, `redemption_requests`, `forgiveness_events`, `obligation_allocations`, `comments`, `chat_messages`, `polls`/`poll_options`/`poll_votes`, and `proof_assets` tables + RLS are all deployed to it, along with a private `proof-assets` Storage bucket and its own RLS policies, and `delete_account_request()`. **Not yet deployed**: Milestone 13's `admin_users`, `reports`, and `moderation_actions` — the CLI in this environment isn't logged in (`supabase login` needed), and pushing schema to a live shared project the cofounder may also be pushing to is exactly the kind of action to confirm first, not do unilaterally.
 - CI is green (fixed in an earlier session — see git history if you need the detail; this file no longer tracks it as an open item).
 - Master, `milestone-6-bet-engine`, `milestone-7-bet-cancellation`, `milestone-8-resolution-disputes`, `milestone-9-ledger-balances`, `milestone-10-manual-obligations`, `milestone-11-redemption-forgiveness`, `milestone-12-social-layer`, and `delete-accounts` (Milestone 14) are all merged together on `master`.
 - Note for the historical record: this branch pair had two near-miss collisions caught during merge, neither of which reached the live database incorrectly. (1) On 2026-07-18, the ledger/redemption branch briefly pushed its own `delete_account_request()` and a `profiles_guard_deletion` trigger straight to `noshot-dev` by mistake, then reverted it the same day (`20260721091500_revert_account_deletion.sql`) once the scope overlap with this branch was caught. (2) When merging Milestone 12 and Milestone 14 together, both branches had independently created a migration file timestamped `20260722090000` (`comments_chat.sql` vs. `account_deletion.sql`) — different filenames, so git itself didn't conflict, but Supabase's migration tracking keys off the leading timestamp, not the filename, so pushing both as-is would have caused the second one to silently no-op (the CLI would see that version already applied and skip it, never actually creating its tables). Caught before pushing; Milestone 14's migration was renamed to `20260722120000_account_deletion.sql` to resolve it.
 - Planning docs: `ARCHITECTURE.md`, `DECISIONS.md`, `IMPLEMENTATION_PLAN.md`, this file.
+
+## Milestone 13 — Trust & safety — done, my scope (2026-07-18)
+
+Built on branch `milestone-13-trust-safety` off master. Covers MOD-01, MOD-03/04, MOD-05, MOD-06. **Not** MOD-02 (blocking enforcement) — out of scope per this milestone's own guardrail against touching RLS on bets/currencies/comments/chat_messages/poll tables, since that's being built separately (see the cofounder-coordination note above).
+
+**Pass 1 — Reports (MOD-01):**
+
+- `supabase/migrations/20260723090000_admin_users.sql`: `admin_users` table with zero client grants at all (not even SELECT) and an `is_admin()` `SECURITY DEFINER` helper, the only way any role can check admin status. No self-serve path to become admin — granting the first one is a manual SQL insert against the live project once this is pushed and reconciled with the cofounder's branch.
+- `supabase/migrations/20260723091000_reports.sql`: `reports` (reporter_id, target_type, target_id, reason, details, status, created_at, resolved_at, resolved_by), RPC-only via `submit_report()`, which validates the target row actually exists in the right table per `target_type` before inserting. `target_type` covers exactly the 6 reportable surfaces: bet, currency, comment, chat_message, proof_asset, user.
+- `src/lib/report.ts`, `src/hooks/use-reports.ts`, `src/components/report-dialog.tsx` (one reusable dialog, not six bespoke ones). Wired into `bet/[betId].tsx` (bet header, each comment row, each proof row), `currencies.tsx` (each currency row), `group/[groupId].tsx` (each chat message row), `friends.tsx` (each friend row, alongside the existing Block button) and `invite/[username].tsx` (profile preview, signed-in only).
+
+**Pass 2 — Content filter audit (MOD-03/04):**
+
+- Audited every existing `moderate_text()` call site first rather than assuming gaps: currencies, bet title/description, comments, chat messages, proof captions, and poll _questions_ all already call it. The two real gaps were poll **options** (length-checked only, never moderated) and group **names** (same). `supabase/migrations/20260723092000_moderation_gaps.sql` fixes both via `CREATE OR REPLACE FUNCTION` on `create_poll()`/`create_group()` — same signatures, not edits of the original migrations, so nothing already applied to `noshot-dev` needs touching. Both stay block-only with no `pending_review` queuing tier, matching how bet titles and poll questions already behave (neither `polls` nor `groups` carries a `moderation_status` column).
+
+**Pass 3 — Admin dashboard (MOD-05) + Audit log (MOD-06):**
+
+- `supabase/migrations/20260723093000_moderation_actions.sql`: `moderation_actions`, append-only via the exact `ledger_entries` pattern (`BEFORE UPDATE/DELETE` triggers that unconditionally raise, no update/delete grant to any client role). Every row snapshots `target_type`/`target_id` from the report at write time rather than joining live, so the audit record stays self-contained. Four admin RPCs, all `is_admin()`-gated and each writing exactly one audit row atomically with its effect: `admin_remove_content()` (sets `moderation_status = 'blocked'` — supports `comment`/`chat_message`/`proof_asset`/`currency`, the four target types with a moderation-status column; rejects `bet`/`user`), `admin_suspend_user()` (resolves the responsible user from the report — the target itself for a `user` report, otherwise the content's author/uploader/creator/owner — and sets `profiles.status = 'suspended'`, an enum value that's been sitting unused since Milestone 4; no cross-RPC enforcement wired in, that's MOD-02), `admin_resolve_report()`/`admin_dismiss_report()`. `get_report_evidence()` returns the reported content as jsonb, bypassing the target table's own RLS — the only way an admin can review a chat message in a group they're not in, or a comment on a bet they're not part of.
+- `src/app/(admin)/` route group: `_layout.tsx` calls `is_admin()` and redirects non-admins to `/` — UX only, since every RPC and the `reports_select` RLS policy independently re-check `is_admin()` server-side regardless of what the client does. `index.tsx` (report queue, filterable by open/resolved/dismissed/all), `report/[reportId].tsx` (detail, evidence, and the four actions each behind a confirmation dialog with an optional audit note). `src/hooks/use-admin.ts`.
+
+Verification performed:
+
+- `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:db` all pass — twenty pgTAP-style suites run together against one fresh database with no conflicts. (`npm install` was needed first — `expo-image-manipulator`/`expo-image-picker` from Milestone 12 weren't in this environment's `node_modules` yet.)
+- New test files, no edits to any existing migration or test file: `reports.test.sql` (submission across all 6 target types, nonexistent-target and overlong-details rejection, RLS visibility for reporter/admin/uninvolved, `admin_users` zero-access even for an admin), `moderation_gaps.test.sql` (blocked-tier rejection and clean-input acceptance for both poll options and group names, plus proof that a rejected poll option leaves no partial poll row behind), `admin_moderation.test.sql` (non-admin rejection on every admin RPC, all four content-removal branches plus the bet/user rejection, both suspend-user paths including the no-individual-owner rejection for a group-owned currency, double-resolve rejection, append-only enforcement, evidence-for-a-deleted-target error handling).
+- `npx expo export --platform web` statically rendered every route including the new `(admin)` group and `report/[reportId]` with zero bundler errors; a local `expo start --web` dev server served both `/` and `/report/[id]` with 200s and no console errors in the server log.
+- **Not live-verified against `noshot-dev`**: these migrations aren't pushed yet (see the cofounder-coordination note above), so there's no live admin account to click through the dashboard with. Everything above is local pgTAP + typecheck + static-render coverage; a real end-to-end click-through (submit a report as one account, act on it as an admin) should happen once the migrations are actually live and a first `admin_users` row exists.
 
 ## Milestone 12 — Social layer — done (2026-07-22)
 
@@ -298,27 +325,28 @@ Did **not** run `supabase db push` from this branch, to avoid colliding with the
 
 ## Milestone status
 
-| #     | Milestone                                | Status                                                                  |
-| ----- | ---------------------------------------- | ----------------------------------------------------------------------- |
-| 0     | Repo & tooling foundation                | Done                                                                    |
-| 1     | Supabase bootstrap + email/password auth | Done — see below                                                        |
-| 2     | Google + Apple sign-in                   | Google done & verified live; Apple built, unverified (no iOS simulator) |
-| 3     | Friends & blocks                         | Done — committed and pushed                                             |
-| 4     | Groups & membership                      | Done — committed and pushed                                             |
-| 5     | Currencies                               | Done — committed and pushed                                             |
-| 6     | Bet engine core                          | Done and live-verified — see above. Direct 1:1 creation UI only so far. |
-| 7     | Bet cancellation                         | Done — merged to master                                                 |
-| 8     | Resolution & disputes                    | Done — merged to master                                                 |
-| 9     | Ledger & balances                        | Done — merged to master                                                 |
-| 10    | Manual obligations & adjustments         | Done — merged to master                                                 |
-| 11    | Redemption & forgiveness                 | Done — merged to master                                                 |
-| 12    | Social layer                             | Done — merged to master                                                 |
-| 13    | Trust & safety                           | In progress — on cofounder's own branch                                 |
-| 14    | Account deletion & privacy               | Done — merged to master                                                 |
-| 15–16 | See `IMPLEMENTATION_PLAN.md`             | Not started                                                             |
+| #     | Milestone                                | Status                                                                           |
+| ----- | ---------------------------------------- | -------------------------------------------------------------------------------- |
+| 0     | Repo & tooling foundation                | Done                                                                             |
+| 1     | Supabase bootstrap + email/password auth | Done — see below                                                                 |
+| 2     | Google + Apple sign-in                   | Google done & verified live; Apple built, unverified (no iOS simulator)          |
+| 3     | Friends & blocks                         | Done — committed and pushed                                                      |
+| 4     | Groups & membership                      | Done — committed and pushed                                                      |
+| 5     | Currencies                               | Done — committed and pushed                                                      |
+| 6     | Bet engine core                          | Done and live-verified — see above. Direct 1:1 creation UI only so far.          |
+| 7     | Bet cancellation                         | Done — merged to master                                                          |
+| 8     | Resolution & disputes                    | Done — merged to master                                                          |
+| 9     | Ledger & balances                        | Done — merged to master                                                          |
+| 10    | Manual obligations & adjustments         | Done — merged to master                                                          |
+| 11    | Redemption & forgiveness                 | Done — merged to master                                                          |
+| 12    | Social layer                             | Done — merged to master                                                          |
+| 13    | Trust & safety                           | Done (my scope: MOD-01, 03-06) — not yet pushed to `noshot-dev`; MOD-02 separate |
+| 14    | Account deletion & privacy               | Done — merged to master                                                          |
+| 15–16 | See `IMPLEMENTATION_PLAN.md`             | Not started                                                                      |
 
 ## Open items waiting on you
 
+- Milestone 13's migrations (`20260723090000_admin_users.sql` through `20260723093000_moderation_actions.sql`) are written and fully tested locally but **not pushed to `noshot-dev`** — this environment's Supabase CLI isn't logged in, and even once it is, coordinate with the cofounder first given the scope overlap `IMPLEMENTATION_PLAN.md` already records. Once pushed, the first `admin_users` row needs a manual SQL insert (no self-serve admin signup by design) before the admin dashboard is reachable by anyone.
 - Three disposable `noshot-*-verify*@example.com` test accounts created for Milestone 14's live verification are now sitting in a correctly-anonymized `deleted` state in `noshot-dev` — harmless, same category of dev-project clutter as the other test accounts below, no action needed.
 - Apple sign-in needs testing on a real device or simulator whenever you have one available — the code path has never actually run.
 - Native iOS/Android still has zero live verification across every milestone to date — web is the only platform actually driven in a real browser so far. Worth a native smoke test before the app gets much bigger. This matters more now that Milestone 12 added a native-only path (image picker/compression) that's only been doc/pgTAP-verified, never actually clicked through.

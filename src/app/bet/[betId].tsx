@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { PollCard } from '@/components/poll-card';
 import { PollCreateForm } from '@/components/poll-create-form';
+import { ReportDialog } from '@/components/report-dialog';
 import { ThemedText } from '@/components/themed-text';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ import {
   type BetApprovalDecision,
 } from '@/lib/bet';
 import { getErrorMessage } from '@/lib/errors';
+import type { ReportTargetType } from '@/lib/report';
 
 const RESULT_ELIGIBLE_STATUSES = ['active', 'pending_result', 'disputed', 'resolved', 'tied'];
 
@@ -88,6 +90,10 @@ export default function BetDetailScreen() {
   const [voteOutcomeKey, setVoteOutcomeKey] = useState<string | null>(null);
   const [commentBody, setCommentBody] = useState('');
   const [proofCaption, setProofCaption] = useState('');
+  const [reportTarget, setReportTarget] = useState<{
+    type: ReportTargetType;
+    id: string;
+  } | null>(null);
 
   const me = roster.find((row) => row.participant.user_id === userId);
   const myApproval = me?.approval;
@@ -268,7 +274,12 @@ export default function BetDetailScreen() {
         Back
       </Button>
       <ThemedText type="headingXL">{bet.title}</ThemedText>
-      <StatusBadge label={bet.status.replace('_', ' ')} variant={statusVariant} />
+      <View style={styles.betHeaderRow}>
+        <StatusBadge label={bet.status.replace('_', ' ')} variant={statusVariant} />
+        <Button variant="ghost" onPress={() => setReportTarget({ type: 'bet', id: bet.id })}>
+          Report
+        </Button>
+      </View>
       {bet.description ? (
         <ThemedText type="body" themeColor="textSecondary">
           {bet.description}
@@ -613,9 +624,17 @@ export default function BetDetailScreen() {
               <Image source={{ uri: signedUrl }} style={styles.proofImage} contentFit="cover" />
             ) : null}
             {asset.caption ? <ThemedText type="bodySM">{asset.caption}</ThemedText> : null}
-            {asset.moderation_status === 'pending_review' ? (
-              <StatusBadge label="Pending review" variant="warning" />
-            ) : null}
+            <View style={styles.proofFooter}>
+              {asset.moderation_status === 'pending_review' ? (
+                <StatusBadge label="Pending review" variant="warning" />
+              ) : null}
+              <Button
+                variant="ghost"
+                onPress={() => setReportTarget({ type: 'proof_asset', id: asset.id })}
+              >
+                Report
+              </Button>
+            </View>
           </Card>
         ))
       )}
@@ -665,9 +684,17 @@ export default function BetDetailScreen() {
             title={author?.display_name ?? 'Someone'}
             subtitle={comment.body}
             trailing={
-              comment.moderation_status === 'pending_review' ? (
-                <StatusBadge label="Pending review" variant="warning" />
-              ) : undefined
+              <View style={styles.commentTrailing}>
+                {comment.moderation_status === 'pending_review' ? (
+                  <StatusBadge label="Pending review" variant="warning" />
+                ) : null}
+                <Button
+                  variant="ghost"
+                  onPress={() => setReportTarget({ type: 'comment', id: comment.id })}
+                >
+                  Report
+                </Button>
+              </View>
             }
           />
         ))
@@ -685,6 +712,13 @@ export default function BetDetailScreen() {
           </Button>
         </View>
       ) : null}
+
+      <ReportDialog
+        visible={reportTarget !== null}
+        targetType={reportTarget?.type ?? 'bet'}
+        targetId={reportTarget?.id ?? null}
+        onClose={() => setReportTarget(null)}
+      />
     </Screen>
   );
 }
@@ -711,5 +745,20 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 220,
     borderRadius: Radii.medium,
+  },
+  betHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  proofFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  commentTrailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
   },
 });
