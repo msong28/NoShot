@@ -22,7 +22,7 @@ Rule for all milestones: complete and test one before starting the next. Each mi
 | 11  | Redemption & forgiveness — **done**                              | 9          | BAL-05..07           |
 | 12  | Social layer (comments, chat, polls, proof)                      | 6, 4       | SOC-01..06           |
 | 13  | Trust & safety (reports, moderation, admin)                      | 12         | MOD-01..06           |
-| 14  | Account deletion & privacy                                       | 1          | AUTH-05, §9.5        |
+| 14  | Account deletion & privacy — **done**                            | 1          | AUTH-05, §9.5        |
 | 15  | Accessibility, performance, observability                        | all        | §11, §12             |
 | 16  | Store readiness                                                  | all        | §10.5                |
 
@@ -122,10 +122,11 @@ Scope note: only `bet_settlement` and `manual_obligation` entries are redeemable
 
 - I can do directly: `reports`, `moderation_actions` (append-only), gated admin route group, report queue/actions UI, block enforcement across all surfaces, `audit_events` wiring for all high-value transitions.
 
-### Milestone 14 — Account deletion & privacy
+### Milestone 14 — Account deletion & privacy — **done** (2026-07-22)
 
-- I can do directly: `delete_account_request()`, anonymization workflow, session revocation, in-app deletion flow, privacy-policy/ToS/community-guidelines placeholders clearly marked "NOT LEGAL ADVICE — FOR COUNSEL REVIEW."
-- Needs you: final legal text requires your counsel; I will not draft anything intended to be shipped as-is.
+Built on branch `delete-accounts`, in parallel with the ledger/redemption work on a separate branch (no dependency between them beyond both touching `profiles`). Shipped: `delete_account_request()` (anonymizes rather than hard-deletes, per §9.5's pseudonymized-history requirement); session revocation via a direct `auth.sessions` delete, live-verified against the real project; the in-app deletion flow reachable from Account; privacy-policy/ToS/community-guidelines placeholders, each clearly marked "NOT LEGAL ADVICE — FOR COUNSEL REVIEW." Full detail in `PROJECT_STATUS.md`.
+
+Needs you: final legal text requires your counsel; nothing drafted here is intended to be shipped as-is.
 
 ### Milestone 15 — Accessibility, performance, observability
 

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
+import { SectionHeader } from '@/components/ui/section-header';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useProfile } from '@/hooks/use-profile';
 import { useSession } from '@/hooks/use-session';
@@ -39,6 +40,17 @@ export default function AccountScreen() {
         <Button variant="muted" onPress={() => supabase.auth.signOut()} style={styles.signOut}>
           Sign out
         </Button>
+
+        <SectionHeader title="Legal" />
+        <Link href="/privacy-policy" asChild>
+          <Button variant="ghost">Privacy policy</Button>
+        </Link>
+        <Link href="/terms" asChild>
+          <Button variant="ghost">Terms of service</Button>
+        </Link>
+        <Link href="/community-guidelines" asChild>
+          <Button variant="ghost">Community guidelines</Button>
+        </Link>
 
         <Link href="/delete-account" asChild>
           <Button variant="destructive">Delete account</Button>
