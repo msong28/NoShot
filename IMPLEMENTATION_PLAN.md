@@ -20,7 +20,7 @@ Rule for all milestones: complete and test one before starting the next. Each mi
 | 9   | Ledger & balances — **done**                                     | 8          | BAL-01, 02, 08; §5.5 |
 | 10  | Manual obligations & adjustments — **done**                      | 4, 5       | BAL-03, 04           |
 | 11  | Redemption & forgiveness — **done**                              | 9          | BAL-05..07           |
-| 12  | Social layer (comments, chat, polls, proof)                      | 6, 4       | SOC-01..06           |
+| 12  | Social layer (comments, chat, polls, proof) — **done**           | 6, 4       | SOC-01..06           |
 | 13  | Trust & safety (reports, moderation, admin)                      | 12         | MOD-01..06           |
 | 14  | Account deletion & privacy                                       | 1          | AUTH-05, §9.5        |
 | 15  | Accessibility, performance, observability                        | all        | §11, §12             |
@@ -113,10 +113,23 @@ Scope note: only `bet_settlement` and `manual_obligation` entries are redeemable
 
 18 pgTAP assertions; live-verified end-to-end with two real accounts on the real 3-Chore manual obligation created during Milestone 9's own verification (Alice owed Dave): Alice partially redeemed 1 -- outstanding correctly dropped from 3 to 2 immediately (the reservation counts before confirmation) -- Dave's Home screen surfaced it under "Needs your attention," confirmed it, and the balance correctly dropped to 2 with a "Redemption" entry appearing in history; Dave then forgave the remaining 2, and the balance zeroed out and disappeared from the list entirely, landing on the "All settled up" empty state. Full detail in `PROJECT_STATUS.md`. Branch `milestone-11-redemption-forgiveness`.
 
-### Milestone 12 — Social layer
+### Milestone 12 — Social layer — **done** (2026-07-22)
 
-- I can do directly: `comments`, `chat_messages` + Realtime subscriptions, `polls`/`poll_options`/`poll_votes`, `proof_assets` with private Storage bucket + signed URLs + client-side image compression.
-- Needs you at a dashboard: confirm Storage bucket creation in Supabase (I'll give exact steps) and, if you want push-quality realtime at scale later, review Supabase plan/quota — not required for MVP dev.
+Shipped in three passes on one branch: comments + real-time group chat, then polls, then image proof.
+
+**Comments & chat (SOC-01, SOC-02):** `comments` (bet-scoped -- see scope note below) and `chat_messages` (group-scoped), both gated by a shared `content_moderation_status` enum (approved/pending_review/blocked) driven by Milestone 5's `moderate_text()`, reused rather than duplicated. Visibility for comments extends past participants to the bet's group too (matching GR-05's precedent for proof), which required widening the existing `get_bet_participant_profiles()` (via a follow-up migration, not an edit) so group viewers can resolve comment authors' names. `chat_messages` is added to the `supabase_realtime` publication -- Realtime evaluates each subscriber's own RLS, so no separate authorization layer was needed for the live feed. `post_comment()`/`post_chat_message()` RPCs.
+
+**Polls (SOC-03):** `polls`/`poll_options`/`poll_votes`, genuinely bet-**or**-group scoped per the PRD's explicit text (unlike comments). `create_poll()`, `vote_on_poll()` (re-voting on a single-choice poll replaces the previous vote rather than rejecting it; multi-choice polls allow more than one selection), `close_poll()` (creator-only). Votes aren't anonymous, matching `bet_dispute_votes`' precedent from Milestone 8.
+
+**Image proof (SOC-04, SOC-05):** private `proof-assets` Storage bucket, `proof_assets` table, `upload_proof()` metadata-registration RPC. Client uploads directly to Storage (authorized by `storage.objects` RLS policies keyed off the bet_id encoded in the object path via `storage.foldername()`), then registers the row -- standard two-step Supabase Storage flow. Client-side compression via `expo-image-picker` + `expo-image-manipulator` (resize to 1600px wide, JPEG at 0.7 quality) before upload; viewing goes through short-lived signed URLs (`createSignedUrls`, batched), since the bucket is private. Both new Expo packages' current SDK 57 APIs were checked against the versioned docs before use (the old `ImagePicker.MediaTypeOptions` enum and `manipulateAsync()` are both deprecated in favor of `mediaTypes: ['images']` and the new `ImageManipulator.manipulate()` context API), and the upload technique (`fetch(uri).arrayBuffer()`, not `.blob()`) matches Supabase's own official Expo reference implementation.
+
+Scope notes: `comments` stayed bet-only, not group-scoped, since no functional requirement actually calls for a general group comment thread separate from chat (only SOC-01's per-bet thread is required) -- the column shape still matches the PRD's schema if that's wanted later. `correction`-type ledger entries aside, moderation follows the exact three-tier pattern (block outright / warn+queue as `pending_review` / permit as `approved`) already established for currencies in Milestone 5, extended to comments/chat/proof rather than reinvented.
+
+38 pgTAP assertions across three test files (comments_chat, polls, proof_assets), including a from-scratch `storage` schema stub added to the local test harness (`storage.buckets`/`storage.objects`/`storage.foldername()`) so Storage RLS policies get real local coverage, not just a live-only check. Live-verified end-to-end with real accounts against `noshot-dev`: posted and saw a bet comment; created a bet-scoped poll and voted; created a real group, invited a second account, sent a group chat message from one browser tab and watched it appear in a second tab with zero interaction (proving the Realtime subscription itself, independent of RLS correctness which pgTAP already covers); created a multi-choice group poll and voted for two options at once. **Not live-verified:** the proof-upload flow specifically -- it requires a native OS file-picker dialog that browser automation can't drive (the tooling explicitly warns against attempting it), so this one path relies on the passing pgTAP coverage of the RPC/RLS/Storage-policy layer plus doc-verified API usage instead of a live click-through. Native iOS/Android unverified, same standing gap as every milestone to date.
+
+### Milestone 13 — Trust & safety
+
+- I can do directly: `reports`, `moderation_actions` (append-only), gated admin route group, report queue/actions UI, block enforcement across all surfaces, `audit_events` wiring for all high-value transitions.
 
 ### Milestone 13 — Trust & safety
 

@@ -41,6 +41,25 @@ create table auth.users (id uuid primary key default gen_random_uuid());
 create function auth.uid() returns uuid language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $$;
+create publication supabase_realtime;
+create schema storage;
+grant usage on schema storage to authenticated, anon;
+create table storage.buckets (id text primary key, name text not null, public boolean not null default false);
+create table storage.objects (
+  id uuid primary key default gen_random_uuid(),
+  bucket_id text references storage.buckets (id),
+  name text,
+  owner uuid,
+  created_at timestamptz not null default now()
+);
+alter table storage.objects enable row level security;
+grant select, insert on storage.objects to authenticated;
+grant select, insert on storage.objects to anon;
+-- Real Supabase excludes the filename itself, returning only the folder
+-- segments (e.g. 'a/b/c.jpg' -> {a,b}) -- this stub matches that shape.
+create function storage.foldername(name text) returns text[] language sql immutable as $$
+  select (regexp_split_to_array(name, '/'))[1:greatest(array_length(regexp_split_to_array(name, '/'), 1) - 1, 0)]
+$$;
 SQL
 
 for migration in supabase/migrations/*.sql; do

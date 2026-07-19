@@ -1,7 +1,10 @@
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { PollCard } from '@/components/poll-card';
+import { PollCreateForm } from '@/components/poll-create-form';
 import { ThemedText } from '@/components/themed-text';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -13,7 +16,7 @@ import { Screen } from '@/components/ui/screen';
 import { SectionHeader } from '@/components/ui/section-header';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { TextField } from '@/components/ui/text-field';
-import { Spacing } from '@/constants/theme';
+import { Radii, Spacing } from '@/constants/theme';
 import {
   useApproveBetVersion,
   useApproveCancelBet,
@@ -25,6 +28,9 @@ import {
   useTriggerRandomFallback,
   useVoteOnDispute,
 } from '@/hooks/use-bets';
+import { useComments, usePostComment } from '@/hooks/use-comments';
+import { useClosePoll, useCreatePoll, usePolls, useVoteOnPoll } from '@/hooks/use-polls';
+import { useProofAssets, useUploadProof } from '@/hooks/use-proof';
 import { useSession } from '@/hooks/use-session';
 import {
   ResolutionMethods,
@@ -61,6 +67,15 @@ export default function BetDetailScreen() {
   const resolveDispute = useResolveDispute(betId, userId);
   const voteOnDispute = useVoteOnDispute(betId, userId);
   const triggerRandomFallback = useTriggerRandomFallback(betId, userId);
+  const { comments } = useComments(betId);
+  const postComment = usePostComment(betId);
+  const pollScope = useMemo(() => ({ betId }), [betId]);
+  const { polls } = usePolls(pollScope);
+  const createPoll = useCreatePoll(pollScope);
+  const voteOnPoll = useVoteOnPoll(pollScope);
+  const closePoll = useClosePoll(pollScope);
+  const { assets: proofAssets } = useProofAssets(betId);
+  const uploadProof = useUploadProof(betId, userId);
 
   const [error, setError] = useState<string | null>(null);
   const [showDeclineConfirm, setShowDeclineConfirm] = useState(false);
@@ -71,6 +86,8 @@ export default function BetDetailScreen() {
   const [rationale, setRationale] = useState('');
   const [judgeOutcomeKey, setJudgeOutcomeKey] = useState<string | null>(null);
   const [voteOutcomeKey, setVoteOutcomeKey] = useState<string | null>(null);
+  const [commentBody, setCommentBody] = useState('');
+  const [proofCaption, setProofCaption] = useState('');
 
   const me = roster.find((row) => row.participant.user_id === userId);
   const myApproval = me?.approval;
@@ -200,6 +217,27 @@ export default function BetDetailScreen() {
     setError(null);
     triggerRandomFallback.mutate(undefined, {
       onError: (err) => setError(getErrorMessage(err, 'Something went wrong')),
+    });
+  }
+
+  function runAction(action: Promise<unknown>) {
+    setError(null);
+    action.catch((err: unknown) => setError(getErrorMessage(err, 'Something went wrong')));
+  }
+
+  function handlePostComment() {
+    setError(null);
+    postComment.mutate(commentBody, {
+      onSuccess: () => setCommentBody(''),
+      onError: (err) => setError(getErrorMessage(err, 'Failed to post comment')),
+    });
+  }
+
+  function handleAddProof() {
+    setError(null);
+    uploadProof.mutate(proofCaption.trim() || undefined, {
+      onSuccess: () => setProofCaption(''),
+      onError: (err) => setError(getErrorMessage(err, 'Failed to upload proof')),
     });
   }
 
@@ -562,6 +600,91 @@ export default function BetDetailScreen() {
         }}
         onCancel={() => setShowRandomFallbackConfirm(false)}
       />
+
+      <SectionHeader title="Proof" />
+      {proofAssets.length === 0 ? (
+        <ThemedText type="bodySM" themeColor="textMuted">
+          No proof uploaded yet.
+        </ThemedText>
+      ) : (
+        proofAssets.map(({ asset, signedUrl }) => (
+          <Card key={asset.id} style={styles.proofCard}>
+            {signedUrl ? (
+              <Image source={{ uri: signedUrl }} style={styles.proofImage} contentFit="cover" />
+            ) : null}
+            {asset.caption ? <ThemedText type="bodySM">{asset.caption}</ThemedText> : null}
+            {asset.moderation_status === 'pending_review' ? (
+              <StatusBadge label="Pending review" variant="warning" />
+            ) : null}
+          </Card>
+        ))
+      )}
+      {me ? (
+        <View style={styles.commentForm}>
+          <TextField
+            label="Caption (optional)"
+            placeholder="What does this show?"
+            value={proofCaption}
+            onChangeText={setProofCaption}
+          />
+          <Button variant="primary" onPress={handleAddProof} disabled={uploadProof.isPending}>
+            Add proof photo
+          </Button>
+        </View>
+      ) : null}
+
+      <SectionHeader title="Polls" />
+      {polls.map(({ poll, options, votes }) => (
+        <PollCard
+          key={poll.id}
+          poll={poll}
+          options={options}
+          votes={votes}
+          userId={userId}
+          onVote={(optionId) => runAction(voteOnPoll.mutateAsync({ pollId: poll.id, optionId }))}
+          onClose={() => runAction(closePoll.mutateAsync(poll.id))}
+        />
+      ))}
+      {me ? (
+        <PollCreateForm
+          disabled={createPoll.isPending}
+          onSubmit={(input) => runAction(createPoll.mutateAsync(input))}
+        />
+      ) : null}
+
+      <SectionHeader title="Comments" />
+      {comments.length === 0 ? (
+        <ThemedText type="bodySM" themeColor="textMuted">
+          No comments yet.
+        </ThemedText>
+      ) : (
+        comments.map(({ comment, author }) => (
+          <ListRow
+            key={comment.id}
+            leading={author ? <Avatar id={author.id} name={author.display_name} /> : undefined}
+            title={author?.display_name ?? 'Someone'}
+            subtitle={comment.body}
+            trailing={
+              comment.moderation_status === 'pending_review' ? (
+                <StatusBadge label="Pending review" variant="warning" />
+              ) : undefined
+            }
+          />
+        ))
+      )}
+      {me ? (
+        <View style={styles.commentForm}>
+          <TextField
+            label="Add a comment"
+            placeholder="Say something"
+            value={commentBody}
+            onChangeText={setCommentBody}
+          />
+          <Button variant="primary" onPress={handlePostComment} disabled={!commentBody.trim()}>
+            Post
+          </Button>
+        </View>
+      ) : null}
     </Screen>
   );
 }
@@ -577,5 +700,16 @@ const styles = StyleSheet.create({
   },
   voteCard: {
     gap: Spacing.half,
+  },
+  commentForm: {
+    gap: Spacing.two,
+  },
+  proofCard: {
+    gap: Spacing.one,
+  },
+  proofImage: {
+    width: '100%',
+    height: 220,
+    borderRadius: Radii.medium,
   },
 });
