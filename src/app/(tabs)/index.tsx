@@ -1,9 +1,10 @@
 import { Link } from 'expo-router';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Avatar } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
+import { CurrencyLabel } from '@/components/ui/currency-label';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
@@ -13,6 +14,8 @@ import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useMyBets } from '@/hooks/use-bets';
 import { useFriends } from '@/hooks/use-friends';
 import { useMyGroups } from '@/hooks/use-groups';
+import { useMyBalances } from '@/hooks/use-ledger';
+import { useMyRedemptions } from '@/hooks/use-redemption';
 import { useSession } from '@/hooks/use-session';
 
 export default function HomeScreen() {
@@ -23,26 +26,48 @@ export default function HomeScreen() {
   const { activeGroups, pendingInvites } = useMyGroups(userId);
   const { activeBets, pendingBets, cancellationPendingBets, resolutionPendingBets, resolvedBets } =
     useMyBets(userId);
+  const { rows: balanceRows } = useMyBalances(userId);
+  const { needsMyConfirmation: redemptionsNeedingConfirmation } = useMyRedemptions(userId);
 
   const attentionCount =
     incomingRequests.length +
     pendingInvites.length +
     pendingBets.length +
     cancellationPendingBets.length +
-    resolutionPendingBets.length;
+    resolutionPendingBets.length +
+    redemptionsNeedingConfirmation.length;
 
   return (
     <Screen bottomInset={BottomTabInset + Spacing.four} topInset={Spacing.six}>
       <ThemedText type="headingXL">Home</ThemedText>
 
-      <Card>
-        <ThemedText type="label" themeColor="textSecondary">
-          Balances
-        </ThemedText>
-        <ThemedText type="bodySM" themeColor="textMuted">
-          Your owed/owing summary by currency will live here once bets and the ledger exist.
-        </ThemedText>
-      </Card>
+      <Link href="/balances" asChild>
+        <Card style={styles.balancesCard}>
+          <ThemedText type="label" themeColor="textSecondary">
+            Balances
+          </ThemedText>
+          {balanceRows.length === 0 ? (
+            <ThemedText type="bodySM" themeColor="textMuted">
+              All settled up.
+            </ThemedText>
+          ) : (
+            balanceRows.slice(0, 3).map(({ balance, counterparty, currency }) => (
+              <View
+                key={`${balance.counterparty_id}:${balance.currency_id}`}
+                style={styles.balanceLine}
+              >
+                <ThemedText type="bodySM" numberOfLines={1} style={styles.balanceName}>
+                  {balance.net_amount > 0 ? 'Owes you: ' : 'You owe: '}
+                  {counterparty?.display_name ?? 'Unknown'}
+                </ThemedText>
+                {currency ? (
+                  <CurrencyLabel quantity={Math.abs(balance.net_amount)} currency={currency} />
+                ) : null}
+              </View>
+            ))
+          )}
+        </Card>
+      </Link>
 
       {attentionCount > 0 ? (
         <>
@@ -91,6 +116,20 @@ export default function HomeScreen() {
                 subtitle={
                   bet.status === 'disputed' ? 'Result disputed' : 'Result awaiting confirmation'
                 }
+                trailing={<StatusBadge label="Review" variant="info" />}
+              />
+            </Link>
+          ))}
+          {redemptionsNeedingConfirmation.map(({ request, counterparty }) => (
+            <Link key={request.id} href="/balances" asChild>
+              <ListRow
+                leading={
+                  counterparty ? (
+                    <Avatar id={counterparty.id} name={counterparty.display_name} />
+                  ) : undefined
+                }
+                title={counterparty?.display_name ?? 'Someone'}
+                subtitle="Says they've settled up -- needs your confirmation"
                 trailing={<StatusBadge label="Review" variant="info" />}
               />
             </Link>
@@ -172,5 +211,17 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   shortcutCard: {
     gap: Spacing.half,
+  },
+  balancesCard: {
+    gap: Spacing.half,
+  },
+  balanceLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  balanceName: {
+    flex: 1,
   },
 });
