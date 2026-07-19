@@ -1,5 +1,10 @@
 export type ModerationTier = 'block' | 'warn' | 'permit';
 
+/** The stored status on a moderated row (comments, chat_messages, proof_assets) --
+ * distinct from ModerationTier, which is the classifier's raw output before
+ * it's mapped onto this column. */
+export type ContentModerationStatus = 'approved' | 'pending_review' | 'blocked';
+
 /**
  * Advisory-only mirror of the server's moderate_text() (see the currencies
  * migration). Gives fast pre-submit feedback in the UI; the database
