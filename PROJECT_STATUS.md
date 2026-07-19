@@ -1,15 +1,33 @@
 # NoShot — Project Status
 
-Last updated: 2026-07-22 (Milestones 12 and 14 — social layer and account deletion, both done and live-verified, merged together).
+Last updated: 2026-07-23 (Milestone 13's blocking-enforcement half — done and live-verified; the rest of Milestone 13 is in progress on the cofounder's own branch).
 
 ## Where things stand
 
-- Milestones 0–12 and 14 are complete (Apple sign-in within Milestone 2 is built but still not live-verified — no iOS simulator/device available in this environment). Milestone 13 (trust & safety) is in progress on the cofounder's own branch; Milestone 14 was built out of order, in parallel, since it has no dependency on the ledger or social layer existing. See below for detail; earlier milestones are further down this file.
+- Milestones 0–12 and 14 are complete (Apple sign-in within Milestone 2 is built but still not live-verified — no iOS simulator/device available in this environment). Milestone 13 (trust & safety) is split across two branches: blocking enforcement (MOD-02) is done, the rest (reports, admin dashboard, audit log) is in progress on the cofounder's own branch. Milestone 14 was built out of order, in parallel, since it has no dependency on the ledger or social layer existing. See below for detail; earlier milestones are further down this file.
 - Real Supabase project is live and linked: `noshot-dev` (ref `tckpbwvzxxovnsvdtwee`). `profiles`, `friendships`, `blocks`, `username_search_log`, `groups`, `group_members`, `currencies`, `bets`/`bet_versions`/`bet_sides`/`bet_participants`/`bet_commitments`/`bet_approvals`/`bet_cancellation_approvals`/`bet_result_submissions`/`bet_result_confirmations`/`bet_dispute_votes`/`dispute_resolutions`, `manual_obligation_proposals`, `ledger_entries`, `redemption_requests`, `forgiveness_events`, `obligation_allocations`, `comments`, `chat_messages`, `polls`/`poll_options`/`poll_votes`, and `proof_assets` tables + RLS are all deployed to it, along with a private `proof-assets` Storage bucket and its own RLS policies, and `delete_account_request()`.
 - CI is green (fixed in an earlier session — see git history if you need the detail; this file no longer tracks it as an open item).
-- Master, `milestone-6-bet-engine`, `milestone-7-bet-cancellation`, `milestone-8-resolution-disputes`, `milestone-9-ledger-balances`, `milestone-10-manual-obligations`, `milestone-11-redemption-forgiveness`, `milestone-12-social-layer`, and `delete-accounts` (Milestone 14) are all merged together on `master`.
-- Note for the historical record: this branch pair had two near-miss collisions caught during merge, neither of which reached the live database incorrectly. (1) On 2026-07-18, the ledger/redemption branch briefly pushed its own `delete_account_request()` and a `profiles_guard_deletion` trigger straight to `noshot-dev` by mistake, then reverted it the same day (`20260721091500_revert_account_deletion.sql`) once the scope overlap with this branch was caught. (2) When merging Milestone 12 and Milestone 14 together, both branches had independently created a migration file timestamped `20260722090000` (`comments_chat.sql` vs. `account_deletion.sql`) — different filenames, so git itself didn't conflict, but Supabase's migration tracking keys off the leading timestamp, not the filename, so pushing both as-is would have caused the second one to silently no-op (the CLI would see that version already applied and skip it, never actually creating its tables). Caught before pushing; Milestone 14's migration was renamed to `20260722120000_account_deletion.sql` to resolve it.
+- Master, `milestone-6-bet-engine`, `milestone-7-bet-cancellation`, `milestone-8-resolution-disputes`, `milestone-9-ledger-balances`, `milestone-10-manual-obligations`, `milestone-11-redemption-forgiveness`, `milestone-12-social-layer`, `delete-accounts` (Milestone 14), and `milestone-13-blocking-enforcement` are all merged together on `master`.
+- Note for the historical record: the Milestone 12/14 branch pair had two near-miss collisions caught during merge, neither of which reached the live database incorrectly. (1) On 2026-07-18, the ledger/redemption branch briefly pushed its own `delete_account_request()` and a `profiles_guard_deletion` trigger straight to `noshot-dev` by mistake, then reverted it the same day (`20260721091500_revert_account_deletion.sql`) once the scope overlap with this branch was caught. (2) When merging Milestone 12 and Milestone 14 together, both branches had independently created a migration file timestamped `20260722090000` (`comments_chat.sql` vs. `account_deletion.sql`) — different filenames, so git itself didn't conflict, but Supabase's migration tracking keys off the leading timestamp, not the filename, so pushing both as-is would have caused the second one to silently no-op (the CLI would see that version already applied and skip it, never actually creating its tables). Caught before pushing; Milestone 14's migration was renamed to `20260722120000_account_deletion.sql` to resolve it.
 - Planning docs: `ARCHITECTURE.md`, `DECISIONS.md`, `IMPLEMENTATION_PLAN.md`, this file.
+
+## Milestone 13 (partial) — Blocking enforcement — done (2026-07-23)
+
+Only MOD-02 of Milestone 13, built on `milestone-13-blocking-enforcement`. The rest of Milestone 13 (MOD-01, MOD-03..06 — reports, admin dashboard, audit log) is being built separately by the cofounder, chosen specifically because it touches none of the same files.
+
+What shipped:
+
+- `supabase/migrations/20260723090000_blocking_enforcement.sql`: blocking has existed since Milestone 3 (`blocks`, `is_blocked_pair()`, `block_user()`/`unblock_user()`) and already overrode friendships and group invites, but nothing built since — the entire bet engine, comments, chat, polls, proof — ever checked it. `create_or_counter_bet()`, `post_comment()`, `create_poll()` (bet-scoped path), `vote_on_poll()` (bet-scoped path), and `upload_proof()` were all extended (via `CREATE OR REPLACE FUNCTION`, verified line-for-line against each function's real original body before editing, not reconstructed from memory) to reject a blocked pair: no two participants can be blocked and co-create a new bet, and none of the bet-scoped social actions can happen between a blocked pair on an _existing_ bet either — a block that happens after a bet already exists still stops new comments/polls/proof on it, since blocking can happen at any point in a bet's life, not just before one exists.
+- `chat_messages_select`'s RLS (`ALTER POLICY`, not a drop/recreate) now also excludes messages from a blocked author — MOD-02's "hides content where feasible" half, scoped specifically to chat since that's the one surface Milestone 4's own code comments already called out ("Block relationships override friendship, invitations, chats, and future discovery"). The filter is symmetric: both the blocker and the blocked party lose visibility of each other's messages, confirmed both directions.
+- `is_blocked_pair()` needed its own direct `grant execute ... to authenticated` for the first time — every prior caller (`send_friend_request()`, `invite_to_group()`, `propose_manual_obligation()`) called it from inside another `SECURITY DEFINER` function body, which executes with the function owner's privileges regardless of grants to `authenticated`. Using it inside an RLS policy's `USING` clause runs as the querying role itself, which needs its own grant.
+- Deliberately did **not** retroactively hide whole bets/comments/polls/proof by block — a bet's ledger entries are exactly the kind of real, still-owed obligation history that needs to stay visible regardless of a later block, the same reasoning Milestone 14's anonymize-not-delete design already established for account deletion. Only the _creation_ of new shared content needed stopping. Currencies needed no changes at all: their visibility is owner/group-scoped, not counterparty-scoped, so there was nothing block-shaped to enforce there — the only realistic "interaction" (using someone's currency in a bet) is already covered by the bet-creation check.
+
+Verification performed:
+
+- `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:db` all pass — fifteen pgTAP suites run together against one fresh database with no conflicts.
+- `supabase/tests/blocking_enforcement.test.sql`: 12 pgTAP assertions — a blocked pair can't co-create a new bet; an unblocked pair still can; commenting/poll-creation/proof-upload are all rejected once a co-participant is blocked, even retroactively on a bet that already existed; the block check is symmetric (rejected from either party's side); a blocked pair can't create a second bet together either; chat is visible normally before any block; a blocked author's messages are hidden from the blocker, retroactively; the filter is symmetric (the blocked party also loses visibility of the blocker); anon still has zero execute access to `is_blocked_pair()`.
+- Live in a real browser against `noshot-dev`, signed in as `davetest4`: blocked `alicetest2` (a real friend) from the Friends screen — friendship correctly removed. Tried posting a new comment on their existing shared "Coin flip" bet: correctly rejected, with "you cannot interact with this bet due to a block" surfacing cleanly through the bet detail screen's existing error banner, with **zero new UI code** required. Tried creating a new bet with Alice from the creation screen: the friend-scoped picker no longer even lists her as an option (a second, independent layer of prevention — blocking already removed the friendship the creation flow depends on), consistent with and reinforcing the RPC-level check pgTAP already proved directly.
+- **Not live-verified**: the chat-visibility-hiding path specifically (no existing live group had a blocked-author message to check against, and generating one wasn't worth the setup given the mechanism is a single-clause RLS change with no new UI code, already covered by dedicated pgTAP assertions in both directions). Native iOS/Android unverified, same standing gap as every milestone to date.
 
 ## Milestone 12 — Social layer — done (2026-07-22)
 
@@ -298,27 +316,28 @@ Did **not** run `supabase db push` from this branch, to avoid colliding with the
 
 ## Milestone status
 
-| #     | Milestone                                | Status                                                                  |
-| ----- | ---------------------------------------- | ----------------------------------------------------------------------- |
-| 0     | Repo & tooling foundation                | Done                                                                    |
-| 1     | Supabase bootstrap + email/password auth | Done — see below                                                        |
-| 2     | Google + Apple sign-in                   | Google done & verified live; Apple built, unverified (no iOS simulator) |
-| 3     | Friends & blocks                         | Done — committed and pushed                                             |
-| 4     | Groups & membership                      | Done — committed and pushed                                             |
-| 5     | Currencies                               | Done — committed and pushed                                             |
-| 6     | Bet engine core                          | Done and live-verified — see above. Direct 1:1 creation UI only so far. |
-| 7     | Bet cancellation                         | Done — merged to master                                                 |
-| 8     | Resolution & disputes                    | Done — merged to master                                                 |
-| 9     | Ledger & balances                        | Done — merged to master                                                 |
-| 10    | Manual obligations & adjustments         | Done — merged to master                                                 |
-| 11    | Redemption & forgiveness                 | Done — merged to master                                                 |
-| 12    | Social layer                             | Done — merged to master                                                 |
-| 13    | Trust & safety                           | In progress — on cofounder's own branch                                 |
-| 14    | Account deletion & privacy               | Done — merged to master                                                 |
-| 15–16 | See `IMPLEMENTATION_PLAN.md`             | Not started                                                             |
+| #     | Milestone                                | Status                                                                                            |
+| ----- | ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 0     | Repo & tooling foundation                | Done                                                                                              |
+| 1     | Supabase bootstrap + email/password auth | Done — see below                                                                                  |
+| 2     | Google + Apple sign-in                   | Google done & verified live; Apple built, unverified (no iOS simulator)                           |
+| 3     | Friends & blocks                         | Done — committed and pushed                                                                       |
+| 4     | Groups & membership                      | Done — committed and pushed                                                                       |
+| 5     | Currencies                               | Done — committed and pushed                                                                       |
+| 6     | Bet engine core                          | Done and live-verified — see above. Direct 1:1 creation UI only so far.                           |
+| 7     | Bet cancellation                         | Done — merged to master                                                                           |
+| 8     | Resolution & disputes                    | Done — merged to master                                                                           |
+| 9     | Ledger & balances                        | Done — merged to master                                                                           |
+| 10    | Manual obligations & adjustments         | Done — merged to master                                                                           |
+| 11    | Redemption & forgiveness                 | Done — merged to master                                                                           |
+| 12    | Social layer                             | Done — merged to master                                                                           |
+| 13    | Trust & safety                           | Blocking enforcement (MOD-02) done — merged to master; rest in progress on cofounder's own branch |
+| 14    | Account deletion & privacy               | Done — merged to master                                                                           |
+| 15–16 | See `IMPLEMENTATION_PLAN.md`             | Not started                                                                                       |
 
 ## Open items waiting on you
 
+- **Dave (`davetest4`) blocked Alice (`alicetest2`) on `noshot-dev`** during Milestone 13's blocking-enforcement live verification — this was a real, deliberate action to prove the feature works, not an accident, but it means their friendship is now gone and Dave's friend-scoped bet creation screen no longer lists Alice. If you want them unblocked for further testing, use `unblock_user()` (already existed, Milestone 3) or the future Blocked Users UI once it's built.
 - Three disposable `noshot-*-verify*@example.com` test accounts created for Milestone 14's live verification are now sitting in a correctly-anonymized `deleted` state in `noshot-dev` — harmless, same category of dev-project clutter as the other test accounts below, no action needed.
 - Apple sign-in needs testing on a real device or simulator whenever you have one available — the code path has never actually run.
 - Native iOS/Android still has zero live verification across every milestone to date — web is the only platform actually driven in a real browser so far. Worth a native smoke test before the app gets much bigger. This matters more now that Milestone 12 added a native-only path (image picker/compression) that's only been doc/pgTAP-verified, never actually clicked through.
