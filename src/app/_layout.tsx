@@ -62,6 +62,7 @@ function RootNavigator() {
         <Stack.Screen name="friends" />
         <Stack.Screen name="currencies" />
         <Stack.Screen name="obligations" />
+        <Stack.Screen name="delete-account" />
         <Stack.Screen name="balances" />
         <Stack.Screen name="group/[groupId]" />
         <Stack.Screen name="bet/[betId]" />
@@ -74,6 +75,12 @@ function RootNavigator() {
           exists, and staying independent of the session guard avoids any
           race with Stack.Protected re-rendering mid-exchange. */}
       <Stack.Screen name="auth-callback" />
+      {/* Legal placeholders stay ungated too -- a store reviewer or a
+          signed-out visitor should be able to read these without an
+          account, same reasoning as the invite preview above. */}
+      <Stack.Screen name="privacy-policy" />
+      <Stack.Screen name="terms" />
+      <Stack.Screen name="community-guidelines" />
     </Stack>
   );
 }

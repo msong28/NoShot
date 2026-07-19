@@ -21,8 +21,8 @@ Rule for all milestones: complete and test one before starting the next. Each mi
 | 10  | Manual obligations & adjustments — **done**                      | 4, 5       | BAL-03, 04           |
 | 11  | Redemption & forgiveness — **done**                              | 9          | BAL-05..07           |
 | 12  | Social layer (comments, chat, polls, proof) — **done**           | 6, 4       | SOC-01..06           |
-| 13  | Trust & safety (reports, moderation, admin)                      | 12         | MOD-01..06           |
-| 14  | Account deletion & privacy                                       | 1          | AUTH-05, §9.5        |
+| 13  | Trust & safety (reports, moderation, admin) — **in progress**    | 12         | MOD-01..06           |
+| 14  | Account deletion & privacy — **done**                            | 1          | AUTH-05, §9.5        |
 | 15  | Accessibility, performance, observability                        | all        | §11, §12             |
 | 16  | Store readiness                                                  | all        | §10.5                |
 
@@ -127,18 +127,15 @@ Scope notes: `comments` stayed bet-only, not group-scoped, since no functional r
 
 38 pgTAP assertions across three test files (comments_chat, polls, proof_assets), including a from-scratch `storage` schema stub added to the local test harness (`storage.buckets`/`storage.objects`/`storage.foldername()`) so Storage RLS policies get real local coverage, not just a live-only check. Live-verified end-to-end with real accounts against `noshot-dev`: posted and saw a bet comment; created a bet-scoped poll and voted; created a real group, invited a second account, sent a group chat message from one browser tab and watched it appear in a second tab with zero interaction (proving the Realtime subscription itself, independent of RLS correctness which pgTAP already covers); created a multi-choice group poll and voted for two options at once. **Not live-verified:** the proof-upload flow specifically -- it requires a native OS file-picker dialog that browser automation can't drive (the tooling explicitly warns against attempting it), so this one path relies on the passing pgTAP coverage of the RPC/RLS/Storage-policy layer plus doc-verified API usage instead of a live click-through. Native iOS/Android unverified, same standing gap as every milestone to date.
 
-### Milestone 13 — Trust & safety
+### Milestone 13 — Trust & safety — **in progress** (on cofounder's own branch)
 
-- I can do directly: `reports`, `moderation_actions` (append-only), gated admin route group, report queue/actions UI, block enforcement across all surfaces, `audit_events` wiring for all high-value transitions.
+- Split between us: the cofounder is building reports (MOD-01), automated-check coverage (MOD-03/04), the admin dashboard (MOD-05), and the audit log (MOD-06). Blocking enforcement (MOD-02) -- retrofitting block-checks into the RLS policies on bets, currencies, comments, chat, and polls, none of which respect an existing block today -- is being done separately, since it touches none of the same files.
 
-### Milestone 13 — Trust & safety
+### Milestone 14 — Account deletion & privacy — **done** (2026-07-22)
 
-- I can do directly: `reports`, `moderation_actions` (append-only), gated admin route group, report queue/actions UI, block enforcement across all surfaces, `audit_events` wiring for all high-value transitions.
+Built on branch `delete-accounts`, in parallel with the ledger/redemption work on a separate branch (no dependency between them beyond both touching `profiles`). Shipped: `delete_account_request()` (anonymizes rather than hard-deletes, per §9.5's pseudonymized-history requirement); session revocation via a direct `auth.sessions` delete, live-verified against the real project; the in-app deletion flow reachable from Account; privacy-policy/ToS/community-guidelines placeholders, each clearly marked "NOT LEGAL ADVICE — FOR COUNSEL REVIEW." Full detail in `PROJECT_STATUS.md`.
 
-### Milestone 14 — Account deletion & privacy
-
-- I can do directly: `delete_account_request()`, anonymization workflow, session revocation, in-app deletion flow, privacy-policy/ToS/community-guidelines placeholders clearly marked "NOT LEGAL ADVICE — FOR COUNSEL REVIEW."
-- Needs you: final legal text requires your counsel; I will not draft anything intended to be shipped as-is.
+Needs you: final legal text requires your counsel; nothing drafted here is intended to be shipped as-is.
 
 ### Milestone 15 — Accessibility, performance, observability
 
