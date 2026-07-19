@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { InviteQrCard } from '@/components/invite-qr-card';
+import { ReportDialog } from '@/components/report-dialog';
 import { ThemedText } from '@/components/themed-text';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,7 @@ export default function FriendsScreen() {
   const [query, setQuery] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
   const [blockTarget, setBlockTarget] = useState<PublicProfile | null>(null);
+  const [reportTargetId, setReportTargetId] = useState<string | null>(null);
 
   useEffect(() => {
     if (query.trim().length < 3) return;
@@ -177,13 +179,25 @@ export default function FriendsScreen() {
             title={friendProfile.display_name}
             subtitle={`@${friendProfile.username}`}
             trailing={
-              <Button variant="muted" onPress={() => setBlockTarget(friendProfile)}>
-                Block
-              </Button>
+              <View style={styles.rowActions}>
+                <Button variant="ghost" onPress={() => setReportTargetId(friendProfile.id)}>
+                  Report
+                </Button>
+                <Button variant="muted" onPress={() => setBlockTarget(friendProfile)}>
+                  Block
+                </Button>
+              </View>
             }
           />
         ))
       )}
+
+      <ReportDialog
+        visible={reportTargetId !== null}
+        targetType="user"
+        targetId={reportTargetId}
+        onClose={() => setReportTargetId(null)}
+      />
 
       <ConfirmationDialog
         visible={blockTarget !== null}

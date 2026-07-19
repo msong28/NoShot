@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ReportDialog } from '@/components/report-dialog';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ export default function InvitePreviewScreen() {
   const sendRequest = useSendFriendRequest(userId);
   const [requestSent, setRequestSent] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [showReport, setShowReport] = useState(false);
 
   const previewQuery = useQuery({
     queryKey: ['invite-preview', username],
@@ -52,6 +54,12 @@ export default function InvitePreviewScreen() {
           @{invitedProfile.username} · {invitedProfile.display_name}
         </ThemedText>
         <ThemedText themeColor="textSecondary">wants to be your friend on NoShot.</ThemedText>
+
+        {session ? (
+          <Button variant="ghost" onPress={() => setShowReport(true)}>
+            Report this profile
+          </Button>
+        ) : null}
 
         {session && ownProfile ? (
           requestSent ? (
@@ -90,6 +98,13 @@ export default function InvitePreviewScreen() {
             </Link>
           </>
         )}
+
+        <ReportDialog
+          visible={showReport}
+          targetType="user"
+          targetId={invitedProfile.id}
+          onClose={() => setShowReport(false)}
+        />
       </>
     );
   })();

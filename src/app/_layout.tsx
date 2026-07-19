@@ -67,6 +67,9 @@ function RootNavigator() {
         <Stack.Screen name="group/[groupId]" />
         <Stack.Screen name="bet/[betId]" />
         <Stack.Screen name="design-system" />
+        {/* MOD-05: reachable once signed in, but (admin)'s own layout
+            redirects anyone who isn't an admin -- see its is_admin() gate. */}
+        <Stack.Screen name="(admin)" />
       </Stack.Protected>
       {/* Not inside any guard above: reachable regardless of auth state, so a
           non-user can preview an invite before creating an account (FR-04). */}
