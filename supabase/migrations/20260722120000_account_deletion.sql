@@ -7,7 +7,7 @@
 -- requirement. Only identity fields are scrubbed here -- friendships,
 -- group memberships, bets, and obligations all keep pointing at this same
 -- profile row, unaffected by this migration.
-create function public.delete_account_request () returns public.profiles language plpgsql security definer
+create or replace function public.delete_account_request () returns public.profiles language plpgsql security definer
 set
   search_path = '' as $$
 declare
