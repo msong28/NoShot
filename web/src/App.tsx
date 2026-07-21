@@ -6,6 +6,7 @@ import { AccountScreen } from '@/routes/account';
 import { ActivityScreen } from '@/routes/activity';
 import { AuthCallbackScreen } from '@/routes/auth-callback';
 import { BetDetailScreen } from '@/routes/bet-detail';
+import { GroupDetailScreen } from '@/routes/group-detail';
 import { GroupsScreen } from '@/routes/groups';
 import { HomeScreen } from '@/routes/home';
 import { ProfileScreen } from '@/routes/profile';
@@ -33,6 +34,7 @@ export function App() {
             <Route path="/groups" element={<GroupsScreen />} />
             <Route path="/account" element={<AccountScreen />} />
             <Route path="/bet/:betId" element={<BetDetailScreen />} />
+            <Route path="/group/:groupId" element={<GroupDetailScreen />} />
           </Route>
 
           <Route element={<ProtectedRoute />}>
