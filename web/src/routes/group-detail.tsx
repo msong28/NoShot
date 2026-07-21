@@ -1,10 +1,15 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
+import { PollCard } from '@/components/poll-card';
+import { PollCreateForm } from '@/components/poll-create-form';
+import { ReportDialog } from '@/components/report-dialog';
+import { StatusBadge } from '@/components/ui/badge';
 import { ConfirmationDialog } from '@/components/ui/confirm-dialog';
 import { InlineError } from '@/components/ui/inline-error';
 import { ListRow } from '@/components/ui/list-row';
 import { SectionHeader } from '@/components/ui/section-header';
+import { useChatAuthorProfiles, useChatMessages, usePostChatMessage } from '@/hooks/use-chat';
 import { useSearchUsername } from '@/hooks/use-friends';
 import {
   useArchiveGroup,
@@ -13,6 +18,7 @@ import {
   useLeaveGroup,
   useRemoveMember,
 } from '@/hooks/use-groups';
+import { useClosePoll, useCreatePoll, usePolls, useVoteOnPoll } from '@/hooks/use-polls';
 import { useSession } from '@/hooks/use-session';
 import { getErrorMessage } from '@/lib/errors';
 
@@ -28,15 +34,33 @@ export function GroupDetailScreen() {
   const archiveGroup = useArchiveGroup(groupId);
   const leaveGroup = useLeaveGroup(userId);
   const searchUsername = useSearchUsername();
+  const chatMessages = useChatMessages(groupId);
+  const chatAuthorProfiles = useChatAuthorProfiles(groupId);
+  const postChatMessage = usePostChatMessage(groupId);
+  const pollScope = useMemo(() => ({ groupId }), [groupId]);
+  const { polls } = usePolls(pollScope);
+  const createPoll = useCreatePoll(pollScope);
+  const voteOnPoll = useVoteOnPoll(pollScope);
+  const closePoll = useClosePoll(pollScope);
 
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pendingArchive, setPendingArchive] = useState(false);
   const [pendingLeave, setPendingLeave] = useState(false);
+  const [chatBody, setChatBody] = useState('');
+  const [reportChatMessageId, setReportChatMessageId] = useState<string | null>(null);
 
   function run(promise: Promise<unknown>) {
     setError(null);
     promise.catch((err: unknown) => setError(getErrorMessage(err, 'Something went wrong')));
+  }
+
+  function handlePostChat() {
+    setError(null);
+    postChatMessage.mutate(chatBody, {
+      onSuccess: () => setChatBody(''),
+      onError: (err) => setError(getErrorMessage(err, 'Failed to send message')),
+    });
   }
 
   if (isLoading || !group) {
@@ -56,6 +80,7 @@ export function GroupDetailScreen() {
 
   const myMembership = members.find((m) => m.member.user_id === userId);
   const isOwner = myMembership?.member.role === 'owner';
+  const isActiveMember = myMembership?.member.status === 'active';
 
   return (
     <main className="mx-auto max-w-app p-four pb-16">
@@ -73,6 +98,79 @@ export function GroupDetailScreen() {
       ) : null}
 
       <InlineError message={error} />
+
+      <SectionHeader title="Chat" />
+      <div className="mt-two flex flex-col gap-two">
+        {(chatMessages.data ?? []).length === 0 ? (
+          <p className="text-sm text-text-faint">
+            {chatMessages.isLoading ? 'Loading…' : 'No messages yet.'}
+          </p>
+        ) : (
+          (chatMessages.data ?? []).map((message) => {
+            const author = chatAuthorProfiles.get(message.author_id);
+            return (
+              <ListRow
+                key={message.id}
+                title={author?.display_name ?? 'Someone'}
+                subtitle={message.body}
+                trailing={
+                  <div className="flex items-center gap-two">
+                    {message.moderation_status === 'pending_review' ? (
+                      <StatusBadge label="Pending review" variant="warning" />
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => setReportChatMessageId(message.id)}
+                      className="font-display text-sm text-text-secondary"
+                    >
+                      Report
+                    </button>
+                  </div>
+                }
+              />
+            );
+          })
+        )}
+        {isActiveMember ? (
+          <div className="flex gap-two">
+            <input
+              placeholder="Say something to the group"
+              value={chatBody}
+              onChange={(e) => setChatBody(e.target.value)}
+              className="flex-1 rounded-medium bg-surface p-three shadow-card"
+            />
+            <button
+              type="button"
+              onClick={handlePostChat}
+              disabled={!chatBody.trim() || postChatMessage.isPending}
+              className="rounded-pill bg-primary px-four py-two font-display font-bold text-on-primary disabled:opacity-60"
+            >
+              Send
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      <SectionHeader title="Polls" />
+      <div className="mt-two flex flex-col gap-two">
+        {polls.map(({ poll, options, votes }) => (
+          <PollCard
+            key={poll.id}
+            poll={poll}
+            options={options}
+            votes={votes}
+            userId={userId}
+            onVote={(optionId) => run(voteOnPoll.mutateAsync({ pollId: poll.id, optionId }))}
+            onClose={() => run(closePoll.mutateAsync(poll.id))}
+          />
+        ))}
+        {isActiveMember ? (
+          <PollCreateForm
+            disabled={createPoll.isPending}
+            onSubmit={(input) => run(createPoll.mutateAsync(input))}
+          />
+        ) : null}
+      </div>
 
       <SectionHeader title="Members" />
       <div className="mt-two flex flex-col gap-two">
@@ -184,6 +282,13 @@ export function GroupDetailScreen() {
           setPendingArchive(false);
         }}
         onCancel={() => setPendingArchive(false)}
+      />
+
+      <ReportDialog
+        visible={reportChatMessageId !== null}
+        targetType="chat_message"
+        targetId={reportChatMessageId}
+        onClose={() => setReportChatMessageId(null)}
       />
     </main>
   );
