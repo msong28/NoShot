@@ -5,6 +5,7 @@ import { queryClient } from '@/lib/query-client';
 import { AccountScreen } from '@/routes/account';
 import { ActivityScreen } from '@/routes/activity';
 import { AuthCallbackScreen } from '@/routes/auth-callback';
+import { BetDetailScreen } from '@/routes/bet-detail';
 import { GroupsScreen } from '@/routes/groups';
 import { HomeScreen } from '@/routes/home';
 import { ProfileScreen } from '@/routes/profile';
@@ -31,6 +32,7 @@ export function App() {
             <Route path="/activity" element={<ActivityScreen />} />
             <Route path="/groups" element={<GroupsScreen />} />
             <Route path="/account" element={<AccountScreen />} />
+            <Route path="/bet/:betId" element={<BetDetailScreen />} />
           </Route>
 
           <Route element={<ProtectedRoute />}>
