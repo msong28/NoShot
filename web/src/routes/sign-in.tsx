@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react';
-import { Navigate } from 'react-router';
+import { Link, Navigate } from 'react-router';
 
 import { Browser } from '@capacitor/browser';
 
 import { useSession } from '@/hooks/use-session';
 import { signInWithProvider } from '@/lib/auth/oauth';
 import { getErrorMessage } from '@/lib/errors';
+import { supabase } from '@/lib/supabase';
 
 export function SignInScreen() {
   const { session, isLoading } = useSession();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingProvider, setPendingProvider] = useState<'google' | 'apple' | null>(null);
 
   useEffect(() => {
@@ -41,6 +45,19 @@ export function SignInScreen() {
     }
   }
 
+  async function handlePasswordSignIn() {
+    setError(null);
+    setIsSubmitting(true);
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    setIsSubmitting(false);
+    if (signInError) setError(signInError.message);
+    // On success, useSession() picks up the new session via onAuthStateChange
+    // and this screen's own Navigate above sends it onward.
+  }
+
   return (
     <main className="mx-auto flex min-h-screen max-w-app flex-col justify-center gap-four p-four">
       <div>
@@ -53,6 +70,38 @@ export function SignInScreen() {
           {error}
         </p>
       )}
+
+      <div className="flex flex-col gap-two">
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          className="rounded-medium bg-surface p-three shadow-card"
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
+          className="rounded-medium bg-surface p-three shadow-card"
+        />
+        <button
+          type="button"
+          onClick={handlePasswordSignIn}
+          disabled={isSubmitting || !email || !password}
+          className="rounded-pill bg-primary px-four py-three font-display font-bold text-on-primary shadow-card disabled:opacity-60"
+        >
+          {isSubmitting ? 'Signing in…' : 'Sign in'}
+        </button>
+        <Link to="/sign-up" className="text-center font-display text-sm text-text-secondary">
+          Need an account? Create one
+        </Link>
+      </div>
+
+      <p className="text-center text-sm text-text-faint">or</p>
 
       <div className="flex flex-col gap-three">
         <button

@@ -27,6 +27,7 @@ import { RequireProfile } from '@/routes/require-profile';
 import { RequireSessionNoProfile } from '@/routes/require-session-no-profile';
 import { SetupProfileScreen } from '@/routes/setup-profile';
 import { SignInScreen } from '@/routes/sign-in';
+import { SignUpScreen } from '@/routes/sign-up';
 import { TermsScreen } from '@/routes/terms';
 
 export function App() {
@@ -35,6 +36,7 @@ export function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<SignInScreen />} />
+          <Route path="/sign-up" element={<SignUpScreen />} />
           <Route path="/auth/callback" element={<AuthCallbackScreen />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyScreen />} />
           <Route path="/terms" element={<TermsScreen />} />

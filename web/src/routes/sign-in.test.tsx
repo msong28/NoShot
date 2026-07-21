@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router';
 
 import { useSession } from '@/hooks/use-session';
 import { signInWithProvider } from '@/lib/auth/oauth';
+import { supabase } from '@/lib/supabase';
 
 import { SignInScreen } from './sign-in';
 
@@ -14,6 +15,9 @@ import { SignInScreen } from './sign-in';
 // throw on the missing env vars this test environment doesn't set.
 vi.mock('@/hooks/use-session', () => ({ useSession: vi.fn() }));
 vi.mock('@/lib/auth/oauth', () => ({ signInWithProvider: vi.fn() }));
+vi.mock('@/lib/supabase', () => ({
+  supabase: { auth: { signInWithPassword: vi.fn() } },
+}));
 
 describe('SignInScreen', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -44,6 +48,49 @@ describe('SignInScreen', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /continue with apple/i }));
     expect(signInWithProvider).toHaveBeenCalledWith('apple');
+  });
+
+  it('signs in with email and password', async () => {
+    vi.mocked(useSession).mockReturnValue({ session: null, isLoading: false });
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
+      data: {},
+      error: null,
+    } as never);
+
+    render(
+      <MemoryRouter>
+        <SignInScreen />
+      </MemoryRouter>,
+    );
+
+    await userEvent.type(screen.getByPlaceholderText('Email'), 'dave@example.com');
+    await userEvent.type(screen.getByPlaceholderText('Password'), 'hunter2!!');
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({
+      email: 'dave@example.com',
+      password: 'hunter2!!',
+    });
+  });
+
+  it('shows the password sign-in error', async () => {
+    vi.mocked(useSession).mockReturnValue({ session: null, isLoading: false });
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
+      data: {},
+      error: { message: 'Invalid login credentials' },
+    } as never);
+
+    render(
+      <MemoryRouter>
+        <SignInScreen />
+      </MemoryRouter>,
+    );
+
+    await userEvent.type(screen.getByPlaceholderText('Email'), 'dave@example.com');
+    await userEvent.type(screen.getByPlaceholderText('Password'), 'wrongpass');
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(await screen.findByText('Invalid login credentials')).toBeInTheDocument();
   });
 
   it('redirects to /profile when already signed in', () => {
