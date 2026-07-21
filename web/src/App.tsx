@@ -15,6 +15,7 @@ import { FriendsScreen } from '@/routes/friends';
 import { GroupDetailScreen } from '@/routes/group-detail';
 import { GroupsScreen } from '@/routes/groups';
 import { HomeScreen } from '@/routes/home';
+import { InvitePreviewScreen } from '@/routes/invite-preview';
 import { ObligationsScreen } from '@/routes/obligations';
 import { PrivacyPolicyScreen } from '@/routes/privacy-policy';
 import { ProfileScreen } from '@/routes/profile';
@@ -35,6 +36,7 @@ export function App() {
           <Route path="/privacy-policy" element={<PrivacyPolicyScreen />} />
           <Route path="/terms" element={<TermsScreen />} />
           <Route path="/community-guidelines" element={<CommunityGuidelinesScreen />} />
+          <Route path="/invite/:username" element={<InvitePreviewScreen />} />
 
           <Route element={<RequireSessionNoProfile />}>
             <Route path="/setup-profile" element={<SetupProfileScreen />} />
