@@ -4,6 +4,8 @@ import { BrowserRouter, Route, Routes } from 'react-router';
 import { queryClient } from '@/lib/query-client';
 import { AccountScreen } from '@/routes/account';
 import { ActivityScreen } from '@/routes/activity';
+import { AdminReportDetailScreen } from '@/routes/admin-report-detail';
+import { AdminReportQueueScreen } from '@/routes/admin-reports';
 import { AuthCallbackScreen } from '@/routes/auth-callback';
 import { BalancesScreen } from '@/routes/balances';
 import { BetDetailScreen } from '@/routes/bet-detail';
@@ -20,6 +22,7 @@ import { ObligationsScreen } from '@/routes/obligations';
 import { PrivacyPolicyScreen } from '@/routes/privacy-policy';
 import { ProfileScreen } from '@/routes/profile';
 import { ProtectedRoute } from '@/routes/protected-route';
+import { RequireAdmin } from '@/routes/require-admin';
 import { RequireProfile } from '@/routes/require-profile';
 import { RequireSessionNoProfile } from '@/routes/require-session-no-profile';
 import { SetupProfileScreen } from '@/routes/setup-profile';
@@ -59,6 +62,11 @@ export function App() {
 
           <Route element={<ProtectedRoute />}>
             <Route path="/profile" element={<ProfileScreen />} />
+          </Route>
+
+          <Route element={<RequireAdmin />}>
+            <Route path="/admin" element={<AdminReportQueueScreen />} />
+            <Route path="/admin/report/:reportId" element={<AdminReportDetailScreen />} />
           </Route>
         </Routes>
       </BrowserRouter>
