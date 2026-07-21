@@ -1,9 +1,66 @@
 # Handoff: NoShot web port ("screenporting")
 
-Originally written 2026-07-20; updated the same night after a second work session. This
-file is a snapshot, not a plan — verify anything below against the actual code before
-relying on it. **Trust this "Status as of" section over anything below it that contradicts
-it** — the sections further down are historical and partly stale now.
+Originally written 2026-07-20; updated after a second work session that night, and again
+after a third session the next day. This file is a snapshot, not a plan — verify anything
+below against the actual code before relying on it. **Trust this "Status as of" section
+over anything below it that contradicts it** — the sections further down are historical
+and partly stale now.
+
+## Status as of 2026-07-21 (third session)
+
+Ran as an unattended scheduled session continuing from the second session's handoff.
+`npm run typecheck`, `npm test`, and `npm run build` are all clean on `web-port` as of
+commit `db05e6c` (4 test files, 13 tests — up from 3/10). Every `to="..."` link in
+`web/src` was re-audited against `App.tsx`'s route table after adding routes; still no
+dangling links.
+
+**What got built this session** (see git log on `web-port`, each commit is
+typecheck+test-verified on its own):
+- `obligations.tsx` — manual obligation propose/approve/decline/cancel flow, ported from
+  native `src/app/obligations.tsx` onto the existing `use-manual-obligations.ts` hook
+  (previously unused). Linked from `friends.tsx` the same way the native app links to it.
+  Mounted at `/obligations` behind `RequireProfile`.
+- `invite-preview.tsx` — the `/invite/:username` preview screen, ported from native
+  `src/app/invite/[username].tsx`. Reachable pre-auth (mounted ungated, alongside the
+  legal pages) since that's the point of an invite link. Reuses `ReportDialog` for
+  reporting the invited profile — this is the first place in `web/` that component gets
+  used; it existed unused before this session. One deliberate deviation from native: native
+  offers both "Create account" and "Sign in" buttons when signed out (linking to
+  `/sign-up` and `/`); web only has a single OAuth-only sign-in screen at `/`, so the
+  invite preview just links there. Worth revisiting if a real sign-up flow gets built.
+- `require-admin.tsx`, `admin-reports.tsx`, `admin-report-detail.tsx` — the Milestone 13
+  admin surface, ported from native's `(admin)` route group onto the existing
+  `use-admin.ts` hook (previously unused). Report queue with status filter tabs
+  (open/resolved/dismissed/all), and a detail view with evidence display plus
+  remove-content/suspend-user/resolve/dismiss actions, each behind its own confirmation
+  dialog. Mounted at `/admin` and `/admin/report/:reportId` behind a new `RequireAdmin`
+  guard that mirrors native's client-side `is_admin()` check (UX only — every admin RPC
+  and the `reports_select` RLS policy independently re-check server-side). Not linked from
+  any nav menu, matching native, where it's reachable only by knowing the URL.
+- A test for `RequireAdmin`'s three states (signed out, signed in but not admin, admin) —
+  the first route-guard test in `web/`, styled after the existing `sign-in.test.tsx`.
+
+**What's genuinely still missing** (not started at all):
+- Comments, chat, and polls are still not integrated into `bet-detail.tsx` — the hooks
+  (`use-comments`, `use-chat`, `use-polls`, `use-proof`) exist and are completely unused
+  anywhere in `web/`. This is now the largest remaining gap.
+- `(auth)/sign-up.tsx` — still no separate sign-up screen; still worth checking whether
+  native's sign-up screen does anything OAuth-only sign-in doesn't already cover before
+  building this.
+- `design-system.tsx` — internal/dev-only on native, still lowest priority.
+- Test coverage for the screens built in the second session (`bet-detail`, `group-detail`,
+  `balances`, `currencies`, `friends`, `delete-account`, `create`, the legal pages) is
+  still missing — only `RequireAdmin` got a test this session.
+- `web/` still isn't mentioned in `PROJECT_STATUS.md` / `IMPLEMENTATION_PLAN.md`.
+- `create.tsx`'s even-money-only simplification (see below, unchanged this session) —
+  still an open product question, not touched.
+
+**Not verified**: same caveat as the last handoff — nothing has been exercised in a real
+browser against live Supabase. No browser was available in this session's environment to
+smoke-test sign-in → setup-profile → home → create a bet → approve flow, or to click
+through the three new screens (obligations, invite preview, admin). `npm run typecheck`,
+`npm test`, and `npm run build` passing is necessary but not sufficient — this is the
+single highest-priority thing for whoever picks this up next with a browser available.
 
 ## Status as of 2026-07-20 23:32 (second session)
 
@@ -119,13 +176,19 @@ they only matter if continuing locally in the original working directory.
 
 1. If a browser is available, smoke-test the golden path end to end (see "Not verified"
    above) before building further — better to find something broken now than to keep
-   building on top of it.
-2. `admin/` is the largest remaining gap tied to an already-shipped milestone
-   (Milestone 13) — probably the highest-value next build.
-3. `obligations.tsx` and `invite/[username]` are the other two fully-unstarted screens.
-4. Consider whether `create.tsx`'s even-money-only simplification is acceptable long-term
+   building on top of it. This has been true across three sessions now and keeps getting
+   deferred; it's the biggest source of risk in this whole branch.
+2. Wire comments, chat, and polls into `bet-detail.tsx` — the hooks already exist
+   (`use-comments`, `use-chat`, `use-polls`, `use-proof`) and are fully unused. This is now
+   the largest remaining feature gap.
+3. Consider whether `create.tsx`'s even-money-only simplification is acceptable long-term
    or needs the odds-editing UI — this is a product call, not just an engineering gap.
-5. Add test coverage for the screens built this session — right now only the three
-   pre-existing test files exist.
-6. Decide whether `web/` should get its own section in `PROJECT_STATUS.md` /
+4. Add test coverage for the screens built in the second session (`bet-detail`,
+   `group-detail`, `balances`, `currencies`, `friends`, `delete-account`, `create`, the
+   legal pages) — only `sign-in`, `use-profile`, `oauth`, and (as of this session)
+   `require-admin` have tests.
+5. Decide whether `web/` should get its own section in `PROJECT_STATUS.md` /
    `IMPLEMENTATION_PLAN.md` — still undocumented there.
+6. Check whether native's `(auth)/sign-up.tsx` does anything OAuth-only sign-in doesn't
+   already cover; if not, `web/` doesn't need one either and this can be crossed off
+   rather than built.
