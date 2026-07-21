@@ -1,10 +1,84 @@
 # Handoff: NoShot web port ("screenporting")
 
-Originally written 2026-07-20; updated after a second work session that night, and again
-after a third session the next day. This file is a snapshot, not a plan — verify anything
-below against the actual code before relying on it. **Trust this "Status as of" section
-over anything below it that contradicts it** — the sections further down are historical
-and partly stale now.
+Originally written 2026-07-20; updated after a second work session that night, again
+after a third session the next day, and again after a fourth session later the same day.
+This file is a snapshot, not a plan — verify anything below against the actual code before
+relying on it. **Trust this "Status as of" section over anything below it that
+contradicts it** — the sections further down are historical and partly stale now.
+
+## Status as of 2026-07-21, later (fourth session)
+
+Ran as an unattended scheduled session continuing from the third session's handoff. Worked
+straight down that handoff's "Suggested next steps" list, in order. `npm run typecheck`,
+`npm test`, and `npm run build` are all clean as of commit `8f551c4` (13 test files, 50
+tests — up from 4/13). Every commit this session was typecheck+test+build-verified on its
+own before moving to the next.
+
+**What got built this session** (see git log on `web-port`):
+- **Wired comments, polls, and proof into `bet-detail.tsx`**, and **chat and polls into
+  `group-detail.tsx`** — this was flagged as the single largest remaining feature gap
+  across all three prior sessions. All the hooks (`use-comments`, `use-chat`, `use-polls`,
+  `use-proof`) and even the `PollCard`/`PollCreateForm`/`ReportDialog` components already
+  existed unused in `web/` (leftover from the original scaffold commit) — this session's
+  work was entirely wiring them into the two screens, following the native
+  `src/app/bet/[betId].tsx` and `src/app/group/[groupId].tsx` layouts closely (same
+  section order, same gating rules: forms only show for an active participant/member).
+  One deviation: proof upload uses a plain `<input type="file">` since there's no native
+  image-picker equivalent on web; `useUploadProof` already expected a `File` object, so
+  no hook changes were needed.
+- **Resolved the sign-up open question** from the third handoff ("check whether native's
+  sign-up screen does anything OAuth-only sign-in doesn't already cover"): it does — native
+  supports email+password sign-in/sign-up *in addition to* Google/Apple OAuth, and web only
+  had OAuth. Added a password field to the existing `sign-in.tsx` (using
+  `supabase.auth.signInWithPassword`, same as native) and a new `sign-up.tsx` screen at
+  `/sign-up` (using `supabase.auth.signUp`, including native's email-confirmation-pending
+  state), so people without a Google/Apple account aren't locked out. `/sign-up` is mounted
+  ungated in `App.tsx`, same tier as `/`.
+- **Added test coverage for every screen that was missing it**: `bet-detail`,
+  `group-detail` (covering the new comments/polls/proof/chat sections and their
+  participant/member gating), `sign-in` (the new password path), `sign-up`,
+  `delete-account`, `friends`, `currencies`, `balances`, `create`, and the three legal
+  pages. All follow the existing pattern (mock hooks directly via `vi.mock`, per
+  `require-admin.test.tsx`), not the supabase-mocking pattern `use-profile.test.tsx` uses —
+  simpler for screen-level tests since these components each pull in 5-10 hooks.
+  `design-system.tsx` and `profile.tsx` (the old unlinked placeholder) still have none, but
+  neither is linked from the app.
+
+**What's genuinely still missing** (not started at all):
+- `design-system.tsx` — internal/dev-only on native, still lowest priority.
+- Test coverage for `home`, `account`, `activity`, `groups`, `setup-profile`, `obligations`,
+  `invite-preview`, `admin-reports`, `admin-report-detail`, `auth-callback`, and the three
+  route guards other than `require-admin` — still untested. Not urgent (these are simpler
+  screens than the ones just covered) but still a gap if a future session wants full
+  coverage.
+- `create.tsx`'s even-money-only simplification — still an open product question, not
+  touched this session either.
+- `web/` still isn't mentioned in `PROJECT_STATUS.md` / `IMPLEMENTATION_PLAN.md` — out of
+  scope for this session (restricted to `web/` + this file).
+
+**Not verified — same caveat, still unresolved, and now the clear #1 priority**: this
+session's environment had no `web/.env` at all (not even the gitignored one with real
+Supabase credentials the third session's handoff mentions), so there was no way to run the
+dev server against live Supabase and click through anything — not even signing up a fresh
+test account via the new email/password flow, which would otherwise have been the obvious
+way to finally close this gap. `npm run typecheck`/`test`/`build` passing is necessary but
+not sufficient, same as every prior handoff has said. If a future session has a real
+`.env` and a browser, this is the highest-value thing to do: sign up (or sign in) → 
+setup-profile → home → create a bet against a friend → open it and post a comment, create
+a poll, vote, upload a proof photo → open a group and send a chat message. All of that is
+now code-complete and test-covered but has never rendered against a real backend.
+
+**Suggested next steps for a fifth session, in order:**
+1. If a real `web/.env` and a browser are both available, do the golden-path smoke test
+   described just above before building anything else — it's been deferred across four
+   sessions now purely for lack of credentials/a browser in the environment, not because
+   it's hard.
+2. Add test coverage for the remaining untested screens listed above (`home`, `account`,
+   `activity`, `groups`, `setup-profile`, `obligations`, `invite-preview`, the two admin
+   screens, `auth-callback`, and the three non-admin route guards) to close out coverage
+   completely.
+3. Revisit the `create.tsx` even-money-only simplification as a product decision.
+4. Decide whether `web/` should get a section in `PROJECT_STATUS.md` / `IMPLEMENTATION_PLAN.md`.
 
 ## Status as of 2026-07-21 (third session)
 
