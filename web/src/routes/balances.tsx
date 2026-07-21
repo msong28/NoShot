@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { BackButton } from '@/components/ui/back-button';
 
+import { Avatar } from '@/components/ui/avatar';
+import { BackButton } from '@/components/ui/back-button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { InlineError } from '@/components/ui/inline-error';
 import { ListRow } from '@/components/ui/list-row';
 import { SectionHeader } from '@/components/ui/section-header';
@@ -89,6 +91,7 @@ export function BalancesScreen() {
             {needsMyConfirmation.map(({ request, counterparty }) => (
               <ListRow
                 key={request.id}
+                leading={<Avatar id={counterparty?.id ?? request.id} name={counterparty?.display_name ?? '?'} />}
                 title={counterparty?.display_name ?? 'Someone'}
                 subtitle={`Says they paid ${request.amount}`}
                 trailing={
@@ -122,6 +125,7 @@ export function BalancesScreen() {
             {waitingOnThem.map(({ request, counterparty }) => (
               <ListRow
                 key={request.id}
+                leading={<Avatar id={counterparty?.id ?? request.id} name={counterparty?.display_name ?? '?'} />}
                 title={counterparty?.display_name ?? 'Someone'}
                 subtitle={`You said you paid ${request.amount}`}
                 trailing={
@@ -144,11 +148,12 @@ export function BalancesScreen() {
         {isLoading || isRedemptionsLoading ? (
           <p className="text-text-secondary">Loading…</p>
         ) : balanceRows.length === 0 ? (
-          <p className="text-sm text-text-secondary">All settled up.</p>
+          <EmptyState icon="balances" title="All settled up" description="No outstanding balances with anyone." />
         ) : (
           balanceRows.map(({ balance, counterparty, currency }) => (
             <ListRow
               key={`${balance.counterparty_id}:${balance.currency_id}:${balance.group_id ?? 'none'}`}
+              leading={<Avatar id={balance.counterparty_id} name={counterparty?.display_name ?? '?'} />}
               title={counterparty?.display_name ?? 'Unknown'}
               subtitle={`${balance.net_amount > 0 ? 'Owes you' : 'You owe'} ${Math.abs(balance.net_amount)} ${currency?.name ?? ''}`}
               trailing={

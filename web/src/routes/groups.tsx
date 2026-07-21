@@ -2,11 +2,15 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 
 import { BottomNav } from '@/components/bottom-nav';
+import { Avatar } from '@/components/ui/avatar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { InlineError } from '@/components/ui/inline-error';
+import { ListRow } from '@/components/ui/list-row';
+import { SectionHeader } from '@/components/ui/section-header';
 import { useCreateGroup, useMyGroups, useRespondToGroupInvite } from '@/hooks/use-groups';
 import { useSession } from '@/hooks/use-session';
 import { getErrorMessage } from '@/lib/errors';
+import { Icons } from '@/lib/icons';
 
 export function GroupsScreen() {
   const { session } = useSession();
@@ -59,45 +63,56 @@ export function GroupsScreen() {
 
       {pendingInvites.length > 0 ? (
         <>
-          <h2 className="mt-four font-display font-bold">Invites</h2>
+          <SectionHeader title="Invites" />
           <div className="mt-two flex flex-col gap-two">
             {pendingInvites.map((invite) => (
-              <div key={invite.group_id} className="flex items-center justify-between rounded-medium bg-surface p-three shadow-card">
-                <p>{invite.groups.name}</p>
-                <div className="flex gap-two">
-                  <button
-                    type="button"
-                    onClick={() => runAction(respondToInvite.mutateAsync({ groupId: invite.group_id, accept: true }))}
-                    className="rounded-pill bg-primary px-three py-one font-display text-sm font-bold text-on-primary"
-                  >
-                    Accept
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => runAction(respondToInvite.mutateAsync({ groupId: invite.group_id, accept: false }))}
-                    className="rounded-pill bg-surface-sunken px-three py-one font-display text-sm font-bold text-text-secondary"
-                  >
-                    Decline
-                  </button>
-                </div>
-              </div>
+              <ListRow
+                key={invite.group_id}
+                leading={<Avatar id={invite.group_id} name={invite.groups.name} />}
+                title={invite.groups.name}
+                trailing={
+                  <div className="flex gap-two">
+                    <button
+                      type="button"
+                      onClick={() => runAction(respondToInvite.mutateAsync({ groupId: invite.group_id, accept: true }))}
+                      className="rounded-pill bg-primary px-three py-one font-display text-sm font-bold text-on-primary"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => runAction(respondToInvite.mutateAsync({ groupId: invite.group_id, accept: false }))}
+                      className="rounded-pill bg-surface-sunken px-three py-one font-display text-sm font-bold text-text-secondary"
+                    >
+                      Decline
+                    </button>
+                  </div>
+                }
+              />
             ))}
           </div>
         </>
       ) : null}
 
-      <h2 className="mt-four font-display font-bold">Your groups</h2>
+      <SectionHeader title="Your groups" />
       {activeGroups.length === 0 ? (
         <div className="mt-two">
           <EmptyState icon="groups" title="No groups yet" description="Create one above." />
         </div>
       ) : (
         <div className="mt-two flex flex-col gap-two">
-          {activeGroups.map((group) => (
-            <Link key={group.id} to={`/group/${group.id}`} className="rounded-medium bg-surface p-three shadow-card">
-              {group.name}
-            </Link>
-          ))}
+          {activeGroups.map((group) => {
+            const ForwardIcon = Icons.forward;
+            return (
+              <Link key={group.id} to={`/group/${group.id}`}>
+                <ListRow
+                  leading={<Avatar id={group.id} name={group.name} />}
+                  title={group.name}
+                  trailing={<ForwardIcon size={18} className="text-text-faint" />}
+                />
+              </Link>
+            );
+          })}
         </div>
       )}
 

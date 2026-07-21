@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { BackButton } from '@/components/ui/back-button';
 
 import { PollCard } from '@/components/poll-card';
 import { PollCreateForm } from '@/components/poll-create-form';
 import { ReportDialog } from '@/components/report-dialog';
+import { Avatar } from '@/components/ui/avatar';
 import { StatusBadge } from '@/components/ui/badge';
+import { BackButton } from '@/components/ui/back-button';
 import { ConfirmationDialog } from '@/components/ui/confirm-dialog';
 import { InlineError } from '@/components/ui/inline-error';
 import { ListRow } from '@/components/ui/list-row';
@@ -100,6 +101,7 @@ export function GroupDetailScreen() {
             return (
               <ListRow
                 key={message.id}
+                leading={<Avatar id={message.author_id} name={author?.display_name ?? '?'} size="sm" />}
                 title={author?.display_name ?? 'Someone'}
                 subtitle={message.body}
                 trailing={
@@ -166,6 +168,7 @@ export function GroupDetailScreen() {
         {members.map(({ member, profile }) => (
           <ListRow
             key={member.user_id}
+            leading={<Avatar id={member.user_id} name={profile.display_name} />}
             title={profile.display_name}
             subtitle={`@${profile.username}${member.role === 'owner' ? ' · Owner' : ''}`}
             trailing={
@@ -206,6 +209,7 @@ export function GroupDetailScreen() {
             {(searchUsername.data ?? []).map((profile) => (
               <ListRow
                 key={profile.id}
+                leading={<Avatar id={profile.id} name={profile.display_name} />}
                 title={profile.display_name}
                 subtitle={`@${profile.username}`}
                 trailing={

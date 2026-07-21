@@ -5,6 +5,7 @@ import { BackButton } from '@/components/ui/back-button';
 import { PollCard } from '@/components/poll-card';
 import { PollCreateForm } from '@/components/poll-create-form';
 import { ReportDialog } from '@/components/report-dialog';
+import { Avatar } from '@/components/ui/avatar';
 import { type BadgeVariant, StatusBadge } from '@/components/ui/badge';
 import { ConfirmationDialog } from '@/components/ui/confirm-dialog';
 import { InlineError } from '@/components/ui/inline-error';
@@ -184,6 +185,7 @@ export function BetDetailScreen() {
         {roster.map(({ participant, profile, side, commitment }) => (
           <ListRow
             key={participant.id}
+            leading={<Avatar id={participant.user_id} name={profile?.display_name ?? '?'} />}
             title={profile?.display_name ?? 'Unknown'}
             subtitle={
               side
@@ -521,6 +523,7 @@ export function BetDetailScreen() {
           comments.map(({ comment, author }) => (
             <ListRow
               key={comment.id}
+              leading={<Avatar id={comment.author_id} name={author?.display_name ?? '?'} size="sm" />}
               title={author?.display_name ?? 'Someone'}
               subtitle={comment.body}
               trailing={

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { BackButton } from '@/components/ui/back-button';
 
+import { Avatar } from '@/components/ui/avatar';
+import { BackButton } from '@/components/ui/back-button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { InlineError } from '@/components/ui/inline-error';
 import { ListRow } from '@/components/ui/list-row';
@@ -73,6 +74,7 @@ export function FriendsScreen() {
           .map((profile) => (
             <ListRow
               key={profile.id}
+              leading={<Avatar id={profile.id} name={profile.display_name} />}
               title={profile.display_name}
               subtitle={`@${profile.username}`}
               trailing={
@@ -101,6 +103,7 @@ export function FriendsScreen() {
             {incomingRequests.map(({ friendship, profile }) => (
               <ListRow
                 key={friendship.id}
+                leading={<Avatar id={profile.id} name={profile.display_name} />}
                 title={profile.display_name}
                 subtitle={`@${profile.username}`}
                 trailing={
@@ -148,6 +151,7 @@ export function FriendsScreen() {
             {outgoingRequests.map(({ friendship, profile }) => (
               <ListRow
                 key={friendship.id}
+                leading={<Avatar id={profile.id} name={profile.display_name} />}
                 title={profile.display_name}
                 subtitle={`@${profile.username}`}
                 trailing={
@@ -175,6 +179,7 @@ export function FriendsScreen() {
           friends.map(({ friendship, profile }) => (
             <ListRow
               key={friendship.id}
+              leading={<Avatar id={profile.id} name={profile.display_name} />}
               title={profile.display_name}
               subtitle={`@${profile.username}`}
               trailing={

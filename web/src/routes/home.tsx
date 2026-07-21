@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 
 import { BottomNav } from '@/components/bottom-nav';
+import { Avatar } from '@/components/ui/avatar';
 import { StatusBadge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ListRow } from '@/components/ui/list-row';
@@ -11,6 +12,16 @@ import { useMyGroups } from '@/hooks/use-groups';
 import { useMyBalances } from '@/hooks/use-ledger';
 import { useMyRedemptions } from '@/hooks/use-redemption';
 import { useSession } from '@/hooks/use-session';
+import { Icons, type IconName } from '@/lib/icons';
+
+function IconBubble({ icon }: { icon: IconName }) {
+  const Icon = Icons[icon];
+  return (
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill bg-surface-sunken text-text-secondary">
+      <Icon size={18} strokeWidth={1.75} />
+    </span>
+  );
+}
 
 export function HomeScreen() {
   const { session } = useSession();
@@ -55,27 +66,48 @@ export function HomeScreen() {
           <div className="mt-two flex flex-col gap-two">
             {incomingRequests.map(({ friendship, profile }) => (
               <Link key={friendship.id} to="/friends">
-                <ListRow title={profile.display_name} subtitle="Wants to be friends" trailing={<StatusBadge label="Review" variant="info" />} />
+                <ListRow
+                  leading={<Avatar id={profile.id} name={profile.display_name} />}
+                  title={profile.display_name}
+                  subtitle="Wants to be friends"
+                  trailing={<StatusBadge label="Review" variant="info" />}
+                />
               </Link>
             ))}
             {pendingInvites.map((invite) => (
               <Link key={invite.group_id} to="/groups">
-                <ListRow title={invite.groups.name} subtitle="Invited you to a group" trailing={<StatusBadge label="Review" variant="info" />} />
+                <ListRow
+                  leading={<IconBubble icon="groups" />}
+                  title={invite.groups.name}
+                  subtitle="Invited you to a group"
+                  trailing={<StatusBadge label="Review" variant="info" />}
+                />
               </Link>
             ))}
             {pendingBets.map((bet) => (
               <Link key={bet.id} to={`/bet/${bet.id}`}>
-                <ListRow title={bet.title} subtitle="Bet proposal awaiting your response" trailing={<StatusBadge label="Review" variant="info" />} />
+                <ListRow
+                  leading={<IconBubble icon="bet" />}
+                  title={bet.title}
+                  subtitle="Bet proposal awaiting your response"
+                  trailing={<StatusBadge label="Review" variant="info" />}
+                />
               </Link>
             ))}
             {cancellationPendingBets.map((bet) => (
               <Link key={bet.id} to={`/bet/${bet.id}`}>
-                <ListRow title={bet.title} subtitle="Someone wants to cancel this bet" trailing={<StatusBadge label="Review" variant="warning" />} />
+                <ListRow
+                  leading={<IconBubble icon="bet" />}
+                  title={bet.title}
+                  subtitle="Someone wants to cancel this bet"
+                  trailing={<StatusBadge label="Review" variant="warning" />}
+                />
               </Link>
             ))}
             {resolutionPendingBets.map((bet) => (
               <Link key={bet.id} to={`/bet/${bet.id}`}>
                 <ListRow
+                  leading={<IconBubble icon="bet" />}
                   title={bet.title}
                   subtitle={bet.status === 'disputed' ? 'Result disputed' : 'Result awaiting confirmation'}
                   trailing={<StatusBadge label="Review" variant="info" />}
@@ -85,6 +117,7 @@ export function HomeScreen() {
             {redemptionsNeedingConfirmation.map(({ request, counterparty }) => (
               <Link key={request.id} to="/balances">
                 <ListRow
+                  leading={<Avatar id={counterparty?.id ?? request.id} name={counterparty?.display_name ?? '?'} />}
                   title={counterparty?.display_name ?? 'Someone'}
                   subtitle="Says they've settled up — needs your confirmation"
                   trailing={<StatusBadge label="Review" variant="info" />}

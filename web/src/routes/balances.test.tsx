@@ -58,7 +58,7 @@ describe('BalancesScreen', () => {
 
   it('shows the settled-up empty state', () => {
     renderScreen();
-    expect(screen.getByText('All settled up.')).toBeInTheDocument();
+    expect(screen.getByText('All settled up')).toBeInTheDocument();
   });
 
   it('lets someone owed money settle up with a full allocation', async () => {
