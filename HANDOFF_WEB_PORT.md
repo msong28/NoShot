@@ -1,10 +1,64 @@
 # Handoff: NoShot web port ("screenporting")
 
 Originally written 2026-07-20; updated after a second work session that night, again
-after a third session the next day, and again after a fourth session later the same day.
-This file is a snapshot, not a plan — verify anything below against the actual code before
-relying on it. **Trust this "Status as of" section over anything below it that
-contradicts it** — the sections further down are historical and partly stale now.
+after a third session the next day, again after a fourth session later the same day, and
+again after a fifth (interactive, not scheduled) session right after that. This file is a
+snapshot, not a plan — verify anything below against the actual code before relying on it.
+**Trust this "Status as of" section over anything below it that contradicts it** — the
+sections further down are historical and partly stale now.
+
+## Status as of 2026-07-21, later still (fifth session — the golden path is now verified)
+
+This session did no new feature work — it did the thing every prior handoff flagged as
+the #1 priority: actually clicked through the app in a real browser against live
+Supabase (`noshot-dev`), using two throwaway test accounts (`noshot.web.test.a@example.com`
+/ "Test Alice" / `@testalice`, and `noshot.web.test.b@example.com` / "Test Bob" /
+`@testbob`, both password `TestPass123!`). **Every step of the golden path worked with no
+bugs found**:
+
+- Email/password sign-up → setup-profile → home, for both accounts.
+- Username search, friend request, accept — including the home screen's "Needs your
+  attention" section correctly surfacing the incoming request live.
+- Created a bet ("Coffee run bet") from Alice against Bob via `/create` — real
+  currencies loaded from Supabase into the picker, `create_or_counter_bet` succeeded,
+  landed on `/bet/:id` with the correct roster/stakes/payouts and an "Awaiting approval"
+  badge.
+- Posted a comment (passed the moderation filter), created a poll and voted on it, and
+  uploaded a proof photo (via a synthetic `File`/`DataTransfer` injected through
+  `javascript_tool`, since the browser tool's file-picker automation is currently broken
+  in this environment — not an app bug, worth knowing if a future session hits the same
+  wall) — all rendered correctly, including the image itself loading back from Supabase
+  Storage.
+- Switched to Bob, confirmed the "This bet needs your approval" section only shows for
+  the participant who hasn't responded yet (correctly absent for Alice, the creator, who
+  auto-approves), approved it, watched the bet flip from "Awaiting approval" to "Active"
+  and the Actions section switch to "Propose cancellation".
+- Created a group ("Coffee Crew") as Bob, invited Alice by username, confirmed Alice saw
+  it as a *pending invite* to accept (not instant membership) on her `/groups` screen,
+  accepted it, and sent chat messages both directions — both rendered live for both
+  users.
+
+No bugs surfaced anywhere in this pass. The one non-app caveat: the browser automation's
+native file-upload tool (`file_upload`/`upload_image`) is broken in this environment
+(rejects host filesystem paths, can't retrieve prior screenshots) — worked around it by
+dispatching a synthetic `change` event on the file input directly via JS, which exercises
+the same `useUploadProof` code path a real file picker would. If a future session needs to
+test file upload and hits the same tool failure, that workaround is the way through it.
+
+**Leftover test data in `noshot-dev`** (not cleaned up — flagging for whoever has
+authority over that database): the two test accounts, their friendship, the "Coffee run
+bet" (now active, with a comment/poll/vote/proof photo on it), and the "Coffee Crew" group
+(with two chat messages). All clearly named `Test Alice`/`Test Bob`/`testalice`/`testbob`
+so easy to identify and remove if this database needs to stay clean, but nobody has done
+that cleanup yet.
+
+**What this confirms about all four prior sessions' work**: the comments/polls/proof/chat
+wiring, the sign-up/sign-in flows, the friend/group/bet lifecycles, and the auth guards
+all actually work end-to-end, not just typecheck- and unit-test-clean. This was the
+single biggest source of risk called out repeatedly across this file's history, and it's
+now resolved for the happy path specifically. Edge cases (disputes, cancellations,
+declines, blocking, admin actions, obligations, invite preview, delete-account) are still
+only unit-test-verified, not browser-verified.
 
 ## Status as of 2026-07-21, later (fourth session)
 
