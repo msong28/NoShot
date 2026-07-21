@@ -15,6 +15,7 @@ import { FriendsScreen } from '@/routes/friends';
 import { GroupDetailScreen } from '@/routes/group-detail';
 import { GroupsScreen } from '@/routes/groups';
 import { HomeScreen } from '@/routes/home';
+import { ObligationsScreen } from '@/routes/obligations';
 import { PrivacyPolicyScreen } from '@/routes/privacy-policy';
 import { ProfileScreen } from '@/routes/profile';
 import { ProtectedRoute } from '@/routes/protected-route';
@@ -50,6 +51,7 @@ export function App() {
             <Route path="/balances" element={<BalancesScreen />} />
             <Route path="/currencies" element={<CurrenciesScreen />} />
             <Route path="/friends" element={<FriendsScreen />} />
+            <Route path="/obligations" element={<ObligationsScreen />} />
             <Route path="/delete-account" element={<DeleteAccountScreen />} />
           </Route>
 

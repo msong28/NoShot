@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
 import { InlineError } from '@/components/ui/inline-error';
 import { ListRow } from '@/components/ui/list-row';
@@ -49,6 +49,9 @@ export function FriendsScreen() {
       </button>
 
       <h1 className="mt-three font-display text-2xl font-extrabold">Friends</h1>
+      <Link to="/obligations" className="mt-two inline-block text-sm font-bold text-secondary">
+        Manual obligations
+      </Link>
 
       <InlineError message={error} />
 
