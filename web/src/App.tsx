@@ -7,6 +7,7 @@ import { ActivityScreen } from '@/routes/activity';
 import { AuthCallbackScreen } from '@/routes/auth-callback';
 import { BalancesScreen } from '@/routes/balances';
 import { BetDetailScreen } from '@/routes/bet-detail';
+import { CommunityGuidelinesScreen } from '@/routes/community-guidelines';
 import { CreateScreen } from '@/routes/create';
 import { CurrenciesScreen } from '@/routes/currencies';
 import { DeleteAccountScreen } from '@/routes/delete-account';
@@ -14,12 +15,14 @@ import { FriendsScreen } from '@/routes/friends';
 import { GroupDetailScreen } from '@/routes/group-detail';
 import { GroupsScreen } from '@/routes/groups';
 import { HomeScreen } from '@/routes/home';
+import { PrivacyPolicyScreen } from '@/routes/privacy-policy';
 import { ProfileScreen } from '@/routes/profile';
 import { ProtectedRoute } from '@/routes/protected-route';
 import { RequireProfile } from '@/routes/require-profile';
 import { RequireSessionNoProfile } from '@/routes/require-session-no-profile';
 import { SetupProfileScreen } from '@/routes/setup-profile';
 import { SignInScreen } from '@/routes/sign-in';
+import { TermsScreen } from '@/routes/terms';
 
 export function App() {
   return (
@@ -28,6 +31,9 @@ export function App() {
         <Routes>
           <Route path="/" element={<SignInScreen />} />
           <Route path="/auth/callback" element={<AuthCallbackScreen />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyScreen />} />
+          <Route path="/terms" element={<TermsScreen />} />
+          <Route path="/community-guidelines" element={<CommunityGuidelinesScreen />} />
 
           <Route element={<RequireSessionNoProfile />}>
             <Route path="/setup-profile" element={<SetupProfileScreen />} />
