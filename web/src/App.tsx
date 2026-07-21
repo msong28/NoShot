@@ -5,7 +5,12 @@ import { queryClient } from '@/lib/query-client';
 import { AccountScreen } from '@/routes/account';
 import { ActivityScreen } from '@/routes/activity';
 import { AuthCallbackScreen } from '@/routes/auth-callback';
+import { BalancesScreen } from '@/routes/balances';
 import { BetDetailScreen } from '@/routes/bet-detail';
+import { CreateScreen } from '@/routes/create';
+import { CurrenciesScreen } from '@/routes/currencies';
+import { DeleteAccountScreen } from '@/routes/delete-account';
+import { FriendsScreen } from '@/routes/friends';
 import { GroupDetailScreen } from '@/routes/group-detail';
 import { GroupsScreen } from '@/routes/groups';
 import { HomeScreen } from '@/routes/home';
@@ -35,6 +40,11 @@ export function App() {
             <Route path="/account" element={<AccountScreen />} />
             <Route path="/bet/:betId" element={<BetDetailScreen />} />
             <Route path="/group/:groupId" element={<GroupDetailScreen />} />
+            <Route path="/create" element={<CreateScreen />} />
+            <Route path="/balances" element={<BalancesScreen />} />
+            <Route path="/currencies" element={<CurrenciesScreen />} />
+            <Route path="/friends" element={<FriendsScreen />} />
+            <Route path="/delete-account" element={<DeleteAccountScreen />} />
           </Route>
 
           <Route element={<ProtectedRoute />}>
