@@ -161,14 +161,15 @@
 
   --container-app: 760px;
 
-  /* Display/UI face: rounded system font (SF Rounded on Apple, graceful
-     fallback elsewhere) -- used for headings, buttons, badges, and every
-     number that matters. Never a webfont URL: the Artifact/app CSP has no
-     font-CDN access, and an unavailable custom face fails silently to a
-     generic sans, which is worse than deliberately choosing a real system
-     stack up front. */
-  --font-display: ui-rounded, "SF Pro Rounded", "Nunito Sans", system-ui, sans-serif;
-  --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Display/UI face: Clash Display (Fontshare), the bold grotesk brand
+     pairing DECISIONS.md recommends once visual polish is a priority --
+     used for headings, buttons, badges, and every number that matters.
+     Body face: Inter (Google Fonts), the paired body face DECISIONS.md
+     names alongside it. Both loaded via <link> tags in index.html; the
+     system-font fallback stack still covers the brief instant before they
+     load, or if the font CDN is unreachable. */
+  --font-display: "Clash Display", ui-rounded, "SF Pro Rounded", "Nunito Sans", system-ui, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 body {

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 
 import { BottomNav } from '@/components/bottom-nav';
+import { EmptyState } from '@/components/ui/empty-state';
 import { InlineError } from '@/components/ui/inline-error';
 import { useCreateGroup, useMyGroups, useRespondToGroupInvite } from '@/hooks/use-groups';
 import { useSession } from '@/hooks/use-session';
@@ -87,7 +88,9 @@ export function GroupsScreen() {
 
       <h2 className="mt-four font-display font-bold">Your groups</h2>
       {activeGroups.length === 0 ? (
-        <p className="mt-two text-sm text-text-secondary">No groups yet — create one above.</p>
+        <div className="mt-two">
+          <EmptyState icon="groups" title="No groups yet" description="Create one above." />
+        </div>
       ) : (
         <div className="mt-two flex flex-col gap-two">
           {activeGroups.map((group) => (

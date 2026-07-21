@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { BackButton } from '@/components/ui/back-button';
 
 import { BottomNav } from '@/components/bottom-nav';
 import { ConfirmationDialog } from '@/components/ui/confirm-dialog';
@@ -27,7 +27,6 @@ const STATUS_VARIANT: Record<ManualObligationStatus, BadgeVariant> = {
 };
 
 export function ObligationsScreen() {
-  const navigate = useNavigate();
   const { session } = useSession();
   const userId = session?.user.id;
 
@@ -91,13 +90,7 @@ export function ObligationsScreen() {
 
   return (
     <main className="mx-auto max-w-app p-four pb-28">
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        className="font-display text-sm text-text-secondary"
-      >
-        ← Back
-      </button>
+      <BackButton />
 
       <h1 className="mt-three font-display text-2xl font-extrabold">Obligations</h1>
       <p className="mt-two text-sm text-text-secondary">

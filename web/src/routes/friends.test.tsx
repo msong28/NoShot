@@ -127,6 +127,7 @@ describe('FriendsScreen', () => {
 
   it('shows the empty state when there are no friends', () => {
     renderScreen();
-    expect(screen.getByText('No friends yet — search above to add some.')).toBeInTheDocument();
+    expect(screen.getByText('No friends yet')).toBeInTheDocument();
+    expect(screen.getByText('Search above to add some.')).toBeInTheDocument();
   });
 });

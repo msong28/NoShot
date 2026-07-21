@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { BackButton } from '@/components/ui/back-button';
 
 import { InlineError } from '@/components/ui/inline-error';
 import { useCreateOrCounterBet } from '@/hooks/use-bets';
@@ -104,13 +105,7 @@ export function CreateScreen() {
 
   return (
     <main className="mx-auto max-w-app p-four pb-16">
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        className="font-display text-sm text-text-secondary"
-      >
-        ← Cancel
-      </button>
+      <BackButton label="Cancel" />
 
       <h1 className="mt-three font-display text-2xl font-extrabold">New bet</h1>
 

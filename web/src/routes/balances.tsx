@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { BackButton } from '@/components/ui/back-button';
 
 import { InlineError } from '@/components/ui/inline-error';
 import { ListRow } from '@/components/ui/list-row';
@@ -57,7 +57,6 @@ function SettleUpButton({
 }
 
 export function BalancesScreen() {
-  const navigate = useNavigate();
   const { session } = useSession();
   const userId = session?.user.id;
 
@@ -77,13 +76,7 @@ export function BalancesScreen() {
 
   return (
     <main className="mx-auto max-w-app p-four pb-16">
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        className="font-display text-sm text-text-secondary"
-      >
-        ← Back
-      </button>
+      <BackButton />
 
       <h1 className="mt-three font-display text-2xl font-extrabold">Balances</h1>
 

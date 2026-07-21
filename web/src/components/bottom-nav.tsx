@@ -1,42 +1,50 @@
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 
-const TABS = [
-  { to: '/home', label: 'Home' },
-  { to: '/groups', label: 'Groups' },
-  { to: '/activity', label: 'Activity' },
-  { to: '/account', label: 'Account' },
+import { Icons, type IconName } from '@/lib/icons';
+
+const TABS: { to: string; label: string; icon: IconName }[] = [
+  { to: '/home', label: 'Home', icon: 'home' },
+  { to: '/groups', label: 'Groups', icon: 'groups' },
+  { to: '/activity', label: 'Activity', icon: 'activity' },
+  { to: '/account', label: 'Account', icon: 'account' },
 ];
+
+function NavTab({ to, label, icon, active }: { to: string; label: string; icon: IconName; active: boolean }) {
+  const Icon = Icons[icon];
+  return (
+    <Link
+      to={to}
+      className={`flex flex-col items-center gap-half rounded-large px-three py-one font-display text-xs ${
+        active ? 'text-primary' : 'text-text-secondary'
+      }`}
+    >
+      <Icon size={20} strokeWidth={active ? 2.25 : 1.75} />
+      {label}
+    </Link>
+  );
+}
 
 export function BottomNav() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const AddIcon = Icons.add;
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 flex justify-center p-three">
       <div className="flex max-w-app flex-1 items-center justify-between gap-two rounded-pill bg-surface p-two shadow-card">
         {TABS.slice(0, 2).map((tab) => (
-          <Link
-            key={tab.to}
-            to={tab.to}
-            className="rounded-large px-three py-one font-display text-sm text-text-secondary"
-          >
-            {tab.label}
-          </Link>
+          <NavTab key={tab.to} {...tab} active={location.pathname === tab.to} />
         ))}
         <button
           type="button"
           aria-label="Create a bet or obligation"
           onClick={() => navigate('/create')}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-pill bg-primary font-display font-bold text-on-primary"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-pill bg-primary text-on-primary shadow-card"
         >
-          +
+          <AddIcon size={22} strokeWidth={2.5} />
         </button>
         {TABS.slice(2).map((tab) => (
-          <Link
-            key={tab.to}
-            to={tab.to}
-            className="rounded-large px-three py-one font-display text-sm text-text-secondary"
-          >
-            {tab.label}
-          </Link>
+          <NavTab key={tab.to} {...tab} active={location.pathname === tab.to} />
         ))}
       </div>
     </nav>

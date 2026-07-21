@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useParams } from 'react-router';
+import { BackButton } from '@/components/ui/back-button';
 
 import { StatusBadge, type BadgeVariant } from '@/components/ui/badge';
 import { ConfirmationDialog } from '@/components/ui/confirm-dialog';
@@ -35,7 +36,6 @@ function statusVariant(status: string): BadgeVariant {
 
 export function AdminReportDetailScreen() {
   const { reportId } = useParams<{ reportId: string }>();
-  const navigate = useNavigate();
   const report = useReportDetail(reportId);
   const evidence = useReportEvidence(reportId);
   const removeContent = useRemoveContent();
@@ -61,13 +61,7 @@ export function AdminReportDetailScreen() {
   if (report.isLoading || !report.data) {
     return (
       <main className="mx-auto max-w-app p-four pb-16">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="font-display text-sm text-text-secondary"
-        >
-          ← Back
-        </button>
+        <BackButton />
         <p className="mt-four text-text-secondary">Loading…</p>
       </main>
     );
@@ -79,13 +73,7 @@ export function AdminReportDetailScreen() {
 
   return (
     <main className="mx-auto max-w-app p-four pb-16">
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        className="font-display text-sm text-text-secondary"
-      >
-        ← Back
-      </button>
+      <BackButton />
 
       <h1 className="mt-three font-display text-2xl font-extrabold">
         {r.target_type.replace('_', ' ')} report

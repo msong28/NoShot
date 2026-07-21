@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { BackButton } from '@/components/ui/back-button';
 
 import { PollCard } from '@/components/poll-card';
 import { PollCreateForm } from '@/components/poll-create-form';
@@ -66,13 +67,7 @@ export function GroupDetailScreen() {
   if (isLoading || !group) {
     return (
       <main className="mx-auto max-w-app p-four">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="font-display text-sm text-text-secondary"
-        >
-          ← Back
-        </button>
+        <BackButton />
         <p className="mt-four text-text-secondary">Loading…</p>
       </main>
     );
@@ -84,13 +79,7 @@ export function GroupDetailScreen() {
 
   return (
     <main className="mx-auto max-w-app p-four pb-16">
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        className="font-display text-sm text-text-secondary"
-      >
-        ← Back
-      </button>
+      <BackButton />
 
       <h1 className="mt-three font-display text-2xl font-extrabold">{group.name}</h1>
       {group.status === 'archived' ? (

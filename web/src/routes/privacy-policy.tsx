@@ -1,20 +1,13 @@
-import { useNavigate } from 'react-router';
+import { BackButton } from '@/components/ui/back-button';
 
 import { LegalDisclaimer } from '@/components/ui/legal-disclaimer';
 import { SectionHeader } from '@/components/ui/section-header';
 
 export function PrivacyPolicyScreen() {
-  const navigate = useNavigate();
 
   return (
     <main className="mx-auto max-w-app p-four pb-16">
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        className="font-display text-sm text-text-secondary"
-      >
-        ← Back
-      </button>
+      <BackButton />
 
       <h1 className="mt-three font-display text-2xl font-extrabold">Privacy policy</h1>
       <div className="mt-three">

@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link } from 'react-router';
+import { BackButton } from '@/components/ui/back-button';
 
+import { EmptyState } from '@/components/ui/empty-state';
 import { InlineError } from '@/components/ui/inline-error';
 import { ListRow } from '@/components/ui/list-row';
 import { SectionHeader } from '@/components/ui/section-header';
@@ -16,7 +18,6 @@ import { useSession } from '@/hooks/use-session';
 import { getErrorMessage } from '@/lib/errors';
 
 export function FriendsScreen() {
-  const navigate = useNavigate();
   const { session } = useSession();
   const userId = session?.user.id;
 
@@ -40,13 +41,7 @@ export function FriendsScreen() {
 
   return (
     <main className="mx-auto max-w-app p-four pb-16">
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        className="font-display text-sm text-text-secondary"
-      >
-        ← Back
-      </button>
+      <BackButton />
 
       <h1 className="mt-three font-display text-2xl font-extrabold">Friends</h1>
       <Link to="/obligations" className="mt-two inline-block text-sm font-bold text-secondary">
@@ -175,7 +170,7 @@ export function FriendsScreen() {
         {isLoading ? (
           <p className="text-text-secondary">Loading…</p>
         ) : friends.length === 0 ? (
-          <p className="text-sm text-text-secondary">No friends yet — search above to add some.</p>
+          <EmptyState icon="friends" title="No friends yet" description="Search above to add some." />
         ) : (
           friends.map(({ friendship, profile }) => (
             <ListRow

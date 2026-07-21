@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useParams } from 'react-router';
+import { BackButton } from '@/components/ui/back-button';
 
 import { PollCard } from '@/components/poll-card';
 import { PollCreateForm } from '@/components/poll-create-form';
@@ -60,7 +61,6 @@ function statusVariant(status: BetStatus): BadgeVariant {
 
 export function BetDetailScreen() {
   const { betId } = useParams<{ betId: string }>();
-  const navigate = useNavigate();
   const { session } = useSession();
   const userId = session?.user.id;
 
@@ -137,13 +137,7 @@ export function BetDetailScreen() {
   if (isLoading || !bet) {
     return (
       <main className="mx-auto max-w-app p-four">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="font-display text-sm text-text-secondary"
-        >
-          ← Back
-        </button>
+        <BackButton />
         <p className="mt-four text-text-secondary">Loading…</p>
       </main>
     );
@@ -163,13 +157,7 @@ export function BetDetailScreen() {
 
   return (
     <main className="mx-auto max-w-app p-four pb-16">
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        className="font-display text-sm text-text-secondary"
-      >
-        ← Back
-      </button>
+      <BackButton />
 
       <div className="mt-three flex items-start justify-between gap-two">
         <h1 className="font-display text-2xl font-extrabold">{bet.title}</h1>
