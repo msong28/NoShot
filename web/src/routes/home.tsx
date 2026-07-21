@@ -98,7 +98,7 @@ export function HomeScreen() {
       <SectionHeader title="Active bets" />
       <div className="mt-two flex flex-col gap-two">
         {activeBets.length === 0 ? (
-          <EmptyState icon="bet" title="No active bets" description="Propose one from the Add button below." />
+          <EmptyState title="No active bets" description="Propose one from the Add button below." />
         ) : (
           activeBets.map((bet) => (
             <Link key={bet.id} to={`/bet/${bet.id}`}>
@@ -129,7 +129,7 @@ export function HomeScreen() {
       <SectionHeader title="Your groups" />
       <div className="mt-two flex flex-col gap-two">
         {activeGroups.length === 0 ? (
-          <EmptyState icon="groups" title="No groups yet" description="Create one to start tracking bets with friends." />
+          <EmptyState title="No groups yet" description="Create one to start tracking bets with friends." />
         ) : (
           activeGroups.map((group) => (
             <Link key={group.id} to={`/group/${group.id}`}>
