@@ -1,0 +1,182 @@
+@import "tailwindcss";
+
+/* Approved direction: Splitwise clarity + Partiful personality.
+   See /private/tmp/.../noshot-style-preview.html for the reviewed source —
+   values below are transcribed from that approved artifact, not re-derived. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+:root {
+  color-scheme: light dark;
+
+  --color-background: #FBF4F5;
+  --color-surface: #FFFFFF;
+  --color-surface-sunken: #F6ECEE;
+  --color-border: #EEDEE2;
+  --color-text-primary: #241A2E;
+  --color-text-secondary: #7A6B80;
+  --color-text-faint: #B7A9BC;
+
+  --color-primary: #FF5A36;
+  --color-primary-pressed: #E44A28;
+  --color-on-primary: #FFFFFF;
+  --color-secondary: #6C4DE6;
+  --color-secondary-pressed: #5A3ECC;
+  --color-on-secondary: #FFFFFF;
+  --color-success: #1FAA59;
+  --color-success-bg: #E4F5EA;
+  --color-danger: #E13B3B;
+  --color-danger-bg: #FBE7E6;
+  --color-warning: #B8860B;
+  --color-warning-bg: #FBF0DA;
+  --color-info: #1D6FC4;
+  --color-info-bg: #E3EFFB;
+  --color-neutral: #7A6B80;
+  --color-neutral-bg: #F1ECEE;
+
+  --shadow-card: 0 1px 2px rgb(36 26 46 / 0.06), 0 8px 20px rgb(36 26 46 / 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background: #1C1420;
+    --color-surface: #241A2E;
+    --color-surface-sunken: #1C1420;
+    --color-border: #3A2C42;
+    --color-text-primary: #F7EFF2;
+    --color-text-secondary: #B8A6BC;
+    --color-text-faint: #6E5D74;
+
+    --color-primary: #FF6B4A;
+    --color-primary-pressed: #FF8563;
+    --color-secondary: #9B85FF;
+    --color-secondary-pressed: #B29DFF;
+    --color-success: #34C97A;
+    --color-success-bg: #17301F;
+    --color-danger: #FF6B6B;
+    --color-danger-bg: #3A1E1E;
+    --color-warning: #FFB020;
+    --color-warning-bg: #3A2E12;
+    --color-info: #5AA9E6;
+    --color-info-bg: #16283A;
+    --color-neutral: #B8A6BC;
+    --color-neutral-bg: #241A2E;
+
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.25), 0 8px 24px rgb(0 0 0 / 0.35);
+  }
+}
+
+:root[data-theme='dark'] {
+  --color-background: #1C1420;
+  --color-surface: #241A2E;
+  --color-surface-sunken: #1C1420;
+  --color-border: #3A2C42;
+  --color-text-primary: #F7EFF2;
+  --color-text-secondary: #B8A6BC;
+  --color-text-faint: #6E5D74;
+
+  --color-primary: #FF6B4A;
+  --color-primary-pressed: #FF8563;
+  --color-secondary: #9B85FF;
+  --color-secondary-pressed: #B29DFF;
+  --color-success: #34C97A;
+  --color-success-bg: #17301F;
+  --color-danger: #FF6B6B;
+  --color-danger-bg: #3A1E1E;
+  --color-warning: #FFB020;
+  --color-warning-bg: #3A2E12;
+  --color-info: #5AA9E6;
+  --color-info-bg: #16283A;
+  --color-neutral: #B8A6BC;
+  --color-neutral-bg: #241A2E;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.25), 0 8px 24px rgb(0 0 0 / 0.35);
+}
+
+:root[data-theme='light'] {
+  --color-background: #FBF4F5;
+  --color-surface: #FFFFFF;
+  --color-surface-sunken: #F6ECEE;
+  --color-border: #EEDEE2;
+  --color-text-primary: #241A2E;
+  --color-text-secondary: #7A6B80;
+  --color-text-faint: #B7A9BC;
+
+  --color-primary: #FF5A36;
+  --color-primary-pressed: #E44A28;
+  --color-secondary: #6C4DE6;
+  --color-secondary-pressed: #5A3ECC;
+  --color-success: #1FAA59;
+  --color-success-bg: #E4F5EA;
+  --color-danger: #E13B3B;
+  --color-danger-bg: #FBE7E6;
+  --color-warning: #B8860B;
+  --color-warning-bg: #FBF0DA;
+  --color-info: #1D6FC4;
+  --color-info-bg: #E3EFFB;
+  --color-neutral: #7A6B80;
+  --color-neutral-bg: #F1ECEE;
+
+  --shadow-card: 0 1px 2px rgb(36 26 46 / 0.06), 0 8px 20px rgb(36 26 46 / 0.06);
+}
+
+@theme inline {
+  --color-background: var(--color-background);
+  --color-surface: var(--color-surface);
+  --color-surface-sunken: var(--color-surface-sunken);
+  --color-border: var(--color-border);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-faint: var(--color-text-faint);
+
+  --color-primary: var(--color-primary);
+  --color-primary-pressed: var(--color-primary-pressed);
+  --color-on-primary: var(--color-on-primary);
+  --color-secondary: var(--color-secondary);
+  --color-secondary-pressed: var(--color-secondary-pressed);
+  --color-on-secondary: var(--color-on-secondary);
+  --color-success: var(--color-success);
+  --color-success-bg: var(--color-success-bg);
+  --color-danger: var(--color-danger);
+  --color-danger-bg: var(--color-danger-bg);
+  --color-warning: var(--color-warning);
+  --color-warning-bg: var(--color-warning-bg);
+  --color-info: var(--color-info);
+  --color-info-bg: var(--color-info-bg);
+  --color-neutral: var(--color-neutral);
+  --color-neutral-bg: var(--color-neutral-bg);
+
+  /* Spacing scale, matches the Expo app's Spacing.half..six naming intent */
+  --spacing-half: 0.125rem;
+  --spacing-one: 0.25rem;
+  --spacing-two: 0.5rem;
+  --spacing-three: 1rem;
+  --spacing-four: 1.5rem;
+  --spacing-five: 2rem;
+  --spacing-six: 4rem;
+
+  --radius-small: 0.5rem;
+  --radius-medium: 1rem;
+  --radius-large: 1.375rem;
+  --radius-pill: 999px;
+
+  --container-app: 760px;
+
+  /* Display/UI face: rounded system font (SF Rounded on Apple, graceful
+     fallback elsewhere) -- used for headings, buttons, badges, and every
+     number that matters. Never a webfont URL: the Artifact/app CSP has no
+     font-CDN access, and an unavailable custom face fails silently to a
+     generic sans, which is worse than deliberately choosing a real system
+     stack up front. */
+  --font-display: ui-rounded, "SF Pro Rounded", "Nunito Sans", system-ui, sans-serif;
+  --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
