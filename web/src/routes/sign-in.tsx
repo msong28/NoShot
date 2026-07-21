@@ -27,7 +27,7 @@ export function SignInScreen() {
   }, []);
 
   if (!isLoading && session) {
-    return <Navigate to="/profile" replace />;
+    return <Navigate to="/home" replace />;
   }
 
   async function handleSignIn(provider: 'google' | 'apple') {

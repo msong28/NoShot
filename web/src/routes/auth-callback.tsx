@@ -24,7 +24,7 @@ export function AuthCallbackScreen() {
   }, []);
 
   if (done) {
-    return <Navigate to="/profile" replace />;
+    return <Navigate to="/home" replace />;
   }
 
   return (
