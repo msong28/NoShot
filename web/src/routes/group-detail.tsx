@@ -5,12 +5,13 @@ import { PollCard } from '@/components/poll-card';
 import { PollCreateForm } from '@/components/poll-create-form';
 import { ReportDialog } from '@/components/report-dialog';
 import { Avatar } from '@/components/ui/avatar';
-import { StatusBadge } from '@/components/ui/badge';
 import { BackButton } from '@/components/ui/back-button';
+import { Button } from '@/components/ui/button';
 import { ConfirmationDialog } from '@/components/ui/confirm-dialog';
 import { InlineError } from '@/components/ui/inline-error';
 import { ListRow } from '@/components/ui/list-row';
 import { SectionHeader } from '@/components/ui/section-header';
+import { StatusPill } from '@/components/ui/status-pill';
 import { useChatAuthorProfiles, useChatMessages, usePostChatMessage } from '@/hooks/use-chat';
 import { useSearchUsername } from '@/hooks/use-friends';
 import {
@@ -82,7 +83,9 @@ export function GroupDetailScreen() {
     <main className="mx-auto max-w-app p-four pb-16">
       <BackButton />
 
-      <h1 className="mt-three font-display text-2xl font-extrabold">{group.name}</h1>
+      <h1 className="mt-three font-display text-screen-title font-extrabold tracking-display-tight">
+        {group.name}
+      </h1>
       {group.status === 'archived' ? (
         <p className="mt-two text-sm text-text-faint">Archived</p>
       ) : null}
@@ -101,18 +104,20 @@ export function GroupDetailScreen() {
             return (
               <ListRow
                 key={message.id}
-                leading={<Avatar id={message.author_id} name={author?.display_name ?? '?'} size="sm" />}
+                leading={
+                  <Avatar id={message.author_id} name={author?.display_name ?? '?'} size="sm" />
+                }
                 title={author?.display_name ?? 'Someone'}
                 subtitle={message.body}
                 trailing={
                   <div className="flex items-center gap-two">
                     {message.moderation_status === 'pending_review' ? (
-                      <StatusBadge label="Pending review" variant="warning" />
+                      <StatusPill variant="pending" label="Pending review" />
                     ) : null}
                     <button
                       type="button"
                       onClick={() => setReportChatMessageId(message.id)}
-                      className="font-display text-sm text-text-secondary"
+                      className="text-sm font-bold text-text-secondary"
                     >
                       Report
                     </button>
@@ -128,16 +133,14 @@ export function GroupDetailScreen() {
               placeholder="Say something to the group"
               value={chatBody}
               onChange={(e) => setChatBody(e.target.value)}
-              className="flex-1 rounded-medium bg-surface p-three shadow-card"
+              className="min-w-0 flex-1 rounded-medium border border-line bg-surface p-three"
             />
-            <button
-              type="button"
-              onClick={handlePostChat}
+            <Button
               disabled={!chatBody.trim() || postChatMessage.isPending}
-              className="rounded-pill bg-primary px-four py-two font-display font-bold text-on-primary disabled:opacity-60"
+              onClick={handlePostChat}
             >
               Send
-            </button>
+            </Button>
           </div>
         ) : null}
       </div>
@@ -176,7 +179,7 @@ export function GroupDetailScreen() {
                 <button
                   type="button"
                   onClick={() => run(removeMember.mutateAsync(member.user_id))}
-                  className="font-display text-sm font-bold text-danger"
+                  className="text-sm font-bold text-danger-ink"
                 >
                   Remove
                 </button>
@@ -195,16 +198,14 @@ export function GroupDetailScreen() {
                 placeholder="Search by username"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="flex-1 rounded-medium bg-surface p-three shadow-card"
+                className="min-w-0 flex-1 rounded-medium border border-line bg-surface p-three"
               />
-              <button
-                type="button"
+              <Button
                 disabled={!query.trim() || searchUsername.isPending}
                 onClick={() => searchUsername.mutate(query.trim())}
-                className="rounded-pill bg-primary px-four py-two font-display font-bold text-on-primary disabled:opacity-60"
               >
                 Search
-              </button>
+              </Button>
             </div>
             {(searchUsername.data ?? []).map((profile) => (
               <ListRow
@@ -219,7 +220,7 @@ export function GroupDetailScreen() {
                     <button
                       type="button"
                       onClick={() => run(inviteToGroup.mutateAsync(profile.id))}
-                      className="rounded-pill bg-primary px-three py-one font-display text-sm font-bold text-on-primary"
+                      className="rounded-pill bg-grape px-three py-one text-sm font-bold text-on-grape"
                     >
                       Invite
                     </button>
@@ -231,23 +232,21 @@ export function GroupDetailScreen() {
         </>
       ) : null}
 
-      <SectionHeader title="Danger zone" />
+      <p className="mt-four text-xs font-bold uppercase tracking-eyebrow text-danger-ink">
+        Danger zone
+      </p>
       <div className="mt-two flex flex-col gap-two">
-        <button
-          type="button"
-          onClick={() => setPendingLeave(true)}
-          className="self-start rounded-pill bg-surface-sunken px-four py-two font-display font-bold text-text-secondary"
-        >
+        <Button variant="secondary" className="self-start" onClick={() => setPendingLeave(true)}>
           Leave group
-        </button>
+        </Button>
         {isOwner && group.status === 'active' ? (
-          <button
-            type="button"
+          <Button
+            variant="dangerOutline"
+            className="self-start"
             onClick={() => setPendingArchive(true)}
-            className="self-start rounded-pill bg-danger-bg px-four py-two font-display font-bold text-danger"
           >
             Archive group
-          </button>
+          </Button>
         ) : null}
       </div>
 

@@ -2,7 +2,9 @@ import { useState } from 'react';
 
 import { Avatar } from '@/components/ui/avatar';
 import { BackButton } from '@/components/ui/back-button';
+import { DebtChip } from '@/components/ui/debt-chip';
 import { EmptyState } from '@/components/ui/empty-state';
+import { IconTile } from '@/components/ui/icon-tile';
 import { InlineError } from '@/components/ui/inline-error';
 import { ListRow } from '@/components/ui/list-row';
 import { SectionHeader } from '@/components/ui/section-header';
@@ -51,7 +53,7 @@ function SettleUpButton({
       type="button"
       disabled={requestRedemption.isPending || (outstanding.data ?? []).length === 0}
       onClick={handleClick}
-      className="rounded-pill bg-primary px-three py-one font-display text-sm font-bold text-on-primary disabled:opacity-60"
+      className="rounded-pill bg-grape px-three py-one text-sm font-bold text-on-grape disabled:opacity-60"
     >
       Settle up
     </button>
@@ -63,8 +65,11 @@ export function BalancesScreen() {
   const userId = session?.user.id;
 
   const { rows: balanceRows, isLoading } = useMyBalances(userId);
-  const { needsMyConfirmation, waitingOnThem, isLoading: isRedemptionsLoading } =
-    useMyRedemptions(userId);
+  const {
+    needsMyConfirmation,
+    waitingOnThem,
+    isLoading: isRedemptionsLoading,
+  } = useMyRedemptions(userId);
   const confirmRedemption = useConfirmRedemption(userId);
   const declineRedemption = useDeclineRedemption(userId);
   const cancelRedemption = useCancelRedemption(userId);
@@ -76,13 +81,47 @@ export function BalancesScreen() {
     promise.catch((err: unknown) => setError(getErrorMessage(err, 'Something went wrong')));
   }
 
+  const owedToYouRows = balanceRows.filter((r) => r.balance.net_amount > 0);
+  const youOweRows = balanceRows.filter((r) => r.balance.net_amount < 0);
+  const distinctFriends = new Set(owedToYouRows.map((r) => r.balance.counterparty_id)).size;
+
   return (
     <main className="mx-auto max-w-app p-four pb-16">
       <BackButton />
 
-      <h1 className="mt-three font-display text-2xl font-extrabold">Balances</h1>
+      <h1 className="mt-three font-display text-screen-title font-extrabold tracking-display-tight">
+        Cash in
+      </h1>
+      <p className="mt-two text-text-secondary">
+        {owedToYouRows.length > 0
+          ? `You're owed ${owedToYouRows.length} favor${owedToYouRows.length === 1 ? '' : 's'} across ${distinctFriends} friend${distinctFriends === 1 ? '' : 's'}.`
+          : "You're not owed anything right now."}
+      </p>
 
       <InlineError message={error} />
+
+      {owedToYouRows.length > 0 ? (
+        <div className="mt-three flex flex-col gap-two">
+          {owedToYouRows.map(({ balance, counterparty, currency }) => (
+            <ListRow
+              key={`${balance.counterparty_id}:${balance.currency_id}:${balance.group_id ?? 'none'}`}
+              leading={<IconTile tone="success">{currency?.icon ?? '🎯'}</IconTile>}
+              title={currency?.name ?? 'Favor'}
+              subtitle={`from ${counterparty?.display_name ?? 'someone'}`}
+              trailing={
+                <DebtChip direction="up" label={`${balance.net_amount} ${currency?.name ?? ''}`} />
+              }
+            />
+          ))}
+        </div>
+      ) : null}
+
+      <div className="mt-three flex items-center gap-two rounded-medium bg-surface-sunken p-three">
+        <span className="text-lg">🔒</span>
+        <p className="text-sm text-text-secondary">
+          Settling up pings your friend to confirm they paid. Both of you keep a record.
+        </p>
+      </div>
 
       {needsMyConfirmation.length > 0 ? (
         <>
@@ -91,7 +130,12 @@ export function BalancesScreen() {
             {needsMyConfirmation.map(({ request, counterparty }) => (
               <ListRow
                 key={request.id}
-                leading={<Avatar id={counterparty?.id ?? request.id} name={counterparty?.display_name ?? '?'} />}
+                leading={
+                  <Avatar
+                    id={counterparty?.id ?? request.id}
+                    name={counterparty?.display_name ?? '?'}
+                  />
+                }
                 title={counterparty?.display_name ?? 'Someone'}
                 subtitle={`Says they paid ${request.amount}`}
                 trailing={
@@ -99,14 +143,14 @@ export function BalancesScreen() {
                     <button
                       type="button"
                       onClick={() => run(confirmRedemption.mutateAsync(request.id))}
-                      className="rounded-pill bg-primary px-three py-one font-display text-sm font-bold text-on-primary"
+                      className="rounded-pill bg-grape px-three py-one text-sm font-bold text-on-grape"
                     >
                       Confirm
                     </button>
                     <button
                       type="button"
                       onClick={() => run(declineRedemption.mutateAsync(request.id))}
-                      className="rounded-pill bg-surface-sunken px-three py-one font-display text-sm font-bold text-text-secondary"
+                      className="rounded-pill bg-surface-sunken px-three py-one text-sm font-bold text-text-secondary"
                     >
                       Decline
                     </button>
@@ -125,14 +169,19 @@ export function BalancesScreen() {
             {waitingOnThem.map(({ request, counterparty }) => (
               <ListRow
                 key={request.id}
-                leading={<Avatar id={counterparty?.id ?? request.id} name={counterparty?.display_name ?? '?'} />}
+                leading={
+                  <Avatar
+                    id={counterparty?.id ?? request.id}
+                    name={counterparty?.display_name ?? '?'}
+                  />
+                }
                 title={counterparty?.display_name ?? 'Someone'}
                 subtitle={`You said you paid ${request.amount}`}
                 trailing={
                   <button
                     type="button"
                     onClick={() => run(cancelRedemption.mutateAsync(request.id))}
-                    className="font-display text-sm font-bold text-danger"
+                    className="text-sm font-bold text-danger-ink"
                   >
                     Cancel
                   </button>
@@ -143,21 +192,30 @@ export function BalancesScreen() {
         </>
       ) : null}
 
-      <SectionHeader title="Net balances" />
+      <SectionHeader title="You owe" />
       <div className="mt-two flex flex-col gap-two">
         {isLoading || isRedemptionsLoading ? (
           <p className="text-text-secondary">Loading…</p>
-        ) : balanceRows.length === 0 ? (
-          <EmptyState icon="balances" title="All settled up" description="No outstanding balances with anyone." />
+        ) : youOweRows.length === 0 ? (
+          <EmptyState
+            icon="balances"
+            title="All settled up"
+            description="You don't owe anyone right now."
+          />
         ) : (
-          balanceRows.map(({ balance, counterparty, currency }) => (
+          youOweRows.map(({ balance, counterparty, currency }) => (
             <ListRow
               key={`${balance.counterparty_id}:${balance.currency_id}:${balance.group_id ?? 'none'}`}
-              leading={<Avatar id={balance.counterparty_id} name={counterparty?.display_name ?? '?'} />}
+              leading={
+                <Avatar id={balance.counterparty_id} name={counterparty?.display_name ?? '?'} />
+              }
               title={counterparty?.display_name ?? 'Unknown'}
-              subtitle={`${balance.net_amount > 0 ? 'Owes you' : 'You owe'} ${Math.abs(balance.net_amount)} ${currency?.name ?? ''}`}
               trailing={
-                balance.net_amount < 0 ? (
+                <div className="flex flex-col items-end gap-one">
+                  <DebtChip
+                    direction="down"
+                    label={`${Math.abs(balance.net_amount)} ${currency?.name ?? ''}`}
+                  />
                   <SettleUpButton
                     userId={userId}
                     counterpartyId={balance.counterparty_id}
@@ -165,7 +223,7 @@ export function BalancesScreen() {
                     groupId={balance.group_id}
                     onError={setError}
                   />
-                ) : undefined
+                </div>
               }
             />
           ))

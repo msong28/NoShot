@@ -30,7 +30,35 @@ function betDetailQueryKey(betId: string | undefined) {
   return ['bet-detail', betId] as const;
 }
 
-type MyBetRow = { bet_id: string; bets: Bet };
+type MyBetRow = {
+  id: string;
+  bet_id: string;
+  bets: Bet;
+  bet_sides: { outcome_key: string } | null;
+};
+
+export type BetCommitmentWithCurrency = BetCommitment & {
+  currencies: { name: string; icon: string | null } | null;
+};
+
+type BetOpponent = { id: string; username: string; display_name: string };
+
+/** A bet plus whether *this caller* won it -- derived from the caller's own
+ * side outcome vs. the bet's resolved outcome, embedded in the same
+ * bet_participants query useMyBets already made (no extra round-trip). Only
+ * meaningful once `bet.status === 'resolved'`; `null` otherwise.
+ *
+ * `opponent` and `myCommitment` are `undefined` while their own batched
+ * queries are still loading, and `null` once loaded if genuinely absent
+ * (e.g. a 3+-way bet has no single "opponent"). List rows (Home, Bets tab)
+ * use these for the real currency icon, "vs {name}" subtitle, and a
+ * resolved-only debt chip -- never fabricated for an unresolved bet, since
+ * nothing is actually owed until it resolves. */
+export type MyBet = Bet & {
+  iWon: boolean | null;
+  opponent: BetOpponent | null | undefined;
+  myCommitment: BetCommitmentWithCurrency | null | undefined;
+};
 
 /**
  * Every bet the caller participates in, split into active vs.
@@ -42,7 +70,7 @@ export function useMyBets(userId: string | undefined) {
     queryFn: async (): Promise<MyBetRow[]> => {
       const { data, error } = await supabase
         .from('bet_participants')
-        .select('bet_id, bets(*)')
+        .select('id, bet_id, bets(*), bet_sides(outcome_key)')
         .eq('user_id', userId as string)
         .eq('participation_status', 'active')
         .order('created_at', { ascending: false });
@@ -54,7 +82,58 @@ export function useMyBets(userId: string | undefined) {
   });
 
   const rows = useMemo(() => query.data ?? [], [query.data]);
-  const bets = useMemo(() => rows.map((row) => row.bets).filter(Boolean), [rows]);
+  const betIds = useMemo(() => rows.filter((r) => r.bets).map((r) => r.bet_id), [rows]);
+
+  const participantProfilesQuery = useQuery({
+    queryKey: ['my-bets-participant-profiles', userId, betIds],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_bets_participant_profiles', {
+        p_bet_ids: betIds,
+      });
+      if (error) throw error;
+      return data as (BetOpponent & { bet_id: string })[];
+    },
+    enabled: !!userId && betIds.length > 0,
+  });
+
+  const commitmentsQuery = useQuery({
+    queryKey: ['my-bets-commitments', userId, betIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('bet_commitments')
+        .select('*, currencies(name, icon)')
+        .in('bet_id', betIds);
+      if (error) throw error;
+      return data as unknown as BetCommitmentWithCurrency[];
+    },
+    enabled: !!userId && betIds.length > 0,
+  });
+
+  const bets = useMemo<MyBet[]>(() => {
+    const enrichmentLoaded = participantProfilesQuery.isSuccess && commitmentsQuery.isSuccess;
+
+    const opponentsByBetId = new Map<string, BetOpponent>();
+    for (const p of participantProfilesQuery.data ?? []) {
+      if (p.id !== userId) opponentsByBetId.set(p.bet_id, p);
+    }
+    const commitmentsByParticipantId = new Map(
+      (commitmentsQuery.data ?? []).map((c) => [c.participant_id, c]),
+    );
+
+    return rows
+      .filter((row) => row.bets)
+      .map((row) => ({
+        ...row.bets,
+        iWon:
+          row.bets.status === 'resolved'
+            ? row.bets.resolved_outcome_key === row.bet_sides?.outcome_key
+            : null,
+        opponent: enrichmentLoaded ? (opponentsByBetId.get(row.bet_id) ?? null) : undefined,
+        myCommitment: enrichmentLoaded
+          ? (commitmentsByParticipantId.get(row.id) ?? null)
+          : undefined,
+      }));
+  }, [rows, userId, participantProfilesQuery.data, participantProfilesQuery.isSuccess, commitmentsQuery.data, commitmentsQuery.isSuccess]);
   const activeBets = useMemo(() => bets.filter((bet) => bet.status === 'active'), [bets]);
   const pendingBetIds = useMemo(
     () => bets.filter((bet) => bet.status === 'pending_acceptance').map((bet) => bet.id),
@@ -219,14 +298,14 @@ export function useBetDetail(betId: string | undefined) {
 
   const commitmentsQuery = useQuery({
     queryKey: [...betDetailQueryKey(betId), 'commitments', currentVersion],
-    queryFn: async (): Promise<BetCommitment[]> => {
+    queryFn: async (): Promise<BetCommitmentWithCurrency[]> => {
       const { data, error } = await supabase
         .from('bet_commitments')
-        .select('*')
+        .select('*, currencies(name, icon)')
         .eq('bet_id', betId as string)
         .eq('version_no', currentVersion as number);
       if (error) throw error;
-      return data;
+      return data as unknown as BetCommitmentWithCurrency[];
     },
     enabled: !!betId && !!currentVersion,
   });

@@ -49,11 +49,23 @@ describe('BalancesScreen', () => {
       waitingOnThem: [],
       isLoading: false,
     } as never);
-    vi.mocked(useConfirmRedemption).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
-    vi.mocked(useDeclineRedemption).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
-    vi.mocked(useCancelRedemption).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
+    vi.mocked(useConfirmRedemption).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as never);
+    vi.mocked(useDeclineRedemption).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as never);
+    vi.mocked(useCancelRedemption).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as never);
     vi.mocked(useOutstandingObligations).mockReturnValue({ data: [], isLoading: false } as never);
-    vi.mocked(useRequestRedemption).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
+    vi.mocked(useRequestRedemption).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as never);
   });
 
   it('shows the settled-up empty state', () => {
@@ -76,12 +88,15 @@ describe('BalancesScreen', () => {
       data: [{ source_entry_id: 'e1', outstanding_amount: 20 }],
       isLoading: false,
     } as never);
-    const requestRedemption = { mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false };
+    const requestRedemption = {
+      mutateAsync: vi.fn().mockResolvedValue(undefined),
+      isPending: false,
+    };
     vi.mocked(useRequestRedemption).mockReturnValue(requestRedemption as never);
 
     renderScreen();
 
-    expect(screen.getByText('You owe 20 Dollars')).toBeInTheDocument();
+    expect(screen.getByText(/20 Dollars/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Settle up' }));
 
     expect(requestRedemption.mutateAsync).toHaveBeenCalledWith([
@@ -90,7 +105,10 @@ describe('BalancesScreen', () => {
   });
 
   it('confirms a redemption someone else says they paid', async () => {
-    const confirmRedemption = { mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false };
+    const confirmRedemption = {
+      mutateAsync: vi.fn().mockResolvedValue(undefined),
+      isPending: false,
+    };
     vi.mocked(useConfirmRedemption).mockReturnValue(confirmRedemption as never);
     vi.mocked(useMyRedemptions).mockReturnValue({
       needsMyConfirmation: [
@@ -109,7 +127,10 @@ describe('BalancesScreen', () => {
   });
 
   it('cancels a redemption request waiting on the other person', async () => {
-    const cancelRedemption = { mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false };
+    const cancelRedemption = {
+      mutateAsync: vi.fn().mockResolvedValue(undefined),
+      isPending: false,
+    };
     vi.mocked(useCancelRedemption).mockReturnValue(cancelRedemption as never);
     vi.mocked(useMyRedemptions).mockReturnValue({
       needsMyConfirmation: [],

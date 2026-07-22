@@ -3,6 +3,8 @@ import { Link, Navigate } from 'react-router';
 
 import { Browser } from '@capacitor/browser';
 
+import { Brick } from '@/components/ui/brick';
+import { Button } from '@/components/ui/button';
 import { useSession } from '@/hooks/use-session';
 import { signInWithProvider } from '@/lib/auth/oauth';
 import { getErrorMessage } from '@/lib/errors';
@@ -60,66 +62,85 @@ export function SignInScreen() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-app flex-col justify-center gap-four p-four">
-      <div>
-        <h1 className="font-display text-3xl font-extrabold">NoShot</h1>
-        <p className="mt-two text-text-secondary">Bet with your friends. Settle up without the drama.</p>
+      <div className="flex flex-col items-center text-center">
+        <Brick size={60} variant="default" />
+        <h1 className="mt-three font-display text-screen-title font-extrabold tracking-display-tight">
+          Welcome back
+        </h1>
+        <p className="mt-one text-text-secondary">no shot you stayed away this long</p>
       </div>
 
       {error && (
-        <p role="alert" className="rounded-medium bg-danger-bg p-three text-danger">
+        <p role="alert" className="rounded-medium bg-danger-soft p-three text-danger-ink">
           {error}
         </p>
       )}
 
       <div className="flex flex-col gap-two">
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          autoComplete="email"
-          className="rounded-medium bg-surface p-three shadow-card"
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="current-password"
-          className="rounded-medium bg-surface p-three shadow-card"
-        />
-        <button
-          type="button"
-          onClick={handlePasswordSignIn}
-          disabled={isSubmitting || !email || !password}
-          className="rounded-pill bg-primary px-four py-three font-display font-bold text-on-primary shadow-card disabled:opacity-60"
-        >
-          {isSubmitting ? 'Signing in…' : 'Sign in'}
-        </button>
-        <Link to="/sign-up" className="text-center font-display text-sm text-text-secondary">
-          Need an account? Create one
-        </Link>
-      </div>
-
-      <p className="text-center text-sm text-text-faint">or</p>
-
-      <div className="flex flex-col gap-three">
-        <button
-          type="button"
-          onClick={() => handleSignIn('google')}
+        <Button
+          variant="ink"
+          fullWidth
           disabled={pendingProvider !== null}
-          className="rounded-pill bg-primary px-four py-three font-display font-bold text-on-primary shadow-card disabled:opacity-60"
-        >
-          {pendingProvider === 'google' ? 'Signing in…' : 'Continue with Google'}
-        </button>
-        <button
-          type="button"
           onClick={() => handleSignIn('apple')}
-          disabled={pendingProvider !== null}
-          className="rounded-pill bg-secondary px-four py-three font-display font-bold text-on-secondary shadow-card disabled:opacity-60"
         >
           {pendingProvider === 'apple' ? 'Signing in…' : 'Continue with Apple'}
-        </button>
+        </Button>
+        <Button
+          variant="secondary"
+          fullWidth
+          disabled={pendingProvider !== null}
+          onClick={() => handleSignIn('google')}
+        >
+          <span className="font-extrabold text-[#4285F4]">G</span>
+          {pendingProvider === 'google' ? 'Signing in…' : 'Continue with Google'}
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-three text-sm text-text-faint">
+        <span className="h-px flex-1 bg-line" />
+        or
+        <span className="h-px flex-1 bg-line" />
+      </div>
+
+      <div className="flex flex-col gap-two">
+        <div>
+          <p className="mb-one text-sm font-bold text-text-secondary">Email</p>
+          <input
+            type="email"
+            aria-label="Email"
+            placeholder="maya@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            className="w-full rounded-medium border border-line bg-surface p-three"
+          />
+        </div>
+        <div>
+          <p className="mb-one text-sm font-bold text-text-secondary">Password</p>
+          <input
+            type="password"
+            aria-label="Password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            className="w-full rounded-medium border border-line bg-surface p-three"
+          />
+        </div>
+        <Link to="/forgot-password" className="self-end text-sm font-bold text-grape-ink">
+          Forgot password?
+        </Link>
+        <Button
+          variant="primary"
+          fullWidth
+          onClick={handlePasswordSignIn}
+          disabled={isSubmitting || !email || !password}
+        >
+          {isSubmitting ? 'Signing in…' : 'Sign in'}
+        </Button>
+        <Link to="/sign-up" className="text-center text-sm text-text-secondary">
+          New here? <span className="font-bold text-grape-ink">Create account</span>
+        </Link>
       </div>
     </main>
   );

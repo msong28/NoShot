@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router';
 
+import { AppLoading } from '@/components/ui/app-loading';
 import { useSession } from '@/hooks/use-session';
 
 export function ProtectedRoute() {
@@ -7,7 +8,7 @@ export function ProtectedRoute() {
   const location = useLocation();
 
   if (isLoading) {
-    return <p className="p-four text-text-secondary">Loading…</p>;
+    return <AppLoading />;
   }
 
   if (!session) {

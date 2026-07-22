@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
-import { StatusBadge, type BadgeVariant } from '@/components/ui/badge';
 import { ListRow } from '@/components/ui/list-row';
+import { StatusPill, type StatusPillVariant } from '@/components/ui/status-pill';
 import { useReports } from '@/hooks/use-admin';
+import { Icons } from '@/lib/icons';
 import { REPORT_REASON_LABELS, type ReportStatus } from '@/lib/report';
 
 const STATUS_TABS: { value: ReportStatus | 'all'; label: string }[] = [
@@ -22,10 +23,10 @@ const TARGET_TYPE_LABELS: Record<string, string> = {
   user: 'User',
 };
 
-function statusVariant(status: ReportStatus): BadgeVariant {
-  if (status === 'open') return 'warning';
-  if (status === 'resolved') return 'success';
-  return 'neutral';
+function statusVariant(status: ReportStatus): StatusPillVariant {
+  if (status === 'open') return 'pending';
+  if (status === 'resolved') return 'won';
+  return 'tied';
 }
 
 export function AdminReportQueueScreen() {
@@ -38,12 +39,15 @@ export function AdminReportQueueScreen() {
       <button
         type="button"
         onClick={() => navigate('/', { replace: true })}
-        className="font-display text-sm text-text-secondary"
+        className="-ml-two flex items-center gap-half rounded-large px-two py-one font-display text-sm text-text-secondary"
       >
+        <Icons.back size={18} strokeWidth={2} />
         Exit admin
       </button>
 
-      <h1 className="mt-three font-display text-2xl font-extrabold">Reports</h1>
+      <h1 className="mt-three font-display text-screen-title font-extrabold tracking-display-tight">
+        Reports
+      </h1>
 
       <div className="mt-three flex gap-two">
         {STATUS_TABS.map((tab) => (
@@ -51,8 +55,10 @@ export function AdminReportQueueScreen() {
             key={tab.value}
             type="button"
             onClick={() => setStatus(tab.value)}
-            className={`rounded-pill px-three py-two font-display text-sm font-bold ${
-              status === tab.value ? 'bg-primary text-on-primary' : 'bg-surface-sunken text-text-secondary'
+            className={`rounded-pill px-three py-two text-sm font-bold whitespace-nowrap ${
+              status === tab.value
+                ? 'bg-ink text-bg'
+                : 'border border-line bg-surface text-text-secondary'
             }`}
           >
             {tab.label}
@@ -71,9 +77,7 @@ export function AdminReportQueueScreen() {
               <ListRow
                 title={`${TARGET_TYPE_LABELS[report.target_type] ?? report.target_type} report`}
                 subtitle={REPORT_REASON_LABELS[report.reason]}
-                trailing={
-                  <StatusBadge label={report.status} variant={statusVariant(report.status)} />
-                }
+                trailing={<StatusPill variant={statusVariant(report.status)} label={report.status} />}
               />
             </Link>
           ))

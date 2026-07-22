@@ -169,7 +169,7 @@ describe('GroupDetailScreen', () => {
     renderScreen();
 
     expect(screen.getByText('Next game night?')).toBeInTheDocument();
-    expect(screen.getByText('Friday · 0 votes')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Friday0' })).toBeInTheDocument();
   });
 
   it('opens the report dialog for a chat message', () => {

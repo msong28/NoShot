@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useParams } from 'react-router';
-import { BackButton } from '@/components/ui/back-button';
 
-import { StatusBadge, type BadgeVariant } from '@/components/ui/badge';
+import { BackButton } from '@/components/ui/back-button';
+import { Button } from '@/components/ui/button';
 import { ConfirmationDialog } from '@/components/ui/confirm-dialog';
 import { InlineError } from '@/components/ui/inline-error';
 import { SectionHeader } from '@/components/ui/section-header';
+import { StatusPill, type StatusPillVariant } from '@/components/ui/status-pill';
 import {
   useDismissReport,
   useRemoveContent,
@@ -28,10 +29,10 @@ type AdminActionMutation = {
   mutateAsync: (input: { reportId: string; note?: string }) => Promise<unknown>;
 };
 
-function statusVariant(status: string): BadgeVariant {
-  if (status === 'open') return 'warning';
-  if (status === 'resolved') return 'success';
-  return 'neutral';
+function statusVariant(status: string): StatusPillVariant {
+  if (status === 'open') return 'pending';
+  if (status === 'resolved') return 'won';
+  return 'tied';
 }
 
 export function AdminReportDetailScreen() {
@@ -75,11 +76,11 @@ export function AdminReportDetailScreen() {
     <main className="mx-auto max-w-app p-four pb-16">
       <BackButton />
 
-      <h1 className="mt-three font-display text-2xl font-extrabold">
+      <h1 className="mt-three font-display text-screen-title font-extrabold tracking-display-tight">
         {r.target_type.replace('_', ' ')} report
       </h1>
       <div className="mt-two">
-        <StatusBadge label={r.status} variant={statusVariant(r.status)} />
+        <StatusPill variant={statusVariant(r.status)} label={r.status} />
       </div>
       <p className="mt-two text-sm text-text-secondary">Reason: {REPORT_REASON_LABELS[r.reason]}</p>
       {r.details ? <p className="mt-two text-sm">{r.details}</p> : null}
@@ -93,7 +94,7 @@ export function AdminReportDetailScreen() {
       ) : evidence.isError ? (
         <InlineError message={getErrorMessage(evidence.error, 'Could not load evidence')} />
       ) : (
-        <div className="mt-two rounded-large bg-surface p-three shadow-card">
+        <div className="mt-two rounded-large border border-line bg-surface p-three">
           {Object.entries(evidence.data ?? {}).map(([key, value]) => (
             <p key={key} className="text-sm text-text-secondary">
               {key}: {String(value)}
@@ -106,12 +107,12 @@ export function AdminReportDetailScreen() {
         <>
           <SectionHeader title="Actions" />
           <div className="mt-two flex flex-col gap-two">
-            <label className="text-sm text-text-secondary">Note (optional)</label>
+            <label className="text-sm font-bold text-text-secondary">Note (optional)</label>
             <input
               placeholder="Context for the audit log"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="rounded-medium bg-surface p-three shadow-card"
+              className="rounded-medium border border-line bg-surface p-three"
             />
           </div>
           <div className="mt-two">
@@ -119,35 +120,19 @@ export function AdminReportDetailScreen() {
           </div>
           <div className="mt-three flex flex-wrap gap-two">
             {canRemoveContent ? (
-              <button
-                type="button"
-                onClick={() => setPendingAction('remove_content')}
-                className="rounded-pill bg-danger px-three py-two font-display font-bold text-white"
-              >
+              <Button variant="dangerSolid" onClick={() => setPendingAction('remove_content')}>
                 Remove content
-              </button>
+              </Button>
             ) : null}
-            <button
-              type="button"
-              onClick={() => setPendingAction('suspend_user')}
-              className="rounded-pill bg-danger px-three py-two font-display font-bold text-white"
-            >
+            <Button variant="dangerSolid" onClick={() => setPendingAction('suspend_user')}>
               Suspend user
-            </button>
-            <button
-              type="button"
-              onClick={() => setPendingAction('resolve')}
-              className="rounded-pill bg-primary px-three py-two font-display font-bold text-on-primary"
-            >
+            </Button>
+            <Button variant="primary" onClick={() => setPendingAction('resolve')}>
               Resolve
-            </button>
-            <button
-              type="button"
-              onClick={() => setPendingAction('dismiss')}
-              className="rounded-pill bg-surface-sunken px-three py-two font-display font-bold text-text-secondary"
-            >
+            </Button>
+            <Button variant="secondary" onClick={() => setPendingAction('dismiss')}>
               Dismiss
-            </button>
+            </Button>
           </div>
         </>
       ) : (

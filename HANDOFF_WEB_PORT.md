@@ -34,7 +34,7 @@ bugs found**:
   auto-approves), approved it, watched the bet flip from "Awaiting approval" to "Active"
   and the Actions section switch to "Propose cancellation".
 - Created a group ("Coffee Crew") as Bob, invited Alice by username, confirmed Alice saw
-  it as a *pending invite* to accept (not instant membership) on her `/groups` screen,
+  it as a _pending invite_ to accept (not instant membership) on her `/groups` screen,
   accepted it, and sent chat messages both directions — both rendered live for both
   users.
 
@@ -69,6 +69,7 @@ tests — up from 4/13). Every commit this session was typecheck+test+build-veri
 own before moving to the next.
 
 **What got built this session** (see git log on `web-port`):
+
 - **Wired comments, polls, and proof into `bet-detail.tsx`**, and **chat and polls into
   `group-detail.tsx`** — this was flagged as the single largest remaining feature gap
   across all three prior sessions. All the hooks (`use-comments`, `use-chat`, `use-polls`,
@@ -82,7 +83,7 @@ own before moving to the next.
   no hook changes were needed.
 - **Resolved the sign-up open question** from the third handoff ("check whether native's
   sign-up screen does anything OAuth-only sign-in doesn't already cover"): it does — native
-  supports email+password sign-in/sign-up *in addition to* Google/Apple OAuth, and web only
+  supports email+password sign-in/sign-up _in addition to_ Google/Apple OAuth, and web only
   had OAuth. Added a password field to the existing `sign-in.tsx` (using
   `supabase.auth.signInWithPassword`, same as native) and a new `sign-up.tsx` screen at
   `/sign-up` (using `supabase.auth.signUp`, including native's email-confirmation-pending
@@ -99,6 +100,7 @@ own before moving to the next.
   neither is linked from the app.
 
 **What's genuinely still missing** (not started at all):
+
 - `design-system.tsx` — internal/dev-only on native, still lowest priority.
 - Test coverage for `home`, `account`, `activity`, `groups`, `setup-profile`, `obligations`,
   `invite-preview`, `admin-reports`, `admin-report-detail`, `auth-callback`, and the three
@@ -117,12 +119,13 @@ dev server against live Supabase and click through anything — not even signing
 test account via the new email/password flow, which would otherwise have been the obvious
 way to finally close this gap. `npm run typecheck`/`test`/`build` passing is necessary but
 not sufficient, same as every prior handoff has said. If a future session has a real
-`.env` and a browser, this is the highest-value thing to do: sign up (or sign in) → 
+`.env` and a browser, this is the highest-value thing to do: sign up (or sign in) →
 setup-profile → home → create a bet against a friend → open it and post a comment, create
 a poll, vote, upload a proof photo → open a group and send a chat message. All of that is
 now code-complete and test-covered but has never rendered against a real backend.
 
 **Suggested next steps for a fifth session, in order:**
+
 1. If a real `web/.env` and a browser are both available, do the golden-path smoke test
    described just above before building anything else — it's been deferred across four
    sessions now purely for lack of credentials/a browser in the environment, not because
@@ -144,6 +147,7 @@ dangling links.
 
 **What got built this session** (see git log on `web-port`, each commit is
 typecheck+test-verified on its own):
+
 - `obligations.tsx` — manual obligation propose/approve/decline/cancel flow, ported from
   native `src/app/obligations.tsx` onto the existing `use-manual-obligations.ts` hook
   (previously unused). Linked from `friends.tsx` the same way the native app links to it.
@@ -169,6 +173,7 @@ typecheck+test-verified on its own):
   the first route-guard test in `web/`, styled after the existing `sign-in.test.tsx`.
 
 **What's genuinely still missing** (not started at all):
+
 - Comments, chat, and polls are still not integrated into `bet-detail.tsx` — the hooks
   (`use-comments`, `use-chat`, `use-polls`, `use-proof`) exist and are completely unused
   anywhere in `web/`. This is now the largest remaining gap.
@@ -200,6 +205,7 @@ the `web-port` branch as of commit `0f878fe`.
 
 **What got built this session** (see git log on `web-port` for the individual commits,
 each is typecheck+test-verified on its own):
+
 - Fixed the `EmptyState`/`icon` typecheck errors (dropped the unsupported prop rather than
   building a web icon system for two call sites).
 - Wired `home`, `activity`, `groups`, `account`, `setup-profile` into `App.tsx`, behind two
@@ -215,7 +221,7 @@ each is typecheck+test-verified on its own):
 - Built `group-detail.tsx` — member roster, owner-only remove, invite-by-username (reuses
   the friends search RPC), leave/archive.
 - Built `balances.tsx` — net balances list, pending-redemption confirm/decline/cancel, and
-  a "Settle up" button. **Simplification**: settle-up always redeems the *full* outstanding
+  a "Settle up" button. **Simplification**: settle-up always redeems the _full_ outstanding
   amount with a counterparty in one shot; there's no UI to pick specific obligations or
   partially settle (the hook `useOutstandingObligations` + `Allocation[]` supports partial
   amounts, the UI just doesn't expose it yet). No "forgive obligation" UI either
@@ -244,6 +250,7 @@ each is typecheck+test-verified on its own):
   future session is told to stay inside `web/` only).
 
 **What's genuinely still missing** (not started at all):
+
 - `admin/` — the whole Milestone 13 trust & safety report-queue surface (report list +
   report detail, remove content / suspend user / resolve / dismiss actions).
 - `invite/[username]` — invite preview, reachable pre-auth on native.

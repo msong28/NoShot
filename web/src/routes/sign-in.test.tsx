@@ -63,8 +63,8 @@ describe('SignInScreen', () => {
       </MemoryRouter>,
     );
 
-    await userEvent.type(screen.getByPlaceholderText('Email'), 'dave@example.com');
-    await userEvent.type(screen.getByPlaceholderText('Password'), 'hunter2!!');
+    await userEvent.type(screen.getByLabelText('Email'), 'dave@example.com');
+    await userEvent.type(screen.getByLabelText('Password'), 'hunter2!!');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
     expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({
@@ -86,8 +86,8 @@ describe('SignInScreen', () => {
       </MemoryRouter>,
     );
 
-    await userEvent.type(screen.getByPlaceholderText('Email'), 'dave@example.com');
-    await userEvent.type(screen.getByPlaceholderText('Password'), 'wrongpass');
+    await userEvent.type(screen.getByLabelText('Email'), 'dave@example.com');
+    await userEvent.type(screen.getByLabelText('Password'), 'wrongpass');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
     expect(await screen.findByText('Invalid login credentials')).toBeInTheDocument();

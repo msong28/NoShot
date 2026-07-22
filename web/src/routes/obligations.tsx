@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { BackButton } from '@/components/ui/back-button';
 
-import { BottomNav } from '@/components/bottom-nav';
+import { BackButton } from '@/components/ui/back-button';
+import { Button } from '@/components/ui/button';
 import { ConfirmationDialog } from '@/components/ui/confirm-dialog';
 import { InlineError } from '@/components/ui/inline-error';
 import { ListRow } from '@/components/ui/list-row';
 import { SectionHeader } from '@/components/ui/section-header';
-import { StatusBadge, type BadgeVariant } from '@/components/ui/badge';
+import { StatusPill, type StatusPillVariant } from '@/components/ui/status-pill';
 import { useFriends } from '@/hooks/use-friends';
 import {
   useApproveManualObligation,
@@ -19,12 +19,37 @@ import { useSession } from '@/hooks/use-session';
 import { getErrorMessage } from '@/lib/errors';
 import type { ManualObligationStatus } from '@/lib/manual-obligation';
 
-const STATUS_VARIANT: Record<ManualObligationStatus, BadgeVariant> = {
-  pending: 'warning',
-  approved: 'success',
-  declined: 'danger',
-  cancelled: 'neutral',
+const STATUS_VARIANT: Record<ManualObligationStatus, StatusPillVariant> = {
+  pending: 'pending',
+  approved: 'won',
+  declined: 'lost',
+  cancelled: 'tied',
 };
+
+function Chip({
+  label,
+  selected,
+  onClick,
+  tone = 'grape',
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+  tone?: 'grape' | 'ink';
+}) {
+  const selectedClasses = tone === 'grape' ? 'bg-grape text-on-grape' : 'bg-ink text-bg';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-pill px-three py-two text-sm font-bold whitespace-nowrap ${
+        selected ? selectedClasses : 'border border-line bg-surface text-ink'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
 
 export function ObligationsScreen() {
   const { session } = useSession();
@@ -89,11 +114,13 @@ export function ObligationsScreen() {
   }
 
   return (
-    <main className="mx-auto max-w-app p-four pb-28">
+    <main className="mx-auto max-w-app p-four pb-16">
       <BackButton />
 
-      <h1 className="mt-three font-display text-2xl font-extrabold">Obligations</h1>
-      <p className="mt-two text-sm text-text-secondary">
+      <h1 className="mt-three font-display text-screen-title font-extrabold tracking-display-tight">
+        Obligations
+      </h1>
+      <p className="mt-two text-text-secondary">
         Log a one-off obligation with a friend outside of a bet — it only becomes real once they
         approve it too.
       </p>
@@ -106,68 +133,44 @@ export function ObligationsScreen() {
           Add a friend first to propose a manual obligation with them.
         </p>
       ) : (
-        <div className="mt-two flex flex-col gap-three">
+        <div className="mt-two flex flex-col gap-three rounded-large border border-line bg-surface p-three">
           <div>
-            <p className="text-sm text-text-secondary">Who</p>
+            <p className="text-sm font-bold text-text-secondary">Who</p>
             <div className="mt-two flex flex-wrap gap-two">
               {friends.map(({ profile }) => (
-                <button
+                <Chip
                   key={profile.id}
-                  type="button"
+                  label={profile.display_name}
+                  selected={selectedFriendId === profile.id}
                   onClick={() => setSelectedFriendId(profile.id)}
-                  className={`rounded-pill px-three py-two font-display text-sm font-bold ${
-                    selectedFriendId === profile.id
-                      ? 'bg-primary text-on-primary'
-                      : 'bg-surface-sunken text-text-secondary'
-                  }`}
-                >
-                  {profile.display_name}
-                </button>
+                />
               ))}
             </div>
           </div>
 
           <div>
-            <p className="text-sm text-text-secondary">Direction</p>
+            <p className="text-sm font-bold text-text-secondary">Direction</p>
             <div className="mt-two flex gap-two">
-              <button
-                type="button"
-                onClick={() => setIOwe(true)}
-                className={`rounded-pill px-three py-two font-display text-sm font-bold ${
-                  iOwe ? 'bg-primary text-on-primary' : 'bg-surface-sunken text-text-secondary'
-                }`}
-              >
-                I owe them
-              </button>
-              <button
-                type="button"
+              <Chip label="I owe them" selected={iOwe} onClick={() => setIOwe(true)} tone="ink" />
+              <Chip
+                label="They owe me"
+                selected={!iOwe}
                 onClick={() => setIOwe(false)}
-                className={`rounded-pill px-three py-two font-display text-sm font-bold ${
-                  !iOwe ? 'bg-primary text-on-primary' : 'bg-surface-sunken text-text-secondary'
-                }`}
-              >
-                They owe me
-              </button>
+                tone="ink"
+              />
             </div>
           </div>
 
           <div>
-            <p className="text-sm text-text-secondary">Currency</p>
+            <p className="text-sm font-bold text-text-secondary">Currency</p>
             <div className="mt-two flex flex-wrap gap-two">
               {currencies.map((currency) => (
-                <button
+                <Chip
                   key={currency.id}
-                  type="button"
+                  label={`${currency.icon ? `${currency.icon} ` : ''}${currency.name}`}
+                  selected={currencyId === currency.id}
                   onClick={() => setSelectedCurrencyId(currency.id)}
-                  className={`rounded-pill px-three py-two font-display text-sm font-bold ${
-                    currencyId === currency.id
-                      ? 'bg-primary text-on-primary'
-                      : 'bg-surface-sunken text-text-secondary'
-                  }`}
-                >
-                  {currency.icon ? `${currency.icon} ` : ''}
-                  {currency.name}
-                </button>
+                />
               ))}
             </div>
           </div>
@@ -177,23 +180,18 @@ export function ObligationsScreen() {
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             inputMode="decimal"
-            className="rounded-medium bg-surface p-three shadow-card"
+            className="rounded-medium border border-line bg-bg p-three"
           />
           <input
             placeholder="What for, e.g. Gas money"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="rounded-medium bg-surface p-three shadow-card"
+            className="rounded-medium border border-line bg-bg p-three"
           />
 
-          <button
-            type="button"
-            disabled={!canPropose || propose.isPending}
-            onClick={handlePropose}
-            className="self-start rounded-pill bg-primary px-four py-three font-display font-bold text-on-primary disabled:opacity-60"
-          >
-            Propose
-          </button>
+          <Button disabled={!canPropose || propose.isPending} onClick={handlePropose}>
+            {propose.isPending ? 'Proposing…' : 'Propose'}
+          </Button>
         </div>
       )}
 
@@ -209,21 +207,21 @@ export function ObligationsScreen() {
                 trailing={
                   <div className="flex items-center gap-two">
                     {currency ? (
-                      <span className="text-sm text-text-secondary">
+                      <span className="font-mono text-sm text-text-secondary">
                         {proposal.amount} {currency.name}
                       </span>
                     ) : null}
                     <button
                       type="button"
                       onClick={() => run(approve.mutateAsync(proposal.id))}
-                      className="rounded-pill bg-primary px-three py-one font-display text-sm font-bold text-on-primary"
+                      className="rounded-pill bg-grape px-three py-one text-sm font-bold text-on-grape"
                     >
                       Approve
                     </button>
                     <button
                       type="button"
                       onClick={() => run(decline.mutateAsync(proposal.id))}
-                      className="rounded-pill bg-surface-sunken px-three py-one font-display text-sm font-bold text-text-secondary"
+                      className="rounded-pill bg-surface-sunken px-three py-one text-sm font-bold text-text-secondary"
                     >
                       Decline
                     </button>
@@ -247,14 +245,14 @@ export function ObligationsScreen() {
                 trailing={
                   <div className="flex items-center gap-two">
                     {currency ? (
-                      <span className="text-sm text-text-secondary">
+                      <span className="font-mono text-sm text-text-secondary">
                         {proposal.amount} {currency.name}
                       </span>
                     ) : null}
                     <button
                       type="button"
                       onClick={() => setCancelTargetId(proposal.id)}
-                      className="font-display text-sm font-bold text-text-secondary"
+                      className="text-sm font-bold text-text-secondary"
                     >
                       Cancel
                     </button>
@@ -281,13 +279,13 @@ export function ObligationsScreen() {
               trailing={
                 <div className="flex items-center gap-two">
                   {currency ? (
-                    <span className="text-sm text-text-secondary">
+                    <span className="font-mono text-sm text-text-secondary">
                       {proposal.amount} {currency.name}
                     </span>
                   ) : null}
-                  <StatusBadge
-                    label={proposal.status[0].toUpperCase() + proposal.status.slice(1)}
+                  <StatusPill
                     variant={STATUS_VARIANT[proposal.status]}
+                    label={proposal.status[0].toUpperCase() + proposal.status.slice(1)}
                   />
                 </div>
               }
@@ -308,8 +306,6 @@ export function ObligationsScreen() {
         }}
         onCancel={() => setCancelTargetId(null)}
       />
-
-      <BottomNav />
     </main>
   );
 }

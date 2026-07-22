@@ -32,8 +32,8 @@ describe('SignUpScreen', () => {
       </MemoryRouter>,
     );
 
-    await userEvent.type(screen.getByPlaceholderText('Email'), 'dave@example.com');
-    await userEvent.type(screen.getByPlaceholderText('Password'), 'longenoughpw');
+    await userEvent.type(screen.getByLabelText('Email'), 'dave@example.com');
+    await userEvent.type(screen.getByLabelText('Password'), 'longenoughpw');
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
 
     expect(supabase.auth.signUp).toHaveBeenCalledWith({
@@ -55,8 +55,8 @@ describe('SignUpScreen', () => {
       </MemoryRouter>,
     );
 
-    await userEvent.type(screen.getByPlaceholderText('Email'), 'dave@example.com');
-    await userEvent.type(screen.getByPlaceholderText('Password'), 'longenoughpw');
+    await userEvent.type(screen.getByLabelText('Email'), 'dave@example.com');
+    await userEvent.type(screen.getByLabelText('Password'), 'longenoughpw');
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
 
     expect(await screen.findByText('Email already registered')).toBeInTheDocument();

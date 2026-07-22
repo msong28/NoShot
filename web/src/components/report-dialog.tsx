@@ -39,10 +39,7 @@ export function ReportDialog({
 
   function handleSubmit() {
     if (!targetId) return;
-    submitReport.mutate(
-      { targetType, targetId, reason, details },
-      { onSuccess: handleClose },
-    );
+    submitReport.mutate({ targetType, targetId, reason, details }, { onSuccess: handleClose });
   }
 
   return (
@@ -58,7 +55,9 @@ export function ReportDialog({
                 type="button"
                 onClick={() => setReason(option)}
                 className={`rounded-medium border p-two text-left text-sm ${
-                  selected ? 'border-secondary bg-surface-sunken' : 'border-border text-text-secondary'
+                  selected
+                    ? 'border-secondary bg-surface-sunken'
+                    : 'border-border text-text-secondary'
                 }`}
               >
                 {REPORT_REASON_LABELS[option]}
@@ -74,7 +73,11 @@ export function ReportDialog({
           rows={3}
         />
         <InlineError
-          message={submitReport.isError ? getErrorMessage(submitReport.error, 'Could not submit report') : null}
+          message={
+            submitReport.isError
+              ? getErrorMessage(submitReport.error, 'Could not submit report')
+              : null
+          }
         />
         <div className="mt-four flex justify-end gap-two">
           <button

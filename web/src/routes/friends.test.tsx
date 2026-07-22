@@ -4,10 +4,13 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 
+import { useMyBets } from '@/hooks/use-bets';
 import {
   useBlockUser,
   useCancelFriendRequest,
   useFriends,
+  useHeadToHeadRecords,
+  useMutualFriendCount,
   useRespondFriendRequest,
   useSearchUsername,
   useSendFriendRequest,
@@ -17,8 +20,11 @@ import { useSession } from '@/hooks/use-session';
 import { FriendsScreen } from './friends';
 
 vi.mock('@/hooks/use-session', () => ({ useSession: vi.fn() }));
+vi.mock('@/hooks/use-bets', () => ({ useMyBets: vi.fn() }));
 vi.mock('@/hooks/use-friends', () => ({
   useFriends: vi.fn(),
+  useHeadToHeadRecords: vi.fn(),
+  useMutualFriendCount: vi.fn(),
   useSendFriendRequest: vi.fn(),
   useRespondFriendRequest: vi.fn(),
   useCancelFriendRequest: vi.fn(),
@@ -47,15 +53,34 @@ describe('FriendsScreen', () => {
       friends: [],
       isLoading: false,
     });
-    vi.mocked(useSendFriendRequest).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
-    vi.mocked(useRespondFriendRequest).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
-    vi.mocked(useCancelFriendRequest).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
+    vi.mocked(useMyBets).mockReturnValue({ resolvedBets: [] } as never);
+    vi.mocked(useHeadToHeadRecords).mockReturnValue(new Map());
+    vi.mocked(useMutualFriendCount).mockReturnValue({ data: 0 } as never);
+    vi.mocked(useSendFriendRequest).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as never);
+    vi.mocked(useRespondFriendRequest).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as never);
+    vi.mocked(useCancelFriendRequest).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as never);
     vi.mocked(useBlockUser).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
-    vi.mocked(useSearchUsername).mockReturnValue({ data: [], mutate: vi.fn(), isPending: false } as never);
+    vi.mocked(useSearchUsername).mockReturnValue({
+      data: [],
+      mutate: vi.fn(),
+      isPending: false,
+    } as never);
   });
 
   it('sends a friend request for a search result', async () => {
-    const sendFriendRequest = { mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false };
+    const sendFriendRequest = {
+      mutateAsync: vi.fn().mockResolvedValue(undefined),
+      isPending: false,
+    };
     vi.mocked(useSendFriendRequest).mockReturnValue(sendFriendRequest as never);
     vi.mocked(useSearchUsername).mockReturnValue({
       data: [{ id: 'u2', username: 'bob', display_name: 'Bob' }],
@@ -73,7 +98,9 @@ describe('FriendsScreen', () => {
     vi.mocked(useFriends).mockReturnValue({
       incomingRequests: [],
       outgoingRequests: [],
-      friends: [{ friendship: { id: 'f1' }, profile: { id: 'u2', username: 'bob', display_name: 'Bob' } }],
+      friends: [
+        { friendship: { id: 'f1' }, profile: { id: 'u2', username: 'bob', display_name: 'Bob' } },
+      ],
       isLoading: false,
     } as never);
     vi.mocked(useSearchUsername).mockReturnValue({
@@ -89,7 +116,10 @@ describe('FriendsScreen', () => {
   });
 
   it('accepts an incoming friend request', async () => {
-    const respondFriendRequest = { mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false };
+    const respondFriendRequest = {
+      mutateAsync: vi.fn().mockResolvedValue(undefined),
+      isPending: false,
+    };
     vi.mocked(useRespondFriendRequest).mockReturnValue(respondFriendRequest as never);
     vi.mocked(useFriends).mockReturnValue({
       incomingRequests: [
@@ -102,7 +132,8 @@ describe('FriendsScreen', () => {
 
     renderScreen();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Accept' }));
+    // Requests use "Add" to accept, matching design_handoff_noshot/screens/12-friends.png.
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
     expect(respondFriendRequest.mutateAsync).toHaveBeenCalledWith({
       friendshipId: 'f1',
       accept: true,
@@ -115,13 +146,16 @@ describe('FriendsScreen', () => {
     vi.mocked(useFriends).mockReturnValue({
       incomingRequests: [],
       outgoingRequests: [],
-      friends: [{ friendship: { id: 'f1' }, profile: { id: 'u2', username: 'bob', display_name: 'Bob' } }],
+      friends: [
+        { friendship: { id: 'f1' }, profile: { id: 'u2', username: 'bob', display_name: 'Bob' } },
+      ],
       isLoading: false,
     } as never);
 
     renderScreen();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Block' }));
+    // Block is now an icon-only button; its accessible name includes the friend's name.
+    await userEvent.click(screen.getByRole('button', { name: 'Block Bob' }));
     expect(blockUser.mutateAsync).toHaveBeenCalledWith('u2');
   });
 

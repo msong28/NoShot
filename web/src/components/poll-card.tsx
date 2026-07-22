@@ -1,4 +1,4 @@
-import { StatusBadge } from '@/components/ui/badge';
+import { StatusPill } from '@/components/ui/status-pill';
 import type { Poll, PollOption, PollVote } from '@/lib/poll';
 
 export function PollCard({
@@ -21,41 +21,49 @@ export function PollCard({
   );
   const isCreator = poll.creator_id === userId;
   const isClosed = !!poll.closed_at;
+  const totalVotes = votes.length;
 
   return (
-    <div className="flex flex-col gap-one rounded-large bg-surface p-three shadow-card">
-      <p className="font-display font-bold">{poll.question}</p>
+    <div className="flex flex-col gap-two rounded-large border border-grape bg-surface p-three shadow-attention">
+      <div className="flex items-center gap-two">
+        <span className="text-lg">📊</span>
+        <p className="font-display font-bold">{poll.question}</p>
+      </div>
       {options.map((option) => {
         const count = votes.filter((v) => v.option_id === option.id).length;
         const isMine = myVoteOptionIds.has(option.id);
+        const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
         return (
-          <div key={option.id} className="flex items-center justify-between gap-two">
-            <p className="min-w-0 flex-1 truncate text-sm">
-              {option.label} · {count} vote{count === 1 ? '' : 's'}
-            </p>
-            {!isClosed ? (
-              <button
-                type="button"
-                onClick={() => onVote(option.id)}
-                className={`rounded-pill px-three py-one font-display text-sm font-bold ${
-                  isMine ? 'bg-secondary text-on-secondary' : 'bg-surface-sunken text-text-secondary'
-                }`}
-              >
-                {isMine ? 'Voted' : 'Vote'}
-              </button>
-            ) : isMine ? (
-              <StatusBadge label="Your vote" variant="info" />
-            ) : null}
-          </div>
+          <button
+            key={option.id}
+            type="button"
+            disabled={isClosed}
+            onClick={() => onVote(option.id)}
+            className="relative flex h-10 w-full items-center overflow-hidden rounded-medium bg-surface-sunken text-left disabled:cursor-default"
+          >
+            <div
+              className="absolute inset-y-0 left-0 bg-grape-soft transition-[width]"
+              style={{ width: `${pct}%` }}
+            />
+            <span className="relative flex w-full items-center justify-between px-three">
+              <span className="truncate text-sm font-bold">
+                {option.label}
+                {isMine ? ' ✓' : ''}
+              </span>
+              <span className="shrink-0 font-mono text-sm font-bold text-text-secondary">
+                {count}
+              </span>
+            </span>
+          </button>
         );
       })}
       {isClosed ? (
-        <StatusBadge label="Closed" variant="neutral" />
+        <StatusPill variant="tied" label="Closed" />
       ) : isCreator ? (
         <button
           type="button"
           onClick={onClose}
-          className="self-start rounded-pill bg-surface-sunken px-three py-one font-display text-sm font-bold text-text-secondary"
+          className="self-start rounded-pill bg-surface-sunken px-three py-one text-sm font-bold text-text-secondary"
         >
           Close poll
         </button>

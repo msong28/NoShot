@@ -74,7 +74,14 @@ const ROSTER = [
     profile: { id: 'u1', username: 'alice', display_name: 'Alice' },
     side: { id: 's1', bet_id: 'bet-1', version_no: 1, label: 'Yes', outcome_key: 'yes' },
     commitment: undefined,
-    approval: { id: 'a1', bet_id: 'bet-1', version_no: 1, user_id: 'u1', decision: 'approved' as const, created_at: '2026-01-01T00:00:00Z' },
+    approval: {
+      id: 'a1',
+      bet_id: 'bet-1',
+      version_no: 1,
+      user_id: 'u1',
+      decision: 'approved' as const,
+      created_at: '2026-01-01T00:00:00Z',
+    },
   },
 ];
 
@@ -147,7 +154,7 @@ describe('BetDetailScreen', () => {
     renderScreen();
 
     expect(screen.getByText('Good luck')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Say something')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument();
   });
 
   it('hides the comment and poll-create forms for a non-participant', () => {
@@ -159,7 +166,7 @@ describe('BetDetailScreen', () => {
 
     renderScreen();
 
-    expect(screen.queryByPlaceholderText('Say something')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Message…')).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('New poll question')).not.toBeInTheDocument();
   });
 
@@ -188,7 +195,10 @@ describe('BetDetailScreen', () => {
     renderScreen();
 
     expect(screen.getByText('Screenshot')).toBeInTheDocument();
-    expect(screen.getByAltText('Screenshot')).toHaveAttribute('src', 'https://example.com/signed.jpg');
+    expect(screen.getByAltText('Screenshot')).toHaveAttribute(
+      'src',
+      'https://example.com/signed.jpg',
+    );
   });
 
   it('renders a poll with its options', () => {
@@ -216,7 +226,7 @@ describe('BetDetailScreen', () => {
     renderScreen();
 
     expect(screen.getByText('Who wins?')).toBeInTheDocument();
-    expect(screen.getByText('Team A · 0 votes')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Team A0' })).toBeInTheDocument();
   });
 
   it('opens the report dialog for the bet when Report is clicked', () => {

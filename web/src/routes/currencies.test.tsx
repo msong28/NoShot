@@ -36,8 +36,20 @@ describe('CurrenciesScreen', () => {
   it('splits built-in and custom currencies into their own sections', () => {
     vi.mocked(useCurrencies).mockReturnValue({
       data: [
-        { id: 'c1', name: 'Dollars', category: 'money', is_builtin: true, moderation_status: 'visible' },
-        { id: 'c2', name: 'Push-ups', category: 'custom', is_builtin: false, moderation_status: 'visible' },
+        {
+          id: 'c1',
+          name: 'Dollars',
+          category: 'money',
+          is_builtin: true,
+          moderation_status: 'visible',
+        },
+        {
+          id: 'c2',
+          name: 'Push-ups',
+          category: 'custom',
+          is_builtin: false,
+          moderation_status: 'visible',
+        },
       ],
       isLoading: false,
     } as never);

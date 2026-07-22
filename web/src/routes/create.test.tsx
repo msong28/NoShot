@@ -26,6 +26,16 @@ function renderScreen() {
   );
 }
 
+/** Fills every field the "Send bet" button requires except whatever the
+ * caller still wants to exercise. */
+async function fillCommonFields() {
+  await userEvent.type(screen.getByPlaceholderText('Who does the dishes this week?'), 'Lakers win');
+  await userEvent.click(screen.getByRole('button', { name: /Bob/ }));
+  await userEvent.type(screen.getByPlaceholderText('If you win (e.g. Lakers)'), 'Lakers');
+  await userEvent.type(screen.getByPlaceholderText('If they win (e.g. Celtics)'), 'Celtics');
+  await userEvent.click(screen.getByRole('button', { name: /Dollars/ }));
+}
+
 describe('CreateScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -34,7 +44,9 @@ describe('CreateScreen', () => {
       isLoading: false,
     });
     vi.mocked(useFriends).mockReturnValue({
-      friends: [{ friendship: { id: 'f1' }, profile: { id: 'u2', username: 'bob', display_name: 'Bob' } }],
+      friends: [
+        { friendship: { id: 'f1' }, profile: { id: 'u2', username: 'bob', display_name: 'Bob' } },
+      ],
       incomingRequests: [],
       outgoingRequests: [],
       isLoading: false,
@@ -45,26 +57,22 @@ describe('CreateScreen', () => {
       isLoading: false,
     } as never);
     vi.mocked(useCurrencies).mockReturnValue({
-      data: [{ id: 'cur1', name: 'Dollars' }],
+      data: [{ id: 'cur1', name: 'Dollars', icon: null }],
       isLoading: false,
     } as never);
-    vi.mocked(useCreateOrCounterBet).mockReturnValue({ mutate: vi.fn(), isPending: false } as never);
+    vi.mocked(useCreateOrCounterBet).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+    } as never);
   });
 
-  it('keeps Propose bet disabled until the required fields are filled', async () => {
+  it('keeps Send bet disabled until the required fields are filled', async () => {
     renderScreen();
 
-    const submit = screen.getByRole('button', { name: 'Propose bet' });
+    const submit = screen.getByRole('button', { name: /^Send bet/ });
     expect(submit).toBeDisabled();
 
-    await userEvent.type(
-      screen.getByPlaceholderText("What's the bet? (e.g. Lakers win tonight)"),
-      'Lakers win',
-    );
-    await userEvent.selectOptions(screen.getByDisplayValue("Who's the other side?"), 'u2');
-    await userEvent.type(screen.getByPlaceholderText('Side A (e.g. Lakers)'), 'Lakers');
-    await userEvent.type(screen.getByPlaceholderText('Side B (e.g. Celtics)'), 'Celtics');
-    await userEvent.selectOptions(screen.getByDisplayValue('Currency…'), 'cur1');
+    await fillCommonFields();
 
     expect(submit).toBeEnabled();
   });
@@ -78,19 +86,13 @@ describe('CreateScreen', () => {
 
     renderScreen();
 
-    await userEvent.type(
-      screen.getByPlaceholderText("What's the bet? (e.g. Lakers win tonight)"),
-      'Lakers win',
-    );
-    await userEvent.selectOptions(screen.getByDisplayValue("Who's the other side?"), 'u2');
-    await userEvent.type(screen.getByPlaceholderText('Side A (e.g. Lakers)'), 'Lakers');
-    await userEvent.type(screen.getByPlaceholderText('Side B (e.g. Celtics)'), 'Celtics');
-    await userEvent.selectOptions(screen.getByDisplayValue('Currency…'), 'cur1');
-    await userEvent.click(screen.getByRole('button', { name: 'Propose bet' }));
+    await fillCommonFields();
+    await userEvent.click(screen.getByRole('button', { name: 'Send bet to Bob' }));
 
     expect(createBet.mutate).toHaveBeenCalledWith(
       expect.objectContaining({
         title: 'Lakers win',
+        isDraft: false,
         sides: [
           { outcomeKey: 'a', label: 'Lakers' },
           { outcomeKey: 'b', label: 'Celtics' },
@@ -117,22 +119,13 @@ describe('CreateScreen', () => {
   it('requires a judge to be picked when the judge resolution method is selected', async () => {
     renderScreen();
 
-    await userEvent.type(
-      screen.getByPlaceholderText("What's the bet? (e.g. Lakers win tonight)"),
-      'Lakers win',
-    );
-    await userEvent.selectOptions(screen.getByDisplayValue("Who's the other side?"), 'u2');
-    await userEvent.type(screen.getByPlaceholderText('Side A (e.g. Lakers)'), 'Lakers');
-    await userEvent.type(screen.getByPlaceholderText('Side B (e.g. Celtics)'), 'Celtics');
-    await userEvent.selectOptions(screen.getByDisplayValue('Currency…'), 'cur1');
+    await fillCommonFields();
+    await userEvent.click(screen.getByRole('button', { name: /Judge/ }));
 
-    const resolutionSelect = screen.getByDisplayValue("Either of us reports the result");
-    await userEvent.selectOptions(resolutionSelect, 'judge');
-
-    const submit = screen.getByRole('button', { name: 'Propose bet' });
+    const submit = screen.getByRole('button', { name: /^Send bet/ });
     expect(submit).toBeDisabled();
 
-    await userEvent.selectOptions(screen.getByDisplayValue("Who's the judge?"), 'u2');
+    await userEvent.selectOptions(screen.getByDisplayValue('Who’s the judge?'), 'u2');
     expect(submit).toBeEnabled();
   });
 });

@@ -1,16 +1,20 @@
 import { useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router';
-import { BackButton } from '@/components/ui/back-button';
 
 import { PollCard } from '@/components/poll-card';
 import { PollCreateForm } from '@/components/poll-create-form';
 import { ReportDialog } from '@/components/report-dialog';
 import { Avatar } from '@/components/ui/avatar';
-import { type BadgeVariant, StatusBadge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/badge';
+import { BackButton } from '@/components/ui/back-button';
+import { Button } from '@/components/ui/button';
 import { ConfirmationDialog } from '@/components/ui/confirm-dialog';
+import { IconTile } from '@/components/ui/icon-tile';
 import { InlineError } from '@/components/ui/inline-error';
 import { ListRow } from '@/components/ui/list-row';
 import { SectionHeader } from '@/components/ui/section-header';
+import { StatusPill, type StatusPillVariant } from '@/components/ui/status-pill';
+import { WinReveal } from '@/components/ui/win-reveal';
 import {
   useApproveBetVersion,
   useApproveCancelBet,
@@ -26,39 +30,99 @@ import { useComments, usePostComment } from '@/hooks/use-comments';
 import { useClosePoll, useCreatePoll, usePolls, useVoteOnPoll } from '@/hooks/use-polls';
 import { useProofAssets, useUploadProof } from '@/hooks/use-proof';
 import { useSession } from '@/hooks/use-session';
-import { TIE_OUTCOME_KEY, type BetStatus } from '@/lib/bet';
+import { TIE_OUTCOME_KEY, type Bet, type BetStatus } from '@/lib/bet';
 import { getErrorMessage } from '@/lib/errors';
+import { Icons } from '@/lib/icons';
+import type { Poll, PollOption, PollVote } from '@/lib/poll';
 import type { ReportTargetType } from '@/lib/report';
 
-const STATUS_LABELS: Record<BetStatus, string> = {
-  draft: 'Draft',
-  pending_acceptance: 'Awaiting approval',
-  active: 'Active',
-  cancellation_pending: 'Cancellation pending',
-  voided: 'Voided',
-  pending_result: 'Awaiting result',
-  disputed: 'Disputed',
-  resolved: 'Resolved',
-  tied: 'Tied',
-};
-
-function statusVariant(status: BetStatus): BadgeVariant {
+/** Maps every real BetStatus onto the 5-state StatusPill vocabulary, same
+ * approach as the Bets tab -- anything not one of the mock's named states
+ * gets a neutral pill with its real status word rather than being hidden. */
+function pillFor(status: BetStatus): { variant: StatusPillVariant; label?: string } {
   switch (status) {
+    case 'pending_acceptance':
+      return { variant: 'pending' };
     case 'active':
-    case 'resolved':
-      return 'success';
-    case 'tied':
-    case 'voided':
-      return 'neutral';
-    case 'disputed':
-      return 'danger';
+      return { variant: 'active' };
     case 'cancellation_pending':
+      return { variant: 'active', label: 'Cancel pending' };
     case 'pending_result':
-      return 'warning';
+      return { variant: 'active', label: 'Awaiting result' };
+    case 'disputed':
+      return { variant: 'disputed' };
+    case 'resolved':
+      return { variant: 'won', label: 'Resolved' };
+    case 'tied':
+      return { variant: 'tied' };
     default:
-      return 'info';
+      return { variant: 'tied', label: status };
   }
 }
+
+function daysUntil(iso: string): string {
+  const days = Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000);
+  if (days > 1) return `ends in ${days} days`;
+  if (days === 1) return 'ends tomorrow';
+  if (days === 0) return 'ends today';
+  return 'past deadline';
+}
+
+/** Proof photos are user-uploaded and can 404 (expired signed URL, deleted
+ * storage object) -- falls back to a labeled placeholder instead of a bare
+ * broken-image icon, same resilience pattern as <Brick>. */
+function ProofImage({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className="flex h-32 w-full flex-col items-center justify-center gap-one rounded-medium border border-dashed border-line bg-surface text-text-faint">
+        <Icons.imagePlaceholder size={24} strokeWidth={1.5} />
+        <p className="text-xs">Photo unavailable</p>
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="max-h-64 w-full rounded-medium object-cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function formatShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+type ThreadItem =
+  | { kind: 'system'; id: string; timestamp: string; text: string }
+  | {
+      kind: 'comment';
+      id: string;
+      timestamp: string;
+      authorId: string;
+      authorName: string;
+      body: string;
+      moderationPending: boolean;
+    }
+  | {
+      kind: 'proof';
+      id: string;
+      timestamp: string;
+      uploaderId: string;
+      caption: string | null;
+      signedUrl: string | null;
+      moderationPending: boolean;
+    }
+  | {
+      kind: 'poll';
+      id: string;
+      timestamp: string;
+      poll: Poll;
+      options: PollOption[];
+      votes: PollVote[];
+    };
 
 export function BetDetailScreen() {
   const { betId } = useParams<{ betId: string }>();
@@ -99,12 +163,15 @@ export function BetDetailScreen() {
   const [resultOutcomeKey, setResultOutcomeKey] = useState('');
   const [resultRationale, setResultRationale] = useState('');
   const [commentBody, setCommentBody] = useState('');
-  const [proofCaption, setProofCaption] = useState('');
-  const [proofFile, setProofFile] = useState<File | null>(null);
   const proofInputRef = useRef<HTMLInputElement>(null);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(
     null,
   );
+  const [showPollForm, setShowPollForm] = useState(false);
+  const [wonBet, setWonBet] = useState<Bet | null>(null);
+  const [pendingProofFile, setPendingProofFile] = useState<File | null>(null);
+  const [pendingProofPreviewUrl, setPendingProofPreviewUrl] = useState<string | null>(null);
+  const [pendingProofCaption, setPendingProofCaption] = useState('');
 
   function run(promise: Promise<unknown>) {
     setError(null);
@@ -119,17 +186,31 @@ export function BetDetailScreen() {
     });
   }
 
-  function handleAddProof() {
-    if (!proofFile) return;
+  // Staged, not uploaded immediately -- lets a caption be added, same
+  // capability the old separate Proof tab had, restored as a small
+  // messaging-app-style attachment preview above the composer instead of a
+  // separate tab.
+  function handleSelectProofFile(file: File | undefined) {
+    if (!file) return;
+    setPendingProofFile(file);
+    setPendingProofPreviewUrl(URL.createObjectURL(file));
+  }
+
+  function cancelPendingProof() {
+    if (pendingProofPreviewUrl) URL.revokeObjectURL(pendingProofPreviewUrl);
+    setPendingProofFile(null);
+    setPendingProofPreviewUrl(null);
+    setPendingProofCaption('');
+    if (proofInputRef.current) proofInputRef.current.value = '';
+  }
+
+  function handleSendProof() {
+    if (!pendingProofFile) return;
     setError(null);
     uploadProof.mutate(
-      { file: proofFile, caption: proofCaption.trim() || undefined },
+      { file: pendingProofFile, caption: pendingProofCaption.trim() || undefined },
       {
-        onSuccess: () => {
-          setProofCaption('');
-          setProofFile(null);
-          if (proofInputRef.current) proofInputRef.current.value = '';
-        },
+        onSuccess: () => cancelPendingProof(),
         onError: (err) => setError(getErrorMessage(err, 'Failed to upload proof')),
       },
     );
@@ -145,6 +226,8 @@ export function BetDetailScreen() {
   }
 
   const myParticipant = roster.find((r) => r.participant.user_id === userId);
+  const opponent =
+    roster.length === 2 ? roster.find((r) => r.participant.user_id !== userId) : undefined;
   const myApprovalResponded = myParticipant?.approval !== undefined;
   const myCancellationResponse = cancellationApprovals.find((a) => a.user_id === userId);
   const latestResultSubmission = resultSubmissions[resultSubmissions.length - 1];
@@ -155,29 +238,153 @@ export function BetDetailScreen() {
     : undefined;
   const myDisputeVote = disputeVotes.find((v) => v.voter_id === userId);
   const isJudge = bet.resolution_method === 'judge' && bet.judge_id === userId;
+  const pill = pillFor(bet.status);
+
+  // Fires the win-reveal overlay only for a resolution that happens in
+  // *this* page session (confirming a result, a judge ruling, or the
+  // random fallback) -- never on a plain page load/revisit, so an old win
+  // doesn't replay the celebration every time the bet is opened again.
+  function runAndCheckWin(promise: Promise<Bet>) {
+    setError(null);
+    promise
+      .then((updatedBet) => {
+        if (
+          updatedBet.status === 'resolved' &&
+          myParticipant?.side?.outcome_key === updatedBet.resolved_outcome_key
+        ) {
+          setWonBet(updatedBet);
+        }
+      })
+      .catch((err: unknown) => setError(getErrorMessage(err, 'Something went wrong')));
+  }
+
+  // Matches the original "Actions" section's gating exactly -- cancellation
+  // is proposed from an active bet; cancellation_pending already has its
+  // own agree/keep-active response UI below, not a second cancel trigger.
+  const canCancel = bet.status === 'active';
+
+  // Backend allows a result submission starting from 'active' (the first
+  // submission is what moves the bet to pending_result/disputed) -- the
+  // previous gate of pending_result-only meant "Mark result" never
+  // appeared on an active bet, contradicting what submit_bet_result
+  // actually permits (verified in bet_resolution.sql).
+  const canReportResult =
+    (bet.status === 'active' || bet.status === 'pending_result') && !latestResultSubmission;
+
+  // README §"Bet thread": chat, photo-proof, and polls are one merged,
+  // chronological feed here, not the separate tabs an earlier pass used --
+  // each source already carries its own created_at, so no new data is
+  // needed to interleave them. bet.activated_at (already on the Bet row)
+  // doubles as the "Bet accepted" system-message moment shown in the mock.
+  const threadItems: ThreadItem[] = [
+    ...(bet.activated_at
+      ? ([
+          {
+            kind: 'system',
+            id: 'activated',
+            timestamp: bet.activated_at,
+            text: `Bet accepted · ${formatShortDate(bet.activated_at)}`,
+          },
+        ] as const)
+      : []),
+    ...comments.map(({ comment, author }): ThreadItem => ({
+      kind: 'comment',
+      id: comment.id,
+      timestamp: comment.created_at,
+      authorId: comment.author_id,
+      authorName: author?.display_name ?? 'Someone',
+      body: comment.body,
+      moderationPending: comment.moderation_status === 'pending_review',
+    })),
+    ...proofAssets.map(({ asset, signedUrl }): ThreadItem => ({
+      kind: 'proof',
+      id: asset.id,
+      timestamp: asset.created_at,
+      uploaderId: asset.uploader_id,
+      caption: asset.caption,
+      signedUrl: signedUrl ?? null,
+      moderationPending: asset.moderation_status === 'pending_review',
+    })),
+    ...polls.map(({ poll, options, votes }): ThreadItem => ({
+      kind: 'poll',
+      id: poll.id,
+      timestamp: poll.created_at,
+      poll,
+      options,
+      votes,
+    })),
+  ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
   return (
     <main className="mx-auto max-w-app p-four pb-16">
-      <BackButton />
-
-      <div className="mt-three flex items-start justify-between gap-two">
-        <h1 className="font-display text-2xl font-extrabold">{bet.title}</h1>
-        <div className="flex shrink-0 items-center gap-two">
-          <StatusBadge label={STATUS_LABELS[bet.status]} variant={statusVariant(bet.status)} />
-          <button
-            type="button"
-            onClick={() => setReportTarget({ type: 'bet', id: bet.id })}
-            className="font-display text-sm text-text-secondary"
-          >
-            Report
-          </button>
-        </div>
+      <div className="flex items-center justify-between">
+        <BackButton />
+        <button
+          type="button"
+          onClick={() => setReportTarget({ type: 'bet', id: bet.id })}
+          className="text-sm font-bold text-text-secondary"
+        >
+          Report
+        </button>
       </div>
+
+      <div className="mt-two flex items-center gap-two">
+        <StatusPill variant={pill.variant} label={pill.label} />
+        {bet.deadline ? (
+          <span className="text-sm text-text-secondary">· {daysUntil(bet.deadline)}</span>
+        ) : null}
+      </div>
+      <h1 className="mt-two font-display text-screen-title font-extrabold tracking-display-tight">
+        {bet.title}
+      </h1>
       {bet.description ? <p className="mt-two text-text-secondary">{bet.description}</p> : null}
-      {bet.deadline ? (
-        <p className="mt-two text-sm text-text-faint">
-          Deadline: {new Date(bet.deadline).toLocaleString()}
-        </p>
+
+      {roster.length === 2 && myParticipant && opponent ? (
+        <div className="mt-four flex items-center justify-around rounded-large border border-line bg-surface p-four">
+          <div className="flex flex-col items-center gap-two">
+            <Avatar id={myParticipant.participant.user_id} name="You" size="lg" />
+            <p className="text-sm font-bold">You</p>
+          </div>
+          <p className="font-display text-lg font-extrabold italic text-text-faint">VS</p>
+          <div className="flex flex-col items-center gap-two">
+            <Avatar
+              id={opponent.participant.user_id}
+              name={opponent.profile?.display_name ?? '?'}
+              size="lg"
+            />
+            <p className="text-sm font-bold">{opponent.profile?.display_name ?? 'Unknown'}</p>
+          </div>
+        </div>
+      ) : null}
+
+      {myParticipant?.commitment ? (
+        <>
+          <p className="mt-four font-mono text-eyebrow tracking-eyebrow font-bold uppercase text-text-faint">
+            On the line
+          </p>
+          <div className="mt-two grid grid-cols-2 gap-two">
+            <div className="rounded-large bg-up-soft p-three">
+              <p className="text-xs font-bold text-up-ink">IF YOU WIN 🏆</p>
+              <p className="mt-one font-display text-lg font-extrabold">
+                {myParticipant.commitment.currencies?.icon
+                  ? `${myParticipant.commitment.currencies.icon} `
+                  : ''}
+                {myParticipant.commitment.payout_if_win}{' '}
+                {myParticipant.commitment.currencies?.name ?? ''}
+              </p>
+            </div>
+            <div className="rounded-large bg-down-soft p-three">
+              <p className="text-xs font-bold text-down-ink">IF YOU LOSE</p>
+              <p className="mt-one font-display text-lg font-extrabold">
+                {myParticipant.commitment.currencies?.icon
+                  ? `${myParticipant.commitment.currencies.icon} `
+                  : ''}
+                {myParticipant.commitment.stake_quantity}{' '}
+                {myParticipant.commitment.currencies?.name ?? ''}
+              </p>
+            </div>
+          </div>
+        </>
       ) : null}
 
       <SectionHeader title="Participants" />
@@ -189,12 +396,18 @@ export function BetDetailScreen() {
             title={profile?.display_name ?? 'Unknown'}
             subtitle={
               side
-                ? `${side.label}${commitment ? ` · staking ${commitment.stake_quantity}` : ''}`
+                ? `${side.label}${
+                    commitment
+                      ? ` · staking ${commitment.stake_quantity} ${commitment.currencies?.name ?? ''}`
+                      : ''
+                  }`
                 : undefined
             }
             trailing={
               commitment ? (
-                <span className="text-sm text-text-secondary">Wins {commitment.payout_if_win}</span>
+                <span className="text-sm text-text-secondary">
+                  Wins {commitment.payout_if_win} {commitment.currencies?.name ?? ''}
+                </span>
               ) : undefined
             }
           />
@@ -203,12 +416,200 @@ export function BetDetailScreen() {
 
       <InlineError message={error} />
 
+      <div className="mt-four flex flex-col gap-three">
+        {threadItems.length === 0 ? (
+          <p className="text-sm text-text-faint">
+            No activity yet — say something to get it started.
+          </p>
+        ) : (
+          threadItems.map((item) => {
+            if (item.kind === 'system') {
+              return (
+                <p key={item.id} className="text-center text-xs text-text-faint">
+                  {item.text}
+                </p>
+              );
+            }
+
+            if (item.kind === 'poll') {
+              return (
+                <PollCard
+                  key={item.id}
+                  poll={item.poll}
+                  options={item.options}
+                  votes={item.votes}
+                  userId={userId}
+                  onVote={(optionId) =>
+                    run(voteOnPoll.mutateAsync({ pollId: item.poll.id, optionId }))
+                  }
+                  onClose={() => run(closePoll.mutateAsync(item.poll.id))}
+                />
+              );
+            }
+
+            if (item.kind === 'proof') {
+              const mine = item.uploaderId === userId;
+              return (
+                <div
+                  key={item.id}
+                  className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}
+                >
+                  <div className="max-w-[80%] rounded-large border border-line bg-surface-sunken p-two">
+                    {item.signedUrl ? (
+                      <ProofImage src={item.signedUrl} alt={item.caption ?? 'Proof'} />
+                    ) : null}
+                    {item.caption ? <p className="mt-one px-one text-sm">{item.caption}</p> : null}
+                  </div>
+                  <div className="mt-half flex items-center gap-two px-one">
+                    {item.moderationPending ? (
+                      <StatusBadge label="Pending review" variant="warning" />
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => setReportTarget({ type: 'proof_asset', id: item.id })}
+                      className="text-xs text-text-faint"
+                    >
+                      Report
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            const mine = item.authorId === userId;
+            return (
+              <div key={item.id} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
+                <div
+                  className={`max-w-[80%] p-three text-sm ${
+                    mine
+                      ? 'rounded-large rounded-br-none bg-grape text-on-grape'
+                      : 'rounded-large rounded-bl-none border border-line bg-surface'
+                  }`}
+                >
+                  {item.body}
+                </div>
+                <div className="mt-half flex items-center gap-two px-one">
+                  {item.moderationPending ? (
+                    <StatusBadge label="Pending review" variant="warning" />
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setReportTarget({ type: 'comment', id: item.id })}
+                    className="text-xs text-text-faint"
+                  >
+                    Report
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {myParticipant ? (
+        <>
+          {showPollForm ? (
+            <div className="mt-three">
+              <PollCreateForm
+                disabled={createPoll.isPending}
+                onSubmit={(input) => {
+                  run(createPoll.mutateAsync(input));
+                  setShowPollForm(false);
+                }}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowPollForm(true)}
+              className="mt-three self-start text-sm font-bold text-grape-ink"
+            >
+              📊 New poll
+            </button>
+          )}
+
+          <div className="sticky bottom-0 mt-three bg-bg pb-one pt-two">
+            {pendingProofFile ? (
+              <div className="mb-two flex items-center gap-two rounded-large border border-line bg-surface p-two">
+                {pendingProofPreviewUrl ? (
+                  <img
+                    src={pendingProofPreviewUrl}
+                    alt="Selected proof preview"
+                    className="h-14 w-14 shrink-0 rounded-medium object-cover"
+                  />
+                ) : null}
+                <input
+                  placeholder="Caption (optional)"
+                  value={pendingProofCaption}
+                  onChange={(e) => setPendingProofCaption(e.target.value)}
+                  className="min-w-0 flex-1 rounded-medium border border-line bg-surface-sunken p-two text-sm"
+                />
+                <button
+                  type="button"
+                  aria-label="Cancel proof photo"
+                  onClick={cancelPendingProof}
+                  className="shrink-0 text-text-faint"
+                >
+                  <Icons.close size={18} strokeWidth={2} />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Send proof photo"
+                  disabled={uploadProof.isPending}
+                  onClick={handleSendProof}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill bg-grape text-on-grape disabled:opacity-60"
+                >
+                  <Icons.send size={16} strokeWidth={2} />
+                </button>
+              </div>
+            ) : null}
+
+            <div className="flex items-center gap-two">
+              <input
+                ref={proofInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleSelectProofFile(e.target.files?.[0])}
+                className="hidden"
+              />
+              <button
+                type="button"
+                aria-label="Attach a photo"
+                disabled={uploadProof.isPending}
+                onClick={() => proofInputRef.current?.click()}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-line bg-surface text-text-secondary disabled:opacity-60"
+              >
+                <Icons.add size={20} strokeWidth={2} />
+              </button>
+              <input
+                placeholder="Message…"
+                value={commentBody}
+                onChange={(e) => setCommentBody(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && commentBody.trim()) handlePostComment();
+                }}
+                className="flex-1 rounded-pill border border-line bg-surface p-three"
+              />
+              <button
+                type="button"
+                aria-label="Send"
+                disabled={!commentBody.trim() || postComment.isPending}
+                onClick={handlePostComment}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-pill bg-grape text-on-grape disabled:opacity-60"
+              >
+                <Icons.send size={18} strokeWidth={2} />
+              </button>
+            </div>
+          </div>
+        </>
+      ) : null}
+
       {bet.status === 'pending_acceptance' && !myApprovalResponded ? (
         <>
           <SectionHeader title="This bet needs your approval" />
           <div className="mt-two flex gap-two">
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={() =>
                 run(
                   approveBetVersion.mutateAsync({
@@ -217,12 +618,11 @@ export function BetDetailScreen() {
                   }),
                 )
               }
-              className="rounded-pill bg-primary px-four py-two font-display font-bold text-on-primary"
             >
               Approve
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() =>
                 run(
                   approveBetVersion.mutateAsync({
@@ -231,24 +631,10 @@ export function BetDetailScreen() {
                   }),
                 )
               }
-              className="rounded-pill bg-surface-sunken px-four py-two font-display font-bold text-text-secondary"
             >
               Decline
-            </button>
+            </Button>
           </div>
-        </>
-      ) : null}
-
-      {bet.status === 'active' ? (
-        <>
-          <SectionHeader title="Actions" />
-          <button
-            type="button"
-            onClick={() => setPendingCancel(true)}
-            className="mt-two rounded-pill bg-surface-sunken px-four py-two font-display font-bold text-text-secondary"
-          >
-            Propose cancellation
-          </button>
         </>
       ) : null}
 
@@ -256,32 +642,30 @@ export function BetDetailScreen() {
         <>
           <SectionHeader title="Cancellation requested — your response needed" />
           <div className="mt-two flex gap-two">
-            <button
-              type="button"
+            <Button
+              variant="dangerSolid"
               onClick={() => run(approveCancelBet.mutateAsync('approved'))}
-              className="rounded-pill bg-primary px-four py-two font-display font-bold text-on-primary"
             >
               Agree to cancel
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => run(approveCancelBet.mutateAsync('declined'))}
-              className="rounded-pill bg-surface-sunken px-four py-two font-display font-bold text-text-secondary"
             >
               Keep bet active
-            </button>
+            </Button>
           </div>
         </>
       ) : null}
 
-      {bet.status === 'pending_result' && !latestResultSubmission ? (
+      {canReportResult ? (
         <>
-          <SectionHeader title="Report the result" />
+          <SectionHeader title="Mark result" />
           <div className="mt-two flex flex-col gap-two">
             <select
               value={resultOutcomeKey}
               onChange={(e) => setResultOutcomeKey(e.target.value)}
-              className="rounded-medium bg-surface p-three shadow-card"
+              className="rounded-medium border border-line bg-surface p-three"
             >
               <option value="">Pick the outcome…</option>
               {roster.map(({ side }) =>
@@ -297,10 +681,11 @@ export function BetDetailScreen() {
               placeholder="Rationale (optional)"
               value={resultRationale}
               onChange={(e) => setResultRationale(e.target.value)}
-              className="rounded-medium bg-surface p-three shadow-card"
+              className="rounded-medium border border-line bg-surface p-three"
             />
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              fullWidth
               disabled={!resultOutcomeKey}
               onClick={() =>
                 run(
@@ -310,10 +695,9 @@ export function BetDetailScreen() {
                   }),
                 )
               }
-              className="self-start rounded-pill bg-primary px-four py-two font-display font-bold text-on-primary disabled:opacity-60"
             >
-              Submit result
-            </button>
+              Mark result
+            </Button>
           </div>
         </>
       ) : null}
@@ -329,22 +713,21 @@ export function BetDetailScreen() {
             {latestResultSubmission.rationale ? ` — ${latestResultSubmission.rationale}` : ''}
           </p>
           <div className="mt-two flex gap-two">
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={() =>
-                run(
+                runAndCheckWin(
                   confirmBetResult.mutateAsync({
                     resultSubmissionId: latestResultSubmission.id,
                     decision: 'approved',
                   }),
                 )
               }
-              className="rounded-pill bg-primary px-four py-two font-display font-bold text-on-primary"
             >
               Confirm
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() =>
                 run(
                   confirmBetResult.mutateAsync({
@@ -353,10 +736,9 @@ export function BetDetailScreen() {
                   }),
                 )
               }
-              className="rounded-pill bg-surface-sunken px-four py-two font-display font-bold text-text-secondary"
             >
               Dispute
-            </button>
+            </Button>
           </div>
         </>
       ) : null}
@@ -374,14 +756,14 @@ export function BetDetailScreen() {
                 <div className="flex flex-wrap gap-two">
                   {roster.map(({ side }) =>
                     side ? (
-                      <button
+                      <Button
                         key={side.id}
-                        type="button"
-                        onClick={() => run(resolveDispute.mutateAsync(side.outcome_key))}
-                        className="rounded-pill bg-primary px-three py-two font-display text-sm font-bold text-on-primary"
+                        variant="primary"
+                        className="px-three py-two text-sm"
+                        onClick={() => runAndCheckWin(resolveDispute.mutateAsync(side.outcome_key))}
                       >
                         Rule for {side.label}
-                      </button>
+                      </Button>
                     ) : null,
                   )}
                 </div>
@@ -389,26 +771,26 @@ export function BetDetailScreen() {
                 <div className="flex flex-wrap gap-two">
                   {roster.map(({ side }) =>
                     side ? (
-                      <button
+                      <Button
                         key={side.id}
-                        type="button"
+                        variant="secondary"
+                        className="px-three py-two text-sm"
                         onClick={() => run(voteOnDispute.mutateAsync(side.outcome_key))}
-                        className="rounded-pill bg-surface-sunken px-three py-two font-display text-sm font-bold text-text-secondary"
                       >
                         Vote {side.label}
-                      </button>
+                      </Button>
                     ) : null,
                   )}
                 </div>
               ) : null}
               {bet.random_fallback_enabled ? (
-                <button
-                  type="button"
-                  onClick={() => run(triggerRandomFallback.mutateAsync())}
-                  className="self-start rounded-pill bg-surface-sunken px-four py-two font-display font-bold text-text-secondary"
+                <Button
+                  variant="secondary"
+                  className="self-start"
+                  onClick={() => runAndCheckWin(triggerRandomFallback.mutateAsync())}
                 >
                   Trigger random fallback
-                </button>
+                </Button>
               ) : null}
             </div>
           )}
@@ -424,144 +806,39 @@ export function BetDetailScreen() {
         </>
       ) : null}
 
+      {canCancel ? (
+        <button
+          type="button"
+          onClick={() => setPendingCancel(true)}
+          className="mt-four block w-full text-center text-sm font-bold text-danger-ink"
+        >
+          Cancel bet
+        </button>
+      ) : null}
+
       <ConfirmationDialog
         visible={pendingCancel}
         title="Propose cancelling this bet?"
         description="Every active participant needs to agree before it's actually cancelled."
         confirmLabel="Propose cancellation"
+        cancelLabel="Keep it"
         destructive
         onConfirm={() => {
           run(proposeCancelBet.mutateAsync(undefined));
           setPendingCancel(false);
         }}
         onCancel={() => setPendingCancel(false)}
-      />
-
-      <SectionHeader title="Proof" />
-      <div className="mt-two flex flex-col gap-two">
-        {proofAssets.length === 0 ? (
-          <p className="text-sm text-text-faint">No proof uploaded yet.</p>
-        ) : (
-          proofAssets.map(({ asset, signedUrl }) => (
-            <div key={asset.id} className="flex flex-col gap-one rounded-large bg-surface p-three shadow-card">
-              {signedUrl ? (
-                <img
-                  src={signedUrl}
-                  alt={asset.caption ?? 'Proof'}
-                  className="max-h-64 w-full rounded-medium object-cover"
-                />
-              ) : null}
-              {asset.caption ? <p className="text-sm">{asset.caption}</p> : null}
-              <div className="flex items-center gap-two">
-                {asset.moderation_status === 'pending_review' ? (
-                  <StatusBadge label="Pending review" variant="warning" />
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => setReportTarget({ type: 'proof_asset', id: asset.id })}
-                  className="font-display text-sm text-text-secondary"
-                >
-                  Report
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-        {myParticipant ? (
-          <div className="flex flex-col gap-two">
-            <input
-              ref={proofInputRef}
-              type="file"
-              accept="image/*"
-              onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
-              className="text-sm"
-            />
-            <input
-              placeholder="Caption (optional)"
-              value={proofCaption}
-              onChange={(e) => setProofCaption(e.target.value)}
-              className="rounded-medium bg-surface p-three shadow-card"
-            />
-            <button
-              type="button"
-              onClick={handleAddProof}
-              disabled={!proofFile || uploadProof.isPending}
-              className="self-start rounded-pill bg-primary px-four py-two font-display font-bold text-on-primary disabled:opacity-60"
-            >
-              Add proof photo
-            </button>
-          </div>
-        ) : null}
-      </div>
-
-      <SectionHeader title="Polls" />
-      <div className="mt-two flex flex-col gap-two">
-        {polls.map(({ poll, options, votes }) => (
-          <PollCard
-            key={poll.id}
-            poll={poll}
-            options={options}
-            votes={votes}
-            userId={userId}
-            onVote={(optionId) => run(voteOnPoll.mutateAsync({ pollId: poll.id, optionId }))}
-            onClose={() => run(closePoll.mutateAsync(poll.id))}
-          />
-        ))}
-        {myParticipant ? (
-          <PollCreateForm
-            disabled={createPoll.isPending}
-            onSubmit={(input) => run(createPoll.mutateAsync(input))}
-          />
-        ) : null}
-      </div>
-
-      <SectionHeader title="Comments" />
-      <div className="mt-two flex flex-col gap-two">
-        {comments.length === 0 ? (
-          <p className="text-sm text-text-faint">No comments yet.</p>
-        ) : (
-          comments.map(({ comment, author }) => (
-            <ListRow
-              key={comment.id}
-              leading={<Avatar id={comment.author_id} name={author?.display_name ?? '?'} size="sm" />}
-              title={author?.display_name ?? 'Someone'}
-              subtitle={comment.body}
-              trailing={
-                <div className="flex items-center gap-two">
-                  {comment.moderation_status === 'pending_review' ? (
-                    <StatusBadge label="Pending review" variant="warning" />
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => setReportTarget({ type: 'comment', id: comment.id })}
-                    className="font-display text-sm text-text-secondary"
-                  >
-                    Report
-                  </button>
-                </div>
-              }
-            />
-          ))
-        )}
-        {myParticipant ? (
-          <div className="flex gap-two">
-            <input
-              placeholder="Say something"
-              value={commentBody}
-              onChange={(e) => setCommentBody(e.target.value)}
-              className="flex-1 rounded-medium bg-surface p-three shadow-card"
-            />
-            <button
-              type="button"
-              onClick={handlePostComment}
-              disabled={!commentBody.trim() || postComment.isPending}
-              className="rounded-pill bg-primary px-four py-two font-display font-bold text-on-primary disabled:opacity-60"
-            >
-              Post
-            </button>
-          </div>
-        ) : null}
-      </div>
+      >
+        <ListRow
+          leading={
+            <IconTile>
+              <Icons.bet size={18} strokeWidth={1.75} />
+            </IconTile>
+          }
+          title={bet.title}
+          subtitle={opponent?.profile ? `Active · vs ${opponent.profile.display_name}` : 'Active'}
+        />
+      </ConfirmationDialog>
 
       <ReportDialog
         visible={reportTarget !== null}
@@ -569,6 +846,17 @@ export function BetDetailScreen() {
         targetId={reportTarget?.id ?? null}
         onClose={() => setReportTarget(null)}
       />
+
+      {wonBet ? (
+        <WinReveal
+          betTitle={wonBet.title}
+          opponentName={opponent?.profile?.display_name ?? 'They'}
+          payout={myParticipant?.commitment?.payout_if_win ?? 0}
+          currencyName={myParticipant?.commitment?.currencies?.name}
+          currencyIcon={myParticipant?.commitment?.currencies?.icon}
+          onDismiss={() => setWonBet(null)}
+        />
+      ) : null}
     </main>
   );
 }

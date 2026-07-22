@@ -1,28 +1,68 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 
+import { BottomNav } from '@/components/bottom-nav';
 import { Avatar } from '@/components/ui/avatar';
-import { BackButton } from '@/components/ui/back-button';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { InlineError } from '@/components/ui/inline-error';
 import { ListRow } from '@/components/ui/list-row';
 import { SectionHeader } from '@/components/ui/section-header';
+import { useMyBets } from '@/hooks/use-bets';
 import {
   useBlockUser,
   useCancelFriendRequest,
   useFriends,
+  useHeadToHeadRecords,
+  useMutualFriendCount,
   useRespondFriendRequest,
   useSearchUsername,
   useSendFriendRequest,
+  type HeadToHeadRecord,
 } from '@/hooks/use-friends';
 import { useSession } from '@/hooks/use-session';
 import { getErrorMessage } from '@/lib/errors';
+import { Icons } from '@/lib/icons';
+
+/** README §"Debt chip"-style direction coding, applied to a friend's
+ * win/loss record instead of a currency direction: up-green if the caller
+ * leads, down-amber if behind, neutral if even. Omitted entirely when
+ * they haven't played yet (0-0 isn't a meaningful record to show). */
+/** "@handle · N mutual" -- omits the mutual clause entirely at 0 or while
+ * loading, same "don't show a meaningless zero" rule as HeadToHead. */
+function UsernameWithMutual({ username, otherUserId }: { username: string; otherUserId: string }) {
+  const { data: mutualCount } = useMutualFriendCount(otherUserId);
+  return (
+    <>
+      @{username}
+      {mutualCount ? ` · ${mutualCount} mutual` : ''}
+    </>
+  );
+}
+
+function HeadToHead({ record }: { record?: HeadToHeadRecord }) {
+  if (!record || (record.won === 0 && record.lost === 0)) return null;
+  const leading = record.won > record.lost;
+  const behind = record.won < record.lost;
+  const label = leading ? 'you lead' : behind ? 'down' : 'even';
+  const color = leading ? 'text-up-ink' : behind ? 'text-down-ink' : 'text-text-secondary';
+  return (
+    <div className="flex shrink-0 flex-col items-end">
+      <span className="font-mono text-sm font-bold">
+        {record.won}–{record.lost}
+      </span>
+      <span className={`text-xs font-bold ${color}`}>{label}</span>
+    </div>
+  );
+}
 
 export function FriendsScreen() {
   const { session } = useSession();
   const userId = session?.user.id;
 
   const { incomingRequests, outgoingRequests, friends, isLoading } = useFriends(userId);
+  const { resolvedBets } = useMyBets(userId);
+  const headToHead = useHeadToHeadRecords(userId, resolvedBets);
   const sendFriendRequest = useSendFriendRequest(userId);
   const respondFriendRequest = useRespondFriendRequest(userId);
   const cancelFriendRequest = useCancelFriendRequest(userId);
@@ -39,77 +79,97 @@ export function FriendsScreen() {
 
   const friendIds = new Set(friends.map((f) => f.profile.id));
   const outgoingIds = new Set(outgoingRequests.map((r) => r.profile.id));
+  const searchResults = (searchUsername.data ?? []).filter((profile) => profile.id !== userId);
 
   return (
-    <main className="mx-auto max-w-app p-four pb-16">
-      <BackButton />
+    <main className="mx-auto max-w-app p-four pb-28">
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-screen-title font-extrabold tracking-display-tight">
+          Friends
+        </h1>
+        <button
+          type="button"
+          aria-label="Search or add a friend"
+          onClick={() => document.getElementById('friend-search')?.focus()}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-pill bg-grape text-on-grape"
+        >
+          <Icons.add size={20} strokeWidth={2.5} />
+        </button>
+      </div>
 
-      <h1 className="mt-three font-display text-2xl font-extrabold">Friends</h1>
-      <Link to="/obligations" className="mt-two inline-block text-sm font-bold text-secondary">
+      <Link to="/obligations" className="mt-one inline-block text-sm font-bold text-grape-ink">
         Manual obligations
       </Link>
 
       <InlineError message={error} />
 
-      <SectionHeader title="Find people" />
-      <div className="mt-two flex gap-two">
+      <div className="mt-three flex items-center gap-two rounded-pill border border-line bg-surface px-four py-three">
+        <Icons.search size={18} strokeWidth={1.75} className="shrink-0 text-text-faint" />
         <input
-          placeholder="Search by username"
+          id="friend-search"
+          placeholder="Search or add by @username"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="flex-1 rounded-medium bg-surface p-three shadow-card"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && query.trim()) searchUsername.mutate(query.trim());
+          }}
+          className="w-full bg-transparent text-sm outline-none placeholder:text-text-faint"
         />
         <button
           type="button"
           disabled={!query.trim() || searchUsername.isPending}
           onClick={() => searchUsername.mutate(query.trim())}
-          className="rounded-pill bg-primary px-four py-two font-display font-bold text-on-primary disabled:opacity-60"
+          className="shrink-0 text-sm font-bold text-grape-ink disabled:opacity-40"
         >
           Search
         </button>
       </div>
-      <div className="mt-two flex flex-col gap-two">
-        {(searchUsername.data ?? [])
-          .filter((profile) => profile.id !== userId)
-          .map((profile) => (
+
+      {searchResults.length > 0 ? (
+        <div className="mt-two flex flex-col gap-two">
+          {searchResults.map((profile) => (
             <ListRow
               key={profile.id}
               leading={<Avatar id={profile.id} name={profile.display_name} />}
               title={profile.display_name}
-              subtitle={`@${profile.username}`}
+              subtitle={<UsernameWithMutual username={profile.username} otherUserId={profile.id} />}
               trailing={
                 friendIds.has(profile.id) ? (
                   <span className="text-sm text-text-faint">Already friends</span>
                 ) : outgoingIds.has(profile.id) ? (
                   <span className="text-sm text-text-faint">Request sent</span>
                 ) : (
-                  <button
-                    type="button"
+                  <Button
+                    variant="primary"
+                    className="px-three py-one text-xs"
                     onClick={() => run(sendFriendRequest.mutateAsync(profile.id))}
-                    className="rounded-pill bg-primary px-three py-one font-display text-sm font-bold text-on-primary"
                   >
                     Add
-                  </button>
+                  </Button>
                 )
               }
             />
           ))}
-      </div>
+        </div>
+      ) : null}
 
       {incomingRequests.length > 0 ? (
         <>
-          <SectionHeader title="Requests" />
+          <SectionHeader title="Requests" badge={incomingRequests.length} />
           <div className="mt-two flex flex-col gap-two">
             {incomingRequests.map(({ friendship, profile }) => (
               <ListRow
                 key={friendship.id}
                 leading={<Avatar id={profile.id} name={profile.display_name} />}
                 title={profile.display_name}
-                subtitle={`@${profile.username}`}
+                subtitle={<UsernameWithMutual username={profile.username} otherUserId={profile.id} />}
+                borderColorClassName="border-grape"
+                className="shadow-attention"
                 trailing={
-                  <div className="flex gap-two">
-                    <button
-                      type="button"
+                  <div className="flex items-center gap-two">
+                    <Button
+                      variant="primary"
+                      className="px-three py-one text-xs"
                       onClick={() =>
                         run(
                           respondFriendRequest.mutateAsync({
@@ -118,12 +178,12 @@ export function FriendsScreen() {
                           }),
                         )
                       }
-                      className="rounded-pill bg-primary px-three py-one font-display text-sm font-bold text-on-primary"
                     >
-                      Accept
-                    </button>
+                      Add
+                    </Button>
                     <button
                       type="button"
+                      aria-label={`Decline ${profile.display_name}`}
                       onClick={() =>
                         run(
                           respondFriendRequest.mutateAsync({
@@ -132,9 +192,9 @@ export function FriendsScreen() {
                           }),
                         )
                       }
-                      className="rounded-pill bg-surface-sunken px-three py-one font-display text-sm font-bold text-text-secondary"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pill bg-surface-sunken text-text-secondary"
                     >
-                      Decline
+                      <Icons.close size={16} strokeWidth={2} />
                     </button>
                   </div>
                 }
@@ -146,7 +206,7 @@ export function FriendsScreen() {
 
       {outgoingRequests.length > 0 ? (
         <>
-          <SectionHeader title="Sent" />
+          <SectionHeader title="Sent" count={outgoingRequests.length} />
           <div className="mt-two flex flex-col gap-two">
             {outgoingRequests.map(({ friendship, profile }) => (
               <ListRow
@@ -158,7 +218,7 @@ export function FriendsScreen() {
                   <button
                     type="button"
                     onClick={() => run(cancelFriendRequest.mutateAsync(friendship.id))}
-                    className="font-display text-sm font-bold text-text-secondary"
+                    className="text-sm font-bold text-text-secondary"
                   >
                     Cancel
                   </button>
@@ -169,12 +229,16 @@ export function FriendsScreen() {
         </>
       ) : null}
 
-      <SectionHeader title="Your friends" />
+      <SectionHeader title="Your friends" count={friends.length} />
       <div className="mt-two flex flex-col gap-two">
         {isLoading ? (
           <p className="text-text-secondary">Loading…</p>
         ) : friends.length === 0 ? (
-          <EmptyState icon="friends" title="No friends yet" description="Search above to add some." />
+          <EmptyState
+            icon="friends"
+            title="No friends yet"
+            description="Search above to add some."
+          />
         ) : (
           friends.map(({ friendship, profile }) => (
             <ListRow
@@ -183,18 +247,24 @@ export function FriendsScreen() {
               title={profile.display_name}
               subtitle={`@${profile.username}`}
               trailing={
-                <button
-                  type="button"
-                  onClick={() => run(blockUser.mutateAsync(profile.id))}
-                  className="font-display text-sm font-bold text-danger"
-                >
-                  Block
-                </button>
+                <div className="flex items-center gap-three">
+                  <HeadToHead record={headToHead.get(profile.id)} />
+                  <button
+                    type="button"
+                    aria-label={`Block ${profile.display_name}`}
+                    onClick={() => run(blockUser.mutateAsync(profile.id))}
+                    className="shrink-0 text-text-faint"
+                  >
+                    <Icons.block size={16} strokeWidth={1.75} />
+                  </button>
+                </div>
               }
             />
           ))
         )}
       </div>
+
+      <BottomNav />
     </main>
   );
 }

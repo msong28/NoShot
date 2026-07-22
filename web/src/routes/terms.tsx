@@ -4,12 +4,13 @@ import { LegalDisclaimer } from '@/components/ui/legal-disclaimer';
 import { SectionHeader } from '@/components/ui/section-header';
 
 export function TermsScreen() {
-
   return (
     <main className="mx-auto max-w-app p-four pb-16">
       <BackButton />
 
-      <h1 className="mt-three font-display text-2xl font-extrabold">Terms of service</h1>
+      <h1 className="mt-three font-display text-screen-title font-extrabold tracking-display-tight">
+        Terms of service
+      </h1>
       <div className="mt-three">
         <LegalDisclaimer />
       </div>
@@ -46,9 +47,9 @@ export function TermsScreen() {
 
       <SectionHeader title="Account termination" />
       <p className="mt-two text-sm text-text-secondary">
-        You can delete your account at any time from the Account screen — see the privacy policy
-        for exactly what that does. We may suspend an account that violates these terms or the
-        community guidelines.
+        You can delete your account at any time from the Account screen — see the privacy policy for
+        exactly what that does. We may suspend an account that violates these terms or the community
+        guidelines.
       </p>
 
       <SectionHeader title="Disclaimers" />

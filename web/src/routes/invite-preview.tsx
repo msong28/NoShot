@@ -3,12 +3,22 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import { ReportDialog } from '@/components/report-dialog';
+import { Avatar } from '@/components/ui/avatar';
 import { useSendFriendRequest } from '@/hooks/use-friends';
 import { useSession } from '@/hooks/use-session';
 import { getErrorMessage } from '@/lib/errors';
 import type { PublicProfile } from '@/lib/friend';
 import { supabase } from '@/lib/supabase';
 
+/**
+ * README §"Invite preview": "the loudest screen — first impression" --
+ * full grape background (not a themed surface swap; this is the one
+ * deliberately fixed-color screen in the system), lime primary CTA. The
+ * mock also shows a specific bet preview card ("Dishes for a week ·
+ * Pending"), but `get_invite_preview` only returns the inviter's public
+ * profile -- this invite flow is a generic friend invite, not tied to any
+ * bet, so that card is omitted rather than faked.
+ */
 export function InvitePreviewScreen() {
   const { username } = useParams<{ username: string }>();
   const { session } = useSession();
@@ -30,72 +40,82 @@ export function InvitePreviewScreen() {
 
   const content = (() => {
     if (previewQuery.isLoading) {
-      return <p className="text-text-secondary">Loading…</p>;
+      return <p className="text-white/80">Loading…</p>;
     }
 
     if (!previewQuery.data) {
-      return <p className="text-text-secondary">This invite link isn't valid.</p>;
+      return <p className="text-white/80">This invite link isn&rsquo;t valid.</p>;
     }
 
     const invitedProfile = previewQuery.data;
 
     return (
       <>
-        <h2 className="font-display text-lg font-extrabold">
-          @{invitedProfile.username} · {invitedProfile.display_name}
-        </h2>
-        <p className="mt-two text-text-secondary">wants to be your friend on NoShot.</p>
+        <div className="rounded-pill ring-4 ring-white/40">
+          <Avatar id={invitedProfile.id} name={invitedProfile.display_name} size="xl" />
+        </div>
+        <h1 className="mt-four font-display text-screen-title font-extrabold tracking-display-tight">
+          {invitedProfile.display_name} challenged you on NoShot
+        </h1>
+        <p className="mt-two text-white/80">
+          Keep score on bets &amp; dares with friends. No cash — just stakes.
+        </p>
 
         {session ? (
           <button
             type="button"
             onClick={() => setShowReport(true)}
-            className="mt-three font-display text-sm text-text-secondary"
+            className="mt-three text-sm text-white/60 underline"
           >
             Report this profile
           </button>
         ) : null}
 
-        {session ? (
-          requestSent ? (
-            <p className="mt-four font-display font-bold text-success">Friend request sent.</p>
+        <div className="mt-auto flex w-full flex-col items-center gap-three pt-four">
+          {session ? (
+            requestSent ? (
+              <p className="font-display font-bold text-lime">Friend request sent 🎉</p>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  disabled={sendRequest.isPending}
+                  onClick={() => {
+                    setRequestError(null);
+                    sendRequest.mutate(invitedProfile.id, {
+                      onSuccess: () => setRequestSent(true),
+                      onError: (error) =>
+                        setRequestError(getErrorMessage(error, 'Failed to send request')),
+                    });
+                  }}
+                  className="w-full rounded-[16px] bg-lime px-four py-three font-extrabold text-on-lime disabled:opacity-60"
+                >
+                  Accept challenge
+                </button>
+                {requestError ? (
+                  <p role="alert" className="text-sm text-white">
+                    {requestError}
+                  </p>
+                ) : null}
+              </>
+            )
           ) : (
             <>
-              <button
-                type="button"
-                disabled={sendRequest.isPending}
-                onClick={() => {
-                  setRequestError(null);
-                  sendRequest.mutate(invitedProfile.id, {
-                    onSuccess: () => setRequestSent(true),
-                    onError: (error) =>
-                      setRequestError(getErrorMessage(error, 'Failed to send request')),
-                  });
-                }}
-                className="mt-four rounded-pill bg-primary px-four py-three font-display font-bold text-on-primary disabled:opacity-60"
+              <p className="text-white/80">
+                Sign in to add {invitedProfile.display_name} as a friend.
+              </p>
+              <Link
+                to="/"
+                className="w-full rounded-[16px] bg-lime px-four py-three text-center font-extrabold text-on-lime"
               >
-                Add as friend
-              </button>
-              {requestError ? (
-                <p role="alert" className="mt-two text-sm text-danger">
-                  {requestError}
-                </p>
-              ) : null}
+                Sign in
+              </Link>
             </>
-          )
-        ) : (
-          <>
-            <p className="mt-four text-text-secondary">
-              Sign in to add {invitedProfile.display_name} as a friend.
-            </p>
-            <Link
-              to="/"
-              className="mt-three block rounded-pill bg-primary px-four py-three text-center font-display font-bold text-on-primary"
-            >
-              Sign in
-            </Link>
-          </>
-        )}
+          )}
+          <Link to="/" className="text-sm text-white/70 underline">
+            What&rsquo;s NoShot?
+          </Link>
+        </div>
 
         <ReportDialog
           visible={showReport}
@@ -108,9 +128,11 @@ export function InvitePreviewScreen() {
   })();
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-app flex-col justify-center gap-three p-four">
-      <h1 className="font-display text-3xl font-extrabold">NoShot</h1>
-      {content}
+    <main className="flex min-h-screen flex-col items-center bg-grape px-four py-six text-center text-white">
+      <p className="font-display text-lg font-extrabold">
+        NoShot<span className="text-lime">.</span>
+      </p>
+      <div className="mt-six flex flex-1 flex-col items-center">{content}</div>
     </main>
   );
 }

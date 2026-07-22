@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from 'react-router';
 
+import { AppLoading } from '@/components/ui/app-loading';
 import { useProfile } from '@/hooks/use-profile';
 import { useSession } from '@/hooks/use-session';
 
@@ -9,7 +10,7 @@ export function RequireSessionNoProfile() {
   const { data: profile, isLoading: isProfileLoading } = useProfile(session?.user.id);
 
   if (isSessionLoading || (session && isProfileLoading)) {
-    return <p className="p-four text-text-secondary">Loading…</p>;
+    return <AppLoading />;
   }
 
   if (!session) {

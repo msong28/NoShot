@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 
-import { BottomNav } from '@/components/bottom-nav';
+import { BackButton } from '@/components/ui/back-button';
 import { Avatar } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { InlineError } from '@/components/ui/inline-error';
 import { ListRow } from '@/components/ui/list-row';
@@ -37,28 +38,28 @@ export function GroupsScreen() {
   }
 
   return (
-    <main className="mx-auto max-w-app p-four pb-28">
-      <h1 className="font-display text-2xl font-extrabold">Groups</h1>
+    <main className="mx-auto max-w-app p-four pb-16">
+      <BackButton />
+
+      <h1 className="mt-three font-display text-screen-title font-extrabold tracking-display-tight">
+        Groups
+      </h1>
       <p className="mt-two text-text-secondary">
-        Your groups, with per-currency net indicators and active-bet counts, will live here.
+        Group bets, split with everyone chipping in.
       </p>
 
-      <div className="mt-four flex flex-col gap-two">
+      <SectionHeader title="Create a group" />
+      <div className="mt-two flex flex-col gap-two rounded-large border border-line bg-surface p-three">
         <input
           placeholder="Group name (e.g. Roommates)"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="rounded-medium bg-surface p-three shadow-card"
+          className="rounded-medium border border-line bg-bg p-three"
         />
-        <button
-          type="button"
-          onClick={handleCreate}
-          disabled={!name.trim() || createGroup.isPending}
-          className="self-start rounded-pill bg-primary px-four py-two font-display font-bold text-on-primary disabled:opacity-60"
-        >
-          Create group
-        </button>
         <InlineError message={error} />
+        <Button disabled={!name.trim() || createGroup.isPending} onClick={handleCreate}>
+          {createGroup.isPending ? 'Creating…' : 'Create group'}
+        </Button>
       </div>
 
       {pendingInvites.length > 0 ? (
@@ -74,15 +75,23 @@ export function GroupsScreen() {
                   <div className="flex gap-two">
                     <button
                       type="button"
-                      onClick={() => runAction(respondToInvite.mutateAsync({ groupId: invite.group_id, accept: true }))}
-                      className="rounded-pill bg-primary px-three py-one font-display text-sm font-bold text-on-primary"
+                      onClick={() =>
+                        runAction(
+                          respondToInvite.mutateAsync({ groupId: invite.group_id, accept: true }),
+                        )
+                      }
+                      className="rounded-pill bg-grape px-three py-one text-sm font-bold text-on-grape"
                     >
                       Accept
                     </button>
                     <button
                       type="button"
-                      onClick={() => runAction(respondToInvite.mutateAsync({ groupId: invite.group_id, accept: false }))}
-                      className="rounded-pill bg-surface-sunken px-three py-one font-display text-sm font-bold text-text-secondary"
+                      onClick={() =>
+                        runAction(
+                          respondToInvite.mutateAsync({ groupId: invite.group_id, accept: false }),
+                        )
+                      }
+                      className="rounded-pill bg-surface-sunken px-three py-one text-sm font-bold text-text-secondary"
                     >
                       Decline
                     </button>
@@ -101,22 +110,17 @@ export function GroupsScreen() {
         </div>
       ) : (
         <div className="mt-two flex flex-col gap-two">
-          {activeGroups.map((group) => {
-            const ForwardIcon = Icons.forward;
-            return (
-              <Link key={group.id} to={`/group/${group.id}`}>
-                <ListRow
-                  leading={<Avatar id={group.id} name={group.name} />}
-                  title={group.name}
-                  trailing={<ForwardIcon size={18} className="text-text-faint" />}
-                />
-              </Link>
-            );
-          })}
+          {activeGroups.map((group) => (
+            <Link key={group.id} to={`/group/${group.id}`}>
+              <ListRow
+                leading={<Avatar id={group.id} name={group.name} />}
+                title={group.name}
+                trailing={<Icons.forward size={18} className="shrink-0 text-text-faint" />}
+              />
+            </Link>
+          ))}
         </div>
       )}
-
-      <BottomNav />
     </main>
   );
 }

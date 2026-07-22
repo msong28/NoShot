@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { Profile } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
@@ -26,4 +26,26 @@ export function useProfile(userId: string | undefined) {
 export function useInvalidateProfile(userId: string | undefined) {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: profileQueryKey(userId) });
+}
+
+/** Self-update via profiles_update_own RLS -- any subset of the editable
+ * fields (display_name, notifications_enabled, ...). Used by both the
+ * Settings notifications toggle and the Edit-profile screen. */
+export function useUpdateProfile(userId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      updates: Partial<Pick<Profile, 'display_name' | 'notifications_enabled'>>,
+    ): Promise<Profile> => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', userId as string)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: profileQueryKey(userId) }),
+  });
 }

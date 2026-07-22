@@ -1,151 +1,274 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
-/* Approved direction: Splitwise clarity + Partiful personality.
-   See /private/tmp/.../noshot-style-preview.html for the reviewed source —
-   values below are transcribed from that approved artifact, not re-derived. */
+/* Design system: design_handoff_noshot/README.md ("Splitwise clarity +
+   Partiful energy" re-skin). Supersedes the prior "approved direction"
+   palette (coral/violet on warm pink) that used to live in this file.
+
+   Source-of-truth tokens use the README's own names (bg/ink/grape/up/down/
+   gold/...). Legacy names (background/primary/success/warning/...) are kept
+   as aliases pointing at the new tokens -- same pattern src/constants/theme.ts
+   uses on the native app (new semantic set + legacy aliases) -- so every
+   existing `bg-primary`/`text-danger`/`bg-success-bg`/etc. class already in
+   the codebase keeps resolving unchanged. Dark mode is a token swap only:
+   one set of values per mode, no duplicated component styles. */
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 :root {
   color-scheme: light dark;
 
-  --color-background: #FBF4F5;
-  --color-surface: #FFFFFF;
-  --color-surface-sunken: #F6ECEE;
-  --color-border: #EEDEE2;
-  --color-text-primary: #241A2E;
-  --color-text-secondary: #7A6B80;
-  --color-text-faint: #B7A9BC;
+  /* --- README tokens: light mode --- */
+  --color-bg: #fbf6ef;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f5efe5;
+  --color-ink: #1c1917;
+  --color-ink-muted: #6e675f;
+  --color-ink-faint: #8a8178;
+  --color-line: #ece4d7;
 
-  --color-primary: #FF5A36;
-  --color-primary-pressed: #E44A28;
-  --color-on-primary: #FFFFFF;
-  --color-secondary: #6C4DE6;
-  --color-secondary-pressed: #5A3ECC;
-  --color-on-secondary: #FFFFFF;
-  --color-success: #1FAA59;
-  --color-success-bg: #E4F5EA;
-  --color-danger: #E13B3B;
-  --color-danger-bg: #FBE7E6;
-  --color-warning: #B8860B;
-  --color-warning-bg: #FBF0DA;
-  --color-info: #1D6FC4;
-  --color-info-bg: #E3EFFB;
-  --color-neutral: #7A6B80;
-  --color-neutral-bg: #F1ECEE;
+  --color-grape: #6c4bf5;
+  --color-grape-ink: #4a2fd0;
+  --color-grape-soft: #eee9ff;
+  --color-on-grape: #ffffff;
 
-  --shadow-card: 0 1px 2px rgb(36 26 46 / 0.06), 0 8px 20px rgb(36 26 46 / 0.06);
+  --color-lime: #d8ff4b;
+  --color-on-lime: #1c1917;
+
+  --color-up: #0fb77e;
+  --color-up-soft: #ddf6ec;
+  --color-up-ink: #0a7c56;
+
+  --color-down: #f5892b;
+  --color-down-soft: #fdecd9;
+  --color-down-ink: #b4550e;
+
+  --color-gold: #e0a008;
+  --color-gold-soft: #fbefcb;
+  --color-gold-ink: #8a6a00;
+
+  --color-danger: #e5484d;
+  --color-danger-soft: #fbe3e3;
+  --color-danger-ink: #c0362f;
+
+  --color-neutral-soft: #efeae1;
+
+  /* Not part of the new design (no "info" role in the README) -- left as
+     the prior value since it's barely used and has no replacement spec. */
+  --color-info: #1d6fc4;
+  --color-info-soft: #e3effb;
+
+  --shadow-card: 0 1px 2px rgb(28 25 23 / 0.06), 0 8px 20px rgb(28 25 23 / 0.06);
+  --shadow-attention: 0 6px 16px -8px rgb(108 75 245 / 0.35);
+  --shadow-primary-button: 0 10px 22px -8px rgb(108 75 245 / 0.6);
+  --shadow-fab: 0 10px 22px -6px rgb(108 75 245 / 0.75);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-background: #1C1420;
-    --color-surface: #241A2E;
-    --color-surface-sunken: #1C1420;
-    --color-border: #3A2C42;
-    --color-text-primary: #F7EFF2;
-    --color-text-secondary: #B8A6BC;
-    --color-text-faint: #6E5D74;
+    --color-bg: #17130e;
+    --color-surface: #221c15;
+    --color-surface-sunken: #2c251c;
+    --color-ink: #f7f1e7;
+    --color-ink-muted: #a8a093;
+    --color-ink-faint: #8f867a;
+    --color-line: #2c251c;
 
-    --color-primary: #FF6B4A;
-    --color-primary-pressed: #FF8563;
-    --color-secondary: #9B85FF;
-    --color-secondary-pressed: #B29DFF;
-    --color-success: #34C97A;
-    --color-success-bg: #17301F;
-    --color-danger: #FF6B6B;
-    --color-danger-bg: #3A1E1E;
-    --color-warning: #FFB020;
-    --color-warning-bg: #3A2E12;
-    --color-info: #5AA9E6;
-    --color-info-bg: #16283A;
-    --color-neutral: #B8A6BC;
-    --color-neutral-bg: #241A2E;
+    --color-grape: #9b80ff;
+    --color-grape-ink: #9b80ff;
+    --color-grape-soft: rgb(155 128 255 / 0.16);
+    --color-on-grape: #ffffff;
+
+    --color-lime: #d8ff4b;
+    --color-on-lime: #1c1917;
+
+    --color-up: #2dd39c;
+    --color-up-soft: rgb(45 211 156 / 0.16);
+    --color-up-ink: #2dd39c;
+
+    --color-down: #ffa24d;
+    --color-down-soft: rgb(255 162 77 / 0.16);
+    --color-down-ink: #ffa24d;
+
+    --color-gold: #f5c147;
+    --color-gold-soft: rgb(245 193 71 / 0.16);
+    --color-gold-ink: #f5c147;
+
+    --color-danger: #ff6b6b;
+    --color-danger-soft: rgb(255 107 107 / 0.16);
+    --color-danger-ink: #ff6b6b;
+
+    --color-neutral-soft: rgb(168 160 147 / 0.16);
+
+    --color-info: #5aa9e6;
+    --color-info-soft: #16283a;
 
     --shadow-card: 0 1px 2px rgb(0 0 0 / 0.25), 0 8px 24px rgb(0 0 0 / 0.35);
+    --shadow-attention: 0 6px 16px -8px rgb(155 128 255 / 0.45);
+    --shadow-primary-button: 0 10px 22px -8px rgb(155 128 255 / 0.55);
+    --shadow-fab: 0 10px 22px -6px rgb(155 128 255 / 0.7);
   }
 }
 
 :root[data-theme='dark'] {
-  --color-background: #1C1420;
-  --color-surface: #241A2E;
-  --color-surface-sunken: #1C1420;
-  --color-border: #3A2C42;
-  --color-text-primary: #F7EFF2;
-  --color-text-secondary: #B8A6BC;
-  --color-text-faint: #6E5D74;
+  --color-bg: #17130e;
+  --color-surface: #221c15;
+  --color-surface-sunken: #2c251c;
+  --color-ink: #f7f1e7;
+  --color-ink-muted: #a8a093;
+  --color-ink-faint: #8f867a;
+  --color-line: #2c251c;
 
-  --color-primary: #FF6B4A;
-  --color-primary-pressed: #FF8563;
-  --color-secondary: #9B85FF;
-  --color-secondary-pressed: #B29DFF;
-  --color-success: #34C97A;
-  --color-success-bg: #17301F;
-  --color-danger: #FF6B6B;
-  --color-danger-bg: #3A1E1E;
-  --color-warning: #FFB020;
-  --color-warning-bg: #3A2E12;
-  --color-info: #5AA9E6;
-  --color-info-bg: #16283A;
-  --color-neutral: #B8A6BC;
-  --color-neutral-bg: #241A2E;
+  --color-grape: #9b80ff;
+  --color-grape-ink: #9b80ff;
+  --color-grape-soft: rgb(155 128 255 / 0.16);
+  --color-on-grape: #ffffff;
+
+  --color-lime: #d8ff4b;
+  --color-on-lime: #1c1917;
+
+  --color-up: #2dd39c;
+  --color-up-soft: rgb(45 211 156 / 0.16);
+  --color-up-ink: #2dd39c;
+
+  --color-down: #ffa24d;
+  --color-down-soft: rgb(255 162 77 / 0.16);
+  --color-down-ink: #ffa24d;
+
+  --color-gold: #f5c147;
+  --color-gold-soft: rgb(245 193 71 / 0.16);
+  --color-gold-ink: #f5c147;
+
+  --color-danger: #ff6b6b;
+  --color-danger-soft: rgb(255 107 107 / 0.16);
+  --color-danger-ink: #ff6b6b;
+
+  --color-neutral-soft: rgb(168 160 147 / 0.16);
+
+  --color-info: #5aa9e6;
+  --color-info-soft: #16283a;
 
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.25), 0 8px 24px rgb(0 0 0 / 0.35);
+  --shadow-attention: 0 6px 16px -8px rgb(155 128 255 / 0.45);
+  --shadow-primary-button: 0 10px 22px -8px rgb(155 128 255 / 0.55);
+  --shadow-fab: 0 10px 22px -6px rgb(155 128 255 / 0.7);
 }
 
 :root[data-theme='light'] {
-  --color-background: #FBF4F5;
-  --color-surface: #FFFFFF;
-  --color-surface-sunken: #F6ECEE;
-  --color-border: #EEDEE2;
-  --color-text-primary: #241A2E;
-  --color-text-secondary: #7A6B80;
-  --color-text-faint: #B7A9BC;
+  --color-bg: #fbf6ef;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f5efe5;
+  --color-ink: #1c1917;
+  --color-ink-muted: #6e675f;
+  --color-ink-faint: #8a8178;
+  --color-line: #ece4d7;
 
-  --color-primary: #FF5A36;
-  --color-primary-pressed: #E44A28;
-  --color-secondary: #6C4DE6;
-  --color-secondary-pressed: #5A3ECC;
-  --color-success: #1FAA59;
-  --color-success-bg: #E4F5EA;
-  --color-danger: #E13B3B;
-  --color-danger-bg: #FBE7E6;
-  --color-warning: #B8860B;
-  --color-warning-bg: #FBF0DA;
-  --color-info: #1D6FC4;
-  --color-info-bg: #E3EFFB;
-  --color-neutral: #7A6B80;
-  --color-neutral-bg: #F1ECEE;
+  --color-grape: #6c4bf5;
+  --color-grape-ink: #4a2fd0;
+  --color-grape-soft: #eee9ff;
+  --color-on-grape: #ffffff;
 
-  --shadow-card: 0 1px 2px rgb(36 26 46 / 0.06), 0 8px 20px rgb(36 26 46 / 0.06);
+  --color-lime: #d8ff4b;
+  --color-on-lime: #1c1917;
+
+  --color-up: #0fb77e;
+  --color-up-soft: #ddf6ec;
+  --color-up-ink: #0a7c56;
+
+  --color-down: #f5892b;
+  --color-down-soft: #fdecd9;
+  --color-down-ink: #b4550e;
+
+  --color-gold: #e0a008;
+  --color-gold-soft: #fbefcb;
+  --color-gold-ink: #8a6a00;
+
+  --color-danger: #e5484d;
+  --color-danger-soft: #fbe3e3;
+  --color-danger-ink: #c0362f;
+
+  --color-neutral-soft: #efeae1;
+
+  --color-info: #1d6fc4;
+  --color-info-soft: #e3effb;
+
+  --shadow-card: 0 1px 2px rgb(28 25 23 / 0.06), 0 8px 20px rgb(28 25 23 / 0.06);
+  --shadow-attention: 0 6px 16px -8px rgb(108 75 245 / 0.35);
+  --shadow-primary-button: 0 10px 22px -8px rgb(108 75 245 / 0.6);
+  --shadow-fab: 0 10px 22px -6px rgb(108 75 245 / 0.75);
 }
 
 @theme inline {
-  --color-background: var(--color-background);
+  /* --- README-named tokens (primary vocabulary going forward) --- */
+  --color-bg: var(--color-bg);
   --color-surface: var(--color-surface);
   --color-surface-sunken: var(--color-surface-sunken);
-  --color-border: var(--color-border);
-  --color-text-primary: var(--color-text-primary);
-  --color-text-secondary: var(--color-text-secondary);
-  --color-text-faint: var(--color-text-faint);
+  --color-ink: var(--color-ink);
+  --color-ink-muted: var(--color-ink-muted);
+  --color-ink-faint: var(--color-ink-faint);
+  --color-line: var(--color-line);
 
-  --color-primary: var(--color-primary);
-  --color-primary-pressed: var(--color-primary-pressed);
-  --color-on-primary: var(--color-on-primary);
-  --color-secondary: var(--color-secondary);
-  --color-secondary-pressed: var(--color-secondary-pressed);
-  --color-on-secondary: var(--color-on-secondary);
-  --color-success: var(--color-success);
-  --color-success-bg: var(--color-success-bg);
+  --color-grape: var(--color-grape);
+  --color-grape-ink: var(--color-grape-ink);
+  --color-grape-soft: var(--color-grape-soft);
+  --color-on-grape: var(--color-on-grape);
+
+  --color-lime: var(--color-lime);
+  --color-on-lime: var(--color-on-lime);
+
+  --color-up: var(--color-up);
+  --color-up-soft: var(--color-up-soft);
+  --color-up-ink: var(--color-up-ink);
+
+  --color-down: var(--color-down);
+  --color-down-soft: var(--color-down-soft);
+  --color-down-ink: var(--color-down-ink);
+
+  --color-gold: var(--color-gold);
+  --color-gold-soft: var(--color-gold-soft);
+  --color-gold-ink: var(--color-gold-ink);
+
   --color-danger: var(--color-danger);
-  --color-danger-bg: var(--color-danger-bg);
-  --color-warning: var(--color-warning);
-  --color-warning-bg: var(--color-warning-bg);
-  --color-info: var(--color-info);
-  --color-info-bg: var(--color-info-bg);
-  --color-neutral: var(--color-neutral);
-  --color-neutral-bg: var(--color-neutral-bg);
+  --color-danger-soft: var(--color-danger-soft);
+  --color-danger-ink: var(--color-danger-ink);
 
-  /* Spacing scale, matches the Expo app's Spacing.half..six naming intent */
+  --color-neutral-soft: var(--color-neutral-soft);
+
+  --color-info: var(--color-info);
+  --color-info-soft: var(--color-info-soft);
+
+  /* --- Legacy aliases: keep every class already in the codebase resolving.
+     `secondary` collapses onto `grape` -- the new design has one brand
+     accent, not two -- and `success`/`warning`/`neutral` map onto the
+     closest new status role. Remove these once the component-restyle pass
+     (step 2) has moved call sites onto the README names directly. --- */
+  --color-background: var(--color-bg);
+  --color-border: var(--color-line);
+  --color-text-primary: var(--color-ink);
+  --color-text-secondary: var(--color-ink-muted);
+  --color-text-faint: var(--color-ink-faint);
+
+  --color-primary: var(--color-grape);
+  --color-primary-pressed: var(--color-grape-ink);
+  --color-on-primary: var(--color-on-grape);
+  --color-secondary: var(--color-grape);
+  --color-secondary-pressed: var(--color-grape-ink);
+  --color-on-secondary: var(--color-on-grape);
+
+  --color-success: var(--color-up);
+  --color-success-bg: var(--color-up-soft);
+  --color-danger-bg: var(--color-danger-soft);
+  --color-warning: var(--color-gold);
+  --color-warning-bg: var(--color-gold-soft);
+  --color-info-bg: var(--color-info-soft);
+  --color-neutral: var(--color-ink-muted);
+  --color-neutral-bg: var(--color-neutral-soft);
+
+  /* --- Spacing: half(2) one(4) two(8) three(16) four(24) five(32) six(64),
+     already token-for-token identical to the native app's Spacing scale and
+     already hits every value in the README's 4px scale (4/8/16/24/32) it
+     defines explicitly. The three in-between steps the README also lists
+     (12/20/40) aren't given dedicated names here -- reach for Tailwind's
+     default p-3/p-5/p-10 (12px/20px/40px) for those, same scale, no new
+     token needed. --- */
   --spacing-half: 0.125rem;
   --spacing-one: 0.25rem;
   --spacing-two: 0.5rem;
@@ -154,30 +277,90 @@
   --spacing-five: 2rem;
   --spacing-six: 4rem;
 
-  --radius-small: 0.5rem;
-  --radius-medium: 1rem;
-  --radius-large: 1.375rem;
+  /* --- Radius: small = icon tile / compact controls (12-14px), medium =
+     list row (18px exactly per README), large = card (20-24px), pill =
+     chips/avatars/status pills, sheet = new -- bottom sheet top corners
+     (28px), needed for the Cancel-confirm screen. --- */
+  --radius-small: 0.75rem;
+  --radius-medium: 1.125rem;
+  --radius-large: 1.5rem;
   --radius-pill: 999px;
+  --radius-sheet: 1.75rem;
 
-  --container-app: 760px;
+  /* Phone-width frame -- the design system targets a 390px logical mobile
+     viewport (README "Fidelity"); 430px matches the largest real iOS
+     device width with a little breathing room, so the web port reads as a
+     phone screen on desktop instead of stretching into a wide web layout. */
+  --container-app: 430px;
 
-  /* Display/UI face: Clash Display (Fontshare), the bold grotesk brand
-     pairing DECISIONS.md recommends once visual polish is a priority --
-     used for headings, buttons, badges, and every number that matters.
-     Body face: Inter (Google Fonts), the paired body face DECISIONS.md
-     names alongside it. Both loaded via <link> tags in index.html; the
-     system-font fallback stack still covers the brief instant before they
-     load, or if the font CDN is unreachable. */
-  --font-display: "Clash Display", ui-rounded, "SF Pro Rounded", "Nunito Sans", system-ui, sans-serif;
-  --font-body: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* --- Type: three families per README --- Bricolage Grotesque for
+     headings/big numbers, Plus Jakarta Sans for body/labels/buttons, Space
+     Mono for tallies/counts/timestamps/eyebrow labels. Both new faces are
+     loaded via <link> tags in index.html (replacing the prior Clash
+     Display + Inter pairing); the system-font fallback stack covers the
+     brief instant before they load. Registering --font-mono here (Tailwind
+     v4's own namespace) makes the existing `font-mono` utility resolve to
+     Space Mono automatically, on top of the codebase's existing manual
+     `.font-display` class pattern. */
+  --font-display:
+    'Bricolage Grotesque', ui-rounded, 'SF Pro Rounded', 'Nunito Sans', system-ui, sans-serif;
+  --font-body:
+    'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono:
+    'Space Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+
+  /* Named type scale from the README's "Typography" table (px, converted to
+     rem at a 16px root) -- additive, doesn't touch Tailwind's own
+     text-xs..text-3xl scale already in use across the app. */
+  --text-hero: 2.75rem;
+  --text-hero--line-height: 1.05;
+  --text-screen-title: 1.6875rem;
+  --text-screen-title--line-height: 1.15;
+  --text-section: 1rem;
+  --text-section--line-height: 1.3;
+  --text-row-title: 0.90625rem;
+  --text-row-title--line-height: 1.3;
+  --text-body-lg: 0.875rem;
+  --text-body-lg--line-height: 1.4;
+  --text-subline: 0.75rem;
+  --text-subline--line-height: 1.4;
+  --text-eyebrow: 0.6875rem;
+  --text-eyebrow--line-height: 1.2;
+
+  /* Letter-spacing per README: tight on large Bricolage headings, wide on
+     mono eyebrow/uppercase labels. */
+  --tracking-display-tight: -0.025em;
+  --tracking-eyebrow: 0.12em;
+
+  --shadow-card: var(--shadow-card);
+  --shadow-attention: var(--shadow-attention);
+  --shadow-primary-button: var(--shadow-primary-button);
+  --shadow-fab: var(--shadow-fab);
 }
 
 body {
-  background-color: var(--color-background);
-  color: var(--color-text-primary);
+  background-color: var(--color-bg);
+  color: var(--color-ink);
   font-family: var(--font-body);
 }
 
 .font-display {
   font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Horizontal chip/card scrollers (attention cards, filter chips, the rival
+   picker) should feel like a native swipeable row, not a web page with a
+   visible scrollbar track. */
+.overflow-x-auto {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.overflow-x-auto::-webkit-scrollbar {
+  display: none;
 }

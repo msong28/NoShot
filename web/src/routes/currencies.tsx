@@ -1,13 +1,17 @@
 import { useState } from 'react';
-import { BackButton } from '@/components/ui/back-button';
 
+import { BackButton } from '@/components/ui/back-button';
+import { Button } from '@/components/ui/button';
+import { IconTile } from '@/components/ui/icon-tile';
 import { InlineError } from '@/components/ui/inline-error';
 import { ListRow } from '@/components/ui/list-row';
 import { SectionHeader } from '@/components/ui/section-header';
+import { StatusPill } from '@/components/ui/status-pill';
 import { useCreateCurrency, useCurrencies } from '@/hooks/use-currencies';
 import { useSession } from '@/hooks/use-session';
 import { CurrencyCategories, type CurrencyCategory } from '@/lib/currency';
 import { getErrorMessage } from '@/lib/errors';
+import { Icons } from '@/lib/icons';
 
 export function CurrenciesScreen() {
   const { session } = useSession();
@@ -39,20 +43,25 @@ export function CurrenciesScreen() {
     <main className="mx-auto max-w-app p-four pb-16">
       <BackButton />
 
-      <h1 className="mt-three font-display text-2xl font-extrabold">Currencies</h1>
+      <h1 className="mt-three font-display text-screen-title font-extrabold tracking-display-tight">
+        Manage stakes
+      </h1>
+      <p className="mt-two text-text-secondary">
+        Stakes are the currency of a bet — favors, not real money.
+      </p>
 
       <SectionHeader title="Create your own" />
-      <div className="mt-two flex flex-col gap-two">
+      <div className="mt-two flex flex-col gap-two rounded-large border border-line bg-surface p-three">
         <input
           placeholder="Name (e.g. Coffee runs)"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="rounded-medium bg-surface p-three shadow-card"
+          className="rounded-medium border border-line bg-bg p-three"
         />
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value as CurrencyCategory)}
-          className="rounded-medium bg-surface p-three shadow-card"
+          className="rounded-medium border border-line bg-bg p-three"
         >
           {CurrencyCategories.map((c) => (
             <option key={c.value} value={c.value}>
@@ -60,15 +69,10 @@ export function CurrenciesScreen() {
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          disabled={!name.trim() || createCurrency.isPending}
-          onClick={handleCreate}
-          className="self-start rounded-pill bg-primary px-four py-two font-display font-bold text-on-primary disabled:opacity-60"
-        >
-          Create
-        </button>
         <InlineError message={error} />
+        <Button disabled={!name.trim() || createCurrency.isPending} onClick={handleCreate}>
+          {createCurrency.isPending ? 'Creating…' : 'Create'}
+        </Button>
       </div>
 
       {isLoading ? (
@@ -78,7 +82,12 @@ export function CurrenciesScreen() {
           <SectionHeader title="Built-in" />
           <div className="mt-two flex flex-col gap-two">
             {builtins.map((currency) => (
-              <ListRow key={currency.id} title={currency.name} subtitle={currency.category} />
+              <ListRow
+                key={currency.id}
+                leading={<IconTile>{currency.icon ?? <Icons.currency size={18} strokeWidth={1.75} />}</IconTile>}
+                title={currency.name}
+                subtitle={currency.category}
+              />
             ))}
           </div>
 
@@ -89,11 +98,17 @@ export function CurrenciesScreen() {
                 {custom.map((currency) => (
                   <ListRow
                     key={currency.id}
+                    leading={
+                      <IconTile>{currency.icon ?? <Icons.currency size={18} strokeWidth={1.75} />}</IconTile>
+                    }
                     title={currency.name}
                     subtitle={
-                      currency.moderation_status === 'pending_review'
-                        ? 'Pending review'
-                        : currency.category
+                      currency.moderation_status === 'pending_review' ? undefined : currency.category
+                    }
+                    trailing={
+                      currency.moderation_status === 'pending_review' ? (
+                        <StatusPill variant="pending" label="Pending review" />
+                      ) : undefined
                     }
                   />
                 ))}

@@ -6,6 +6,7 @@ export type Profile = {
   display_name: string;
   birth_year: number | null;
   age_acknowledged_at: string | null;
+  notifications_enabled: boolean;
   status: ProfileStatus;
   created_at: string;
   updated_at: string;

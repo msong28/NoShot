@@ -1,12 +1,5 @@
 export type CurrencyCategory =
-  | 'food'
-  | 'drinks'
-  | 'items'
-  | 'favours'
-  | 'chores'
-  | 'actions'
-  | 'points'
-  | 'custom';
+  'food' | 'drinks' | 'items' | 'favours' | 'chores' | 'actions' | 'points' | 'custom';
 
 export type CurrencyModerationStatus = 'approved' | 'pending_review' | 'blocked';
 

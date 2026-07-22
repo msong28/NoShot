@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
+import type { MyBet } from '@/hooks/use-bets';
 import { supabase } from '@/lib/supabase';
 import type { Friendship, PublicProfile } from '@/lib/friend';
 
@@ -10,6 +11,21 @@ function friendshipsQueryKey(userId: string | undefined) {
 
 function relatedProfilesQueryKey(ids: string[]) {
   return ['profiles-for-relations', [...ids].sort()] as const;
+}
+
+/** "N mutual" on a Friends request/search row -- get_mutual_friend_count RPC. */
+export function useMutualFriendCount(otherUserId: string | undefined) {
+  return useQuery({
+    queryKey: ['mutual-friend-count', otherUserId],
+    queryFn: async (): Promise<number> => {
+      const { data, error } = await supabase.rpc('get_mutual_friend_count', {
+        p_other_id: otherUserId as string,
+      });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!otherUserId,
+  });
 }
 
 function useFriendshipsQuery(userId: string | undefined) {
@@ -88,6 +104,59 @@ export function useFriends(userId: string | undefined) {
     friends,
     isLoading: friendshipsQuery.isLoading || profilesQuery.isLoading,
   };
+}
+
+export type HeadToHeadRecord = { won: number; lost: number };
+
+/**
+ * Per-friend win/loss record, derived client-side from the caller's already
+ * -resolved bets (no head-to-head RPC/view exists) -- one bulk query for
+ * the other participant of each resolved bet, same access pattern
+ * bet-detail.tsx already uses to read a bet's full participant list.
+ * Group bets (more than one "other" participant) aren't attributable to a
+ * single friend and are skipped; ties don't count toward won/lost.
+ */
+export function useHeadToHeadRecords(userId: string | undefined, resolvedBets: MyBet[]) {
+  const resolvedBetIds = useMemo(() => resolvedBets.map((b) => b.id), [resolvedBets]);
+
+  const participantsQuery = useQuery({
+    queryKey: ['head-to-head-participants', [...resolvedBetIds].sort()],
+    queryFn: async (): Promise<{ bet_id: string; user_id: string }[]> => {
+      const { data, error } = await supabase
+        .from('bet_participants')
+        .select('bet_id, user_id')
+        .in('bet_id', resolvedBetIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: resolvedBetIds.length > 0,
+  });
+
+  return useMemo(() => {
+    const records = new Map<string, HeadToHeadRecord>();
+    const rows = participantsQuery.data;
+    if (!rows) return records;
+
+    const othersByBet = new Map<string, string[]>();
+    for (const row of rows) {
+      if (row.user_id === userId) continue;
+      const others = othersByBet.get(row.bet_id) ?? [];
+      others.push(row.user_id);
+      othersByBet.set(row.bet_id, others);
+    }
+
+    for (const bet of resolvedBets) {
+      if (bet.status !== 'resolved' || bet.iWon === null) continue;
+      const others = othersByBet.get(bet.id);
+      if (!others || others.length !== 1) continue;
+      const friendId = others[0];
+      const record = records.get(friendId) ?? { won: 0, lost: 0 };
+      if (bet.iWon) record.won += 1;
+      else record.lost += 1;
+      records.set(friendId, record);
+    }
+    return records;
+  }, [participantsQuery.data, resolvedBets, userId]);
 }
 
 function useInvalidateFriendships(userId: string | undefined) {
