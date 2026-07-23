@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-label="Brick mascot — default">
+  <defs>
+    <radialGradient id="brickBall_d" cx="38%" cy="32%" r="72%">
+      <stop offset="0%" stop-color="#FFB367"></stop>
+      <stop offset="45%" stop-color="#F7902F"></stop>
+      <stop offset="100%" stop-color="#E3670F"></stop>
+    </radialGradient>
+    <radialGradient id="brickGloss_d" cx="34%" cy="26%" r="42%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity=".55"></stop>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"></stop>
+    </radialGradient>
+  </defs>
+  
+  <circle cx="120" cy="120" r="100" fill="url(#brickBall_d)" stroke="#7A2E00" stroke-width="4"></circle>
+  <circle cx="120" cy="120" r="100" fill="url(#brickGloss_d)"></circle>
+  
+  <g fill="none" stroke="#6E2A00" stroke-width="5" stroke-linecap="round" opacity=".92">
+    <path d="M120 22 Q126 120 120 218"></path>
+    <path d="M120 22 C64 70 64 170 120 218"></path>
+    <path d="M120 22 C176 70 176 170 120 218"></path>
+    <path d="M24 120 Q120 111 216 120"></path>
+  </g>
+  
+  <ellipse cx="78" cy="150" rx="15" ry="10" fill="#FF5E5E" opacity=".28"></ellipse>
+  <ellipse cx="162" cy="150" rx="15" ry="10" fill="#FF5E5E" opacity=".28"></ellipse>
+  
+  <g>
+    <ellipse cx="96" cy="110" rx="16" ry="19" fill="#FFFFFF"></ellipse>
+    <ellipse cx="144" cy="110" rx="16" ry="19" fill="#FFFFFF"></ellipse>
+    <circle cx="100" cy="113" r="8" fill="#1C1917"></circle>
+    <circle cx="148" cy="113" r="8" fill="#1C1917"></circle>
+    <circle cx="103" cy="110" r="2.6" fill="#FFFFFF"></circle>
+    <circle cx="151" cy="110" r="2.6" fill="#FFFFFF"></circle>
+  </g>
+  
+  <path d="M92 150 Q120 182 148 150 Q120 166 92 150 Z" fill="#5A1E00"></path>
+  <path d="M104 163 Q120 172 136 163 Q120 174 104 163 Z" fill="#FF7A7A"></path>
+</svg>

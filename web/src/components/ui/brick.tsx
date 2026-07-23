@@ -4,27 +4,20 @@ import { Icons } from '@/lib/icons';
 
 export type BrickVariant = 'default' | 'cheeky' | 'waiting';
 
-/**
- * Expected location for the real illustrated asset per variant -- nothing
- * exists at these paths yet. Drop the commissioned artwork into
- * `web/public/mascot/` using these exact filenames and this component
- * starts rendering it with no code change.
- */
+/** Illustrated vector assets, committed at `web/public/mascot/` -- see that
+ * directory's README for the source design brief (palette, expression
+ * notes, placement rules). */
 const ASSET_PATHS: Record<BrickVariant, string> = {
-  default: '/mascot/brick-default.png',
-  cheeky: '/mascot/brick-cheeky.png',
-  waiting: '/mascot/brick-waiting.png',
+  default: '/mascot/brick-default.svg',
+  cheeky: '/mascot/brick-cheeky.svg',
+  waiting: '/mascot/brick-waiting.svg',
 };
 
 /**
- * "Brick" the basketball mascot -- README §"Mascot system". Previously a
- * CSS-shapes placeholder; per the mascot-pass instructions that's
- * explicitly not what this should be. This renders the real <img> slot at
- * the path the eventual illustrated asset belongs at, and falls back to a
- * clearly-marked "artwork not added yet" placeholder (dashed circle + a
- * broken-image glyph, never a silent broken-image icon) until it 404s no
- * more. TODO(design): commission/drop in brick-default.png,
- * brick-cheeky.png, brick-waiting.png per screens/21-mascot-placement.png.
+ * "Brick" the basketball mascot -- README §"Mascot system". Keeps the
+ * dashed-circle fallback from the earlier placeholder-art era rather than
+ * assuming the <img> always resolves -- cheap insurance against a future
+ * rename/deletion of the asset files silently going unnoticed.
  */
 export function Brick({
   size = 60,

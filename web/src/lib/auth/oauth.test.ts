@@ -102,8 +102,14 @@ describe('signInWithProvider (native)', () => {
   // Must run before any other test successfully initializes 'google' --
   // ensureProviderInitialized() only re-checks env vars the first time a
   // given provider is initialized per module lifetime.
+  //
+  // Explicit empty-string stubs here, not vi.unstubAllEnvs() -- that would
+  // fall through to whatever's in this machine's real web/.env (which does
+  // have real client IDs once Milestone-whatever's native sign-in is
+  // actually configured), silently defeating this exact test.
   it('throws a clear error for google when the client IDs are not configured', async () => {
-    vi.unstubAllEnvs();
+    vi.stubEnv('VITE_GOOGLE_IOS_CLIENT_ID', '');
+    vi.stubEnv('VITE_GOOGLE_WEB_CLIENT_ID', '');
 
     await expect(signInWithProvider('google')).rejects.toThrow(
       'Google native sign-in is not configured yet',
