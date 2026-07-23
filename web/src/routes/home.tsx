@@ -22,6 +22,7 @@ import { useMyRedemptions } from '@/hooks/use-redemption';
 import { useSession } from '@/hooks/use-session';
 import type { Bet } from '@/lib/bet';
 import { Icons, type IconName } from '@/lib/icons';
+import { shareInviteLink } from '@/lib/invite-link';
 
 function IconBubble({ icon }: { icon: IconName }) {
   const Icon = Icons[icon];
@@ -248,6 +249,17 @@ export function HomeScreen() {
     setShowIntro(false);
   }
 
+  const [inviteCopied, setInviteCopied] = useState(false);
+
+  async function handleInvite() {
+    if (!profile) return;
+    const result = await shareInviteLink(profile.username, profile.display_name);
+    if (result === 'copied') {
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 1500);
+    }
+  }
+
   // README screen 3f: the onboarding-finale empty state, not just an inline
   // "no active bets" card -- shown whenever the caller has never had any
   // bet at all (any status), matching the mock's fresh-account framing.
@@ -274,11 +286,14 @@ export function HomeScreen() {
             <IconTile>👥</IconTile>
             <p className="mt-two font-bold">Add friends</p>
             <p className="text-sm text-text-secondary">You need a rival to bet.</p>
-            <Link to="/friends" className="mt-two block">
-              <Button variant="primary" fullWidth className="py-two text-sm">
-                Invite
-              </Button>
-            </Link>
+            <Button
+              variant="primary"
+              fullWidth
+              className="mt-two py-two text-sm"
+              onClick={handleInvite}
+            >
+              {inviteCopied ? 'Link copied!' : 'Invite'}
+            </Button>
           </div>
           <div className="rounded-large border border-line bg-surface p-three">
             <IconTile tone="success">🎯</IconTile>

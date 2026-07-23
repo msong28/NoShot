@@ -12,6 +12,7 @@ import { useMyBalances } from '@/hooks/use-ledger';
 import { useProfile } from '@/hooks/use-profile';
 import { useSession } from '@/hooks/use-session';
 import { Icons } from '@/lib/icons';
+import { shareInviteLink } from '@/lib/invite-link';
 
 /** README §"Trophies": 3 shaped tiles, grape/up/neutral tinted, a bold
  * short value + label. The mock's specific badges (step count, achievement
@@ -101,10 +102,11 @@ export function ProfileScreen() {
   });
 
   async function handleShare() {
-    const url = `${window.location.origin}/invite/${profile!.username}`;
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    const result = await shareInviteLink(profile!.username, profile!.display_name);
+    if (result === 'copied') {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
   }
 
   return (

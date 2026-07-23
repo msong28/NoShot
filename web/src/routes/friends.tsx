@@ -20,9 +20,11 @@ import {
   useSendFriendRequest,
   type HeadToHeadRecord,
 } from '@/hooks/use-friends';
+import { useProfile } from '@/hooks/use-profile';
 import { useSession } from '@/hooks/use-session';
 import { getErrorMessage } from '@/lib/errors';
 import { Icons } from '@/lib/icons';
+import { shareInviteLink } from '@/lib/invite-link';
 
 /** README §"Debt chip"-style direction coding, applied to a friend's
  * win/loss record instead of a currency direction: up-green if the caller
@@ -60,6 +62,7 @@ export function FriendsScreen() {
   const { session } = useSession();
   const userId = session?.user.id;
 
+  const { data: myProfile } = useProfile(userId);
   const { incomingRequests, outgoingRequests, friends, isLoading } = useFriends(userId);
   const { resolvedBets } = useMyBets(userId);
   const headToHead = useHeadToHeadRecords(userId, resolvedBets);
@@ -71,10 +74,20 @@ export function FriendsScreen() {
 
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
 
   function run(promise: Promise<unknown>) {
     setError(null);
     promise.catch((err: unknown) => setError(getErrorMessage(err, 'Something went wrong')));
+  }
+
+  async function handleInvite() {
+    if (!myProfile) return;
+    const result = await shareInviteLink(myProfile.username, myProfile.display_name);
+    if (result === 'copied') {
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 1500);
+    }
   }
 
   const friendIds = new Set(friends.map((f) => f.profile.id));
@@ -237,7 +250,16 @@ export function FriendsScreen() {
           <EmptyState
             icon="friends"
             title="No friends yet"
-            description="Search above to add some."
+            description="Search above, or send an invite link to someone who isn't on NoShot yet."
+            action={
+              <Button
+                variant="primary"
+                className="mt-two px-four py-two text-sm"
+                onClick={handleInvite}
+              >
+                {inviteCopied ? 'Link copied!' : 'Invite a friend'}
+              </Button>
+            }
           />
         ) : (
           friends.map(({ friendship, profile }) => (

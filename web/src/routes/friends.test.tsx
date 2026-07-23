@@ -15,11 +15,14 @@ import {
   useSearchUsername,
   useSendFriendRequest,
 } from '@/hooks/use-friends';
+import { useProfile } from '@/hooks/use-profile';
 import { useSession } from '@/hooks/use-session';
+import { shareInviteLink } from '@/lib/invite-link';
 
 import { FriendsScreen } from './friends';
 
 vi.mock('@/hooks/use-session', () => ({ useSession: vi.fn() }));
+vi.mock('@/hooks/use-profile', () => ({ useProfile: vi.fn() }));
 vi.mock('@/hooks/use-bets', () => ({ useMyBets: vi.fn() }));
 vi.mock('@/hooks/use-friends', () => ({
   useFriends: vi.fn(),
@@ -31,6 +34,7 @@ vi.mock('@/hooks/use-friends', () => ({
   useBlockUser: vi.fn(),
   useSearchUsername: vi.fn(),
 }));
+vi.mock('@/lib/invite-link', () => ({ shareInviteLink: vi.fn() }));
 
 function renderScreen() {
   return render(
@@ -47,6 +51,10 @@ describe('FriendsScreen', () => {
       session: { user: { id: 'u1' } } as never,
       isLoading: false,
     });
+    vi.mocked(useProfile).mockReturnValue({
+      data: { id: 'u1', username: 'alice', display_name: 'Alice' } as never,
+      isLoading: false,
+    } as never);
     vi.mocked(useFriends).mockReturnValue({
       incomingRequests: [],
       outgoingRequests: [],
@@ -162,6 +170,26 @@ describe('FriendsScreen', () => {
   it('shows the empty state when there are no friends', () => {
     renderScreen();
     expect(screen.getByText('No friends yet')).toBeInTheDocument();
-    expect(screen.getByText('Search above to add some.')).toBeInTheDocument();
+    expect(
+      screen.getByText("Search above, or send an invite link to someone who isn't on NoShot yet."),
+    ).toBeInTheDocument();
+  });
+
+  it('shares an invite link for the current user when "Invite a friend" is clicked', async () => {
+    vi.mocked(shareInviteLink).mockResolvedValue('shared');
+
+    renderScreen();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Invite a friend' }));
+    expect(shareInviteLink).toHaveBeenCalledWith('alice', 'Alice');
+  });
+
+  it('shows a "Link copied!" confirmation when sharing falls back to a clipboard copy', async () => {
+    vi.mocked(shareInviteLink).mockResolvedValue('copied');
+
+    renderScreen();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Invite a friend' }));
+    expect(await screen.findByRole('button', { name: 'Link copied!' })).toBeInTheDocument();
   });
 });
