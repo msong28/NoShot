@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { Button } from '@/components/ui/button';
-import { useInvalidateProfile } from '@/hooks/use-profile';
+import { useInvalidateProfile, useProfile } from '@/hooks/use-profile';
 import { useSession } from '@/hooks/use-session';
 import { MIN_AGE, USERNAME_PATTERN } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
@@ -14,6 +14,15 @@ type Availability = 'idle' | 'checking' | 'available' | 'taken';
 
 export function SetupProfileScreen() {
   const { session } = useSession();
+  // RequireProfile also sends a *deleted* (not just profile-less) user
+  // here -- there's no way to get them a literal second account under the
+  // same OAuth identity/email, so reactivating this same row via
+  // reactivate_account_request() is the closest equivalent to "sign up
+  // again." Already resolved by the time this screen renders (RequireProfile
+  // doesn't route here until its own profile query settles), so this hits
+  // cache, no extra loading flicker.
+  const { data: existingProfile } = useProfile(session?.user.id);
+  const isReactivating = existingProfile?.status === 'deleted';
   const invalidateProfile = useInvalidateProfile(session?.user.id);
   const navigate = useNavigate();
 
@@ -78,19 +87,27 @@ export function SetupProfileScreen() {
     setError(null);
     setIsSubmitting(true);
 
-    const { error: insertError } = await supabase.from('profiles').insert({
-      id: session.user.id,
-      display_name: displayName.trim(),
-      username: normalizedUsername,
-      birth_year: parsedBirthYear,
-      age_acknowledged_at: new Date().toISOString(),
-    });
+    const { error: submitError } = isReactivating
+      ? await supabase.rpc('reactivate_account_request', {
+          p_display_name: displayName.trim(),
+          p_username: normalizedUsername,
+          p_birth_year: parsedBirthYear,
+        })
+      : await supabase.from('profiles').insert({
+          id: session.user.id,
+          display_name: displayName.trim(),
+          username: normalizedUsername,
+          birth_year: parsedBirthYear,
+          age_acknowledged_at: new Date().toISOString(),
+        });
 
     setIsSubmitting(false);
 
-    if (insertError) {
+    if (submitError) {
       setError(
-        insertError.code === '23505' ? 'That username is already taken.' : insertError.message,
+        'code' in submitError && submitError.code === '23505'
+          ? 'That username is already taken.'
+          : submitError.message,
       );
       return;
     }
@@ -109,10 +126,10 @@ export function SetupProfileScreen() {
 
       <div>
         <p className="font-mono text-eyebrow tracking-eyebrow font-bold uppercase text-text-faint">
-          Step 2 of 3
+          {isReactivating ? 'Welcome back' : 'Step 2 of 3'}
         </p>
         <h1 className="mt-one font-display text-screen-title font-extrabold tracking-display-tight">
-          Set up your player
+          {isReactivating ? 'Set up your player again' : 'Set up your player'}
         </h1>
       </div>
 

@@ -93,6 +93,22 @@ describe('SignInScreen', () => {
     expect(await screen.findByText('Invalid login credentials')).toBeInTheDocument();
   });
 
+  it('shows the reason RequireProfile sent it here, e.g. a suspended account', () => {
+    vi.mocked(useSession).mockReturnValue({ session: null, isLoading: false });
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: '/', state: { authMessage: 'This account has been suspended.' } },
+        ]}
+      >
+        <SignInScreen />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('This account has been suspended.')).toBeInTheDocument();
+  });
+
   it('redirects to /profile when already signed in', () => {
     vi.mocked(useSession).mockReturnValue({
       session: { user: { id: 'u1' } } as never,

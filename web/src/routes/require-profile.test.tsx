@@ -60,7 +60,7 @@ describe('RequireProfile', () => {
     expect(screen.getByText('Setup profile page')).toBeInTheDocument();
   });
 
-  it('signs out and blocks access for a deleted profile, without ever rendering the outlet', () => {
+  it('routes a deleted profile to setup-profile to reactivate, without signing out', () => {
     vi.mocked(useSession).mockReturnValue({
       session: { user: { id: 'u1' } } as never,
       isLoading: false,
@@ -72,7 +72,8 @@ describe('RequireProfile', () => {
 
     renderGuard();
 
-    expect(supabase.auth.signOut).toHaveBeenCalled();
+    expect(screen.getByText('Setup profile page')).toBeInTheDocument();
+    expect(supabase.auth.signOut).not.toHaveBeenCalled();
     expect(screen.queryByText('Protected content')).not.toBeInTheDocument();
   });
 
@@ -94,7 +95,7 @@ describe('RequireProfile', () => {
 
   it('moves on to the sign-in page once the session actually clears', () => {
     vi.mocked(useProfile).mockReturnValue({
-      data: { id: 'u1', status: 'deleted' } as never,
+      data: { id: 'u1', status: 'suspended' } as never,
       isLoading: false,
     } as never);
 

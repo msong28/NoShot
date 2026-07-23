@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate } from 'react-router';
+import { Link, Navigate, useLocation } from 'react-router';
 
 import { Browser } from '@capacitor/browser';
 
@@ -12,9 +12,15 @@ import { supabase } from '@/lib/supabase';
 
 export function SignInScreen() {
   const { session, isLoading } = useSession();
+  const location = useLocation();
+  // RequireProfile redirects here with a reason when it force-signs someone
+  // out (e.g. a suspended account) -- surfacing that beats a silent bounce
+  // back to a blank sign-in screen with no explanation at all.
+  const [error, setError] = useState<string | null>(
+    (location.state as { authMessage?: string } | null)?.authMessage ?? null,
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingProvider, setPendingProvider] = useState<'google' | 'apple' | null>(null);
 

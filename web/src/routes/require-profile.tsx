@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router';
 
 import { AppLoading } from '@/components/ui/app-loading';
@@ -7,33 +7,48 @@ import { useSession } from '@/hooks/use-session';
 import { supabase } from '@/lib/supabase';
 
 /** Gates the main app: needs a session AND a completed, active profile row.
+ *
  * A deleted or admin-suspended profile still exists (delete_account_request
  * anonymizes rather than removing the row, and admin_suspend_user just
- * flips status), so `!profile` alone doesn't catch either -- without this,
- * signing back in after "deleting" your account (or getting suspended)
- * would drop you right back into a fully working app, just under the
- * anonymized name. */
+ * flips status), so `!profile` alone doesn't catch either. The two aren't
+ * treated the same, though: suspension is a moderator's enforcement
+ * action, so it's a hard block (signed out, with an explanation, sent to
+ * sign-in). A self-deletion is the user's own choice, and since an OAuth
+ * identity like Google always maps back to the same auth.users row (no way
+ * to spin up a literal second account under the same email), the closest
+ * equivalent to "let me sign up again" is routing to /setup-profile so
+ * they can reactivate this same row via reactivate_account_request --
+ * same login, fresh profile. */
 export function RequireProfile() {
   const { session, isLoading: isSessionLoading } = useSession();
   const { data: profile, isLoading: isProfileLoading } = useProfile(session?.user.id);
+  const [suspendedMessage, setSuspendedMessage] = useState<string | null>(null);
 
-  const isInactive = !!profile && profile.status !== 'active';
+  const isSuspended = !!profile && profile.status === 'suspended';
+  const needsSetup = !!session && (!profile || profile.status === 'deleted');
 
   useEffect(() => {
-    if (isInactive) {
+    if (isSuspended) {
+      setSuspendedMessage('This account has been suspended.');
       supabase.auth.signOut();
     }
-  }, [isInactive]);
+  }, [isSuspended]);
 
   if (isSessionLoading || (session && isProfileLoading)) {
     return <AppLoading />;
   }
 
   if (!session) {
-    return <Navigate to="/" replace />;
+    return (
+      <Navigate
+        to="/"
+        replace
+        state={suspendedMessage ? { authMessage: suspendedMessage } : undefined}
+      />
+    );
   }
 
-  if (isInactive) {
+  if (isSuspended) {
     // signOut() above is in flight -- keep showing a loading state rather
     // than rendering the Outlet (or navigating early ourselves) until
     // useSession reflects the cleared session, at which point the `!session`
@@ -43,7 +58,7 @@ export function RequireProfile() {
     return <AppLoading />;
   }
 
-  if (!profile) {
+  if (needsSetup) {
     return <Navigate to="/setup-profile" replace />;
   }
 
