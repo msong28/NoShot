@@ -16,11 +16,14 @@
   "dependencies": {
     "@capacitor/app": "^8.1.1",
     "@capacitor/browser": "^8.0.4",
+    "@capacitor/camera": "^8.2.1",
     "@capacitor/core": "^8.4.2",
     "@capacitor/ios": "^8.4.2",
+    "@capgo/capacitor-social-login": "^8.3.38",
     "@supabase/supabase-js": "^2.110.7",
     "@tanstack/react-query": "^5.101.3",
     "lucide-react": "^1.25.0",
+    "onesignal-cordova-plugin": "^5.5.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router": "^8.2.0"

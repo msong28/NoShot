@@ -7,12 +7,22 @@ import type { ThemeMode } from '@/hooks/use-theme-mode';
 import { useProfile, useUpdateProfile } from '@/hooks/use-profile';
 import { useSession } from '@/hooks/use-session';
 import { Icons, type IconName } from '@/lib/icons';
+import { requestPushPermission } from '@/lib/push/onesignal';
 import { supabase } from '@/lib/supabase';
 
 function NotificationsToggle({ userId }: { userId: string | undefined }) {
   const { data: profile } = useProfile(userId);
   const updateProfile = useUpdateProfile(userId);
   const enabled = profile?.notifications_enabled ?? true;
+
+  function handleToggle() {
+    const next = !enabled;
+    updateProfile.mutate({ notifications_enabled: next });
+    // Ties the existing preference toggle to the actual OS permission
+    // prompt on native, instead of a separate onboarding step -- a no-op
+    // on web and harmless to call again if already granted/denied.
+    if (next) requestPushPermission();
+  }
 
   return (
     <button
@@ -21,7 +31,7 @@ function NotificationsToggle({ userId }: { userId: string | undefined }) {
       aria-checked={enabled}
       aria-label="Notifications"
       disabled={updateProfile.isPending}
-      onClick={() => updateProfile.mutate({ notifications_enabled: !enabled })}
+      onClick={handleToggle}
       className={`flex h-6 w-11 shrink-0 items-center rounded-pill p-half transition-colors disabled:opacity-60 ${
         enabled ? 'justify-end bg-grape' : 'justify-start bg-surface-sunken'
       }`}

@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 
+import { Capacitor } from '@capacitor/core';
+
 import { PollCard } from '@/components/poll-card';
 import { PollCreateForm } from '@/components/poll-create-form';
 import { ReportDialog } from '@/components/report-dialog';
@@ -33,6 +35,7 @@ import { useSession } from '@/hooks/use-session';
 import { TIE_OUTCOME_KEY, type Bet, type BetStatus } from '@/lib/bet';
 import { getErrorMessage } from '@/lib/errors';
 import { Icons } from '@/lib/icons';
+import { chooseNativeProofPhoto, takeNativeProofPhoto } from '@/lib/native-photo';
 import type { Poll, PollOption, PollVote } from '@/lib/poll';
 import type { ReportTargetType } from '@/lib/report';
 
@@ -565,22 +568,47 @@ export function BetDetailScreen() {
             ) : null}
 
             <div className="flex items-center gap-two">
-              <input
-                ref={proofInputRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleSelectProofFile(e.target.files?.[0])}
-                className="hidden"
-              />
-              <button
-                type="button"
-                aria-label="Attach a photo"
-                disabled={uploadProof.isPending}
-                onClick={() => proofInputRef.current?.click()}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-line bg-surface text-text-secondary disabled:opacity-60"
-              >
-                <Icons.add size={20} strokeWidth={2} />
-              </button>
+              {Capacitor.isNativePlatform() ? (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Take a photo"
+                    disabled={uploadProof.isPending}
+                    onClick={() => takeNativeProofPhoto().then(handleSelectProofFile)}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-line bg-surface text-text-secondary disabled:opacity-60"
+                  >
+                    <Icons.camera size={20} strokeWidth={2} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Choose a photo from your library"
+                    disabled={uploadProof.isPending}
+                    onClick={() => chooseNativeProofPhoto().then(handleSelectProofFile)}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-line bg-surface text-text-secondary disabled:opacity-60"
+                  >
+                    <Icons.gallery size={20} strokeWidth={2} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <input
+                    ref={proofInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleSelectProofFile(e.target.files?.[0])}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Attach a photo"
+                    disabled={uploadProof.isPending}
+                    onClick={() => proofInputRef.current?.click()}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-line bg-surface text-text-secondary disabled:opacity-60"
+                  >
+                    <Icons.add size={20} strokeWidth={2} />
+                  </button>
+                </>
+              )}
               <input
                 placeholder="Message…"
                 value={commentBody}
