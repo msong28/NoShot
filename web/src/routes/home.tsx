@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 
 import { BottomNav } from '@/components/bottom-nav';
+import { OnboardingCarousel } from '@/components/onboarding-carousel';
 import { AttentionCard } from '@/components/ui/attention-card';
 import { Avatar } from '@/components/ui/avatar';
 import { Brick } from '@/components/ui/brick';
@@ -49,65 +50,6 @@ function betSubtitle(bet: MyBet): string | undefined {
 }
 
 const INTRO_SEEN_STORAGE_KEY = 'noshot-seen-intro';
-
-function introBeats(firstName: string) {
-  return [
-    `Hey ${firstName}! I'm Brick — think of me as your NoShot mascot.`,
-    'This is where bets with friends live. No real money, just bragging rights and chores.',
-    "Grab a friend, then pick your stakes below. I'll be right here when you win.",
-  ];
-}
-
-/** README's own placement rule puts Brick at "first-run" -- this is exactly
- * that moment, so the intro lives inside the existing empty-state branch
- * rather than as a separate onboarding screen/route. One-time only
- * (localStorage, same pattern as useThemeMode): reappearing every time
- * someone revisits an empty Home before their first bet would turn a
- * one-off welcome into a nag. */
-function BrickIntro({ firstName, onDone }: { firstName: string; onDone: () => void }) {
-  const [step, setStep] = useState(0);
-  const beats = introBeats(firstName);
-  const isLast = step === beats.length - 1;
-
-  return (
-    <div className="mt-four rounded-large border border-line bg-surface p-four">
-      <div className="flex items-start gap-three">
-        <Brick size={48} variant="default" />
-        <div className="min-w-0 flex-1 rounded-medium bg-surface-sunken p-three">
-          <p className="text-sm">{beats[step]}</p>
-        </div>
-      </div>
-      <div className="mt-three flex items-center justify-between">
-        <div className="flex gap-1">
-          {beats.map((_, i) => (
-            <span
-              key={i}
-              className={`h-1.5 w-1.5 rounded-pill ${i === step ? 'bg-grape' : 'bg-line'}`}
-            />
-          ))}
-        </div>
-        <div className="flex items-center gap-three">
-          {!isLast ? (
-            <button
-              type="button"
-              onClick={onDone}
-              className="text-sm font-bold text-text-secondary"
-            >
-              Skip
-            </button>
-          ) : null}
-          <Button
-            variant="primary"
-            className="px-four py-two text-sm"
-            onClick={() => (isLast ? onDone() : setStep((s) => s + 1))}
-          >
-            {isLast ? "Got it, let's go" : 'Next'}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function todayEyebrow() {
   const now = new Date();
@@ -270,7 +212,7 @@ export function HomeScreen() {
           Welcome, {firstName} 🎉
         </h1>
 
-        {showIntro ? <BrickIntro firstName={firstName} onDone={dismissIntro} /> : null}
+        {showIntro ? <OnboardingCarousel firstName={firstName} onDone={dismissIntro} /> : null}
 
         <div className="mt-four flex flex-col items-center gap-two rounded-large bg-[#1C1917] p-five text-center text-white shadow-card dark:bg-black">
           <Brick size={78} variant="default" />

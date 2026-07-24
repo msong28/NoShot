@@ -18,9 +18,10 @@ export async function shareInviteLink(
 
   if (navigator.share) {
     try {
+      const firstName = displayName.split(' ')[0];
       await navigator.share({
         title: 'NoShot',
-        text: `${displayName} is on NoShot -- bets with friends, no real money, just bragging rights.`,
+        text: `🏀 ${firstName} just challenged you on NoShot. No real money — just bragging rights. Think you can win?`,
         url,
       });
       return 'shared';

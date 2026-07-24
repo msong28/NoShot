@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
+import { motion } from 'motion/react';
+
 import { ReportDialog } from '@/components/report-dialog';
 import { Avatar } from '@/components/ui/avatar';
 import { useSendFriendRequest } from '@/hooks/use-friends';
@@ -51,15 +53,30 @@ export function InvitePreviewScreen() {
 
     return (
       <>
-        <div className="rounded-pill ring-4 ring-white/40">
+        <motion.div
+          className="rounded-pill ring-4 ring-white/40"
+          initial={{ scale: 0.4, rotate: -12, opacity: 0 }}
+          animate={{ scale: 1, rotate: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 14 }}
+        >
           <Avatar id={invitedProfile.id} name={invitedProfile.display_name} size="xl" />
-        </div>
-        <h1 className="mt-four font-display text-screen-title font-extrabold tracking-display-tight">
+        </motion.div>
+        <motion.h1
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="mt-four font-display text-screen-title font-extrabold tracking-display-tight"
+        >
           {invitedProfile.display_name} challenged you on NoShot
-        </h1>
-        <p className="mt-two text-white/80">
+        </motion.h1>
+        <motion.p
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.22 }}
+          className="mt-two text-white/80"
+        >
           Keep score on bets &amp; dares with friends. No cash — just stakes.
-        </p>
+        </motion.p>
 
         {session ? (
           <button
@@ -74,11 +91,19 @@ export function InvitePreviewScreen() {
         <div className="mt-auto flex w-full flex-col items-center gap-three pt-four">
           {session ? (
             requestSent ? (
-              <p className="font-display font-bold text-lime">Friend request sent 🎉</p>
+              <motion.p
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                className="font-display font-bold text-lime"
+              >
+                Friend request sent 🎉
+              </motion.p>
             ) : (
               <>
-                <button
+                <motion.button
                   type="button"
+                  whileTap={{ scale: 0.96 }}
                   disabled={sendRequest.isPending}
                   onClick={() => {
                     setRequestError(null);
@@ -91,7 +116,7 @@ export function InvitePreviewScreen() {
                   className="w-full rounded-[16px] bg-lime px-four py-three font-extrabold text-on-lime disabled:opacity-60"
                 >
                   Accept challenge
-                </button>
+                </motion.button>
                 {requestError ? (
                   <p role="alert" className="text-sm text-white">
                     {requestError}
