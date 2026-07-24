@@ -120,32 +120,41 @@ export function OnboardingCarousel({
             animate="center"
             exit="exit"
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="flex w-full max-w-app flex-col items-center text-center"
+            // Absolutely positioned (not laid out in normal flex flow): the
+            // outgoing and incoming slides are both mounted at once during
+            // the crossfade (AnimatePresence's default "sync" mode, needed
+            // so the new slide's content is in the DOM immediately rather
+            // than only after the old one finishes exiting). Without this,
+            // two simultaneous flex children shove each other sideways
+            // mid-transition instead of overlapping in place.
+            className="absolute inset-0 flex flex-col items-center justify-center px-four text-center"
           >
-            <motion.div
-              initial={{ scale: 0.4, rotate: -12, opacity: 0 }}
-              animate={{ scale: 1, rotate: 0, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 260, damping: 14, delay: 0.05 }}
-            >
-              <Brick size={104} variant={slide.brickVariant} />
-            </motion.div>
+            <div className="mx-auto flex w-full max-w-app flex-col items-center">
+              <motion.div
+                initial={{ scale: 0.4, rotate: -12, opacity: 0 }}
+                animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 14, delay: 0.05 }}
+              >
+                <Brick size={104} variant={slide.brickVariant} />
+              </motion.div>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-              className="mt-five font-display text-hero font-extrabold tracking-display-tight"
-            >
-              {slide.title}
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.22 }}
-              className="mt-two text-white/70"
-            >
-              {slide.body}
-            </motion.p>
+              <motion.h1
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+                className="mt-five font-display text-hero font-extrabold tracking-display-tight"
+              >
+                {slide.title}
+              </motion.h1>
+              <motion.p
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.22 }}
+                className="mt-two text-white/70"
+              >
+                {slide.body}
+              </motion.p>
+            </div>
           </motion.div>
         </AnimatePresence>
       </div>
