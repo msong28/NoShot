@@ -39,6 +39,11 @@ describe('SignUpScreen', () => {
     expect(supabase.auth.signUp).toHaveBeenCalledWith({
       email: 'dave@example.com',
       password: 'longenoughpw',
+      options: {
+        // Dynamic, not hardcoded: the confirmation link must come back to
+        // whatever origin the user signed up on (LAN IP, preview deploy, prod).
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
     expect(await screen.findByText('Check your email')).toBeInTheDocument();
   });

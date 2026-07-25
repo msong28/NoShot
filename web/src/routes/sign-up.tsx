@@ -43,6 +43,12 @@ export function SignUpScreen() {
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
+      options: {
+        // Without this, the confirmation email links to the project's Site
+        // URL -- wrong host when signing up from a LAN IP or preview deploy.
+        // /auth/callback exchanges the ?code= and forwards to /home.
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
     setIsSubmitting(false);
 

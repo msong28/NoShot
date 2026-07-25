@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Navigate } from 'react-router';
+import { Link, Navigate } from 'react-router';
 
 import { exchangeCodeForSession } from '@/lib/auth/oauth';
 import { getErrorMessage } from '@/lib/errors';
@@ -31,10 +31,15 @@ export function AuthCallbackScreen() {
     <main className="mx-auto flex min-h-screen max-w-app flex-col items-center justify-center gap-three p-four text-center">
       {error ? (
         <>
+          {/* Stay on this screen so the failure reason is actually readable --
+              navigating away instantly made every exchange failure look like a
+              silent bounce back to sign-in. */}
           <p role="alert" className="text-danger">
             {error}
           </p>
-          <Navigate to="/" replace />
+          <Link to="/" replace className="text-sm font-bold text-grape-ink">
+            Back to sign in
+          </Link>
         </>
       ) : (
         <p className="text-text-secondary">Signing you in…</p>

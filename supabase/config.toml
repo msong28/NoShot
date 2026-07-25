@@ -171,6 +171,17 @@ additional_redirect_urls = [
   "noshotweb://auth-callback",
   "http://localhost:5173/auth/callback",
   "https://noshot-web-beta.fancy-booth.workers.dev/auth/callback",
+  # Wildcard hosts so the web app's dynamic `window.location.origin` redirect
+  # (see web/src/lib/auth/oauth.ts) is still allow-listed when the dev server
+  # is reached over the local network from a phone (e.g. http://10.0.0.211:5173)
+  # instead of localhost -- "localhost" on the phone resolves to the phone
+  # itself, not the dev machine, so the redirect must carry the real LAN host.
+  # Supabase's glob matching treats `.` and `/` as separators, so each IP
+  # octet needs its own `*` -- `http://10.*:5173/**` would NOT match
+  # `http://10.0.0.211:5173/...`.
+  "http://192.168.*.*:5173/**",
+  "http://10.*.*.*:5173/**",
+  "http://172.*.*.*:5173/**",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
