@@ -99,10 +99,6 @@ export function BetsScreen() {
         All bets
       </h1>
 
-      <Link to="/my-wagers" className="mt-one inline-block text-sm font-bold text-grape-ink">
-        Bets from the new flow →
-      </Link>
-
       <div className="mt-three flex gap-two overflow-x-auto pb-one">
         <FilterChip
           label="All"

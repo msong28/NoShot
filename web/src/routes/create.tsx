@@ -5,12 +5,13 @@ import { Avatar } from '@/components/ui/avatar';
 import { BackButton } from '@/components/ui/back-button';
 import { Button } from '@/components/ui/button';
 import { InlineError } from '@/components/ui/inline-error';
-import { useCreateWager } from '@/hooks/use-wager';
+import { useCreateOrCounterBet } from '@/hooks/use-bets';
 import { useCurrencies } from '@/hooks/use-currencies';
 import { useFriends } from '@/hooks/use-friends';
 import { useSession } from '@/hooks/use-session';
+import { MONEY_CURRENCY_ID } from '@/lib/currency';
 import { getErrorMessage } from '@/lib/errors';
-import { computeOddsStakes } from '@/lib/wager';
+import { buildBetInput, computeOddsStakes } from '@/lib/wager';
 
 /** A curated slice of the shared currencies table for the "Custom" stake
  * picker: the caller's own previously-created ones first (most recent
@@ -34,7 +35,7 @@ export function CreateScreen() {
   const userId = session?.user.id;
 
   const { friends } = useFriends(userId);
-  const createWager = useCreateWager();
+  const createBet = useCreateOrCounterBet(userId);
   const { data: currencies } = useCurrencies({ ownerUserId: userId as string });
 
   const [event, setEvent] = useState('');
@@ -70,7 +71,9 @@ export function CreateScreen() {
   const ownCurrencies = approvedCurrencies
     .filter((c) => !c.is_builtin)
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
-  const builtinCurrencies = approvedCurrencies.filter((c) => c.is_builtin);
+  const builtinCurrencies = approvedCurrencies.filter(
+    (c) => c.is_builtin && c.id !== MONEY_CURRENCY_ID,
+  );
   const suggestedCurrencies = [...ownCurrencies, ...builtinCurrencies].slice(
     0,
     MAX_CURRENCY_SUGGESTIONS,
@@ -111,39 +114,39 @@ export function CreateScreen() {
     lineValid &&
     oddsValid &&
     deadlineValid &&
-    !createWager.isPending;
+    !createBet.isPending;
 
   function submit() {
     if (!userId || !canSubmit) return;
     setError(null);
 
-    createWager.mutate(
-      {
+    createBet.mutate(
+      buildBetInput({
+        creatorId: userId,
+        rivalId,
+        rivalName: rivalName ?? 'Rival',
         event: event.trim(),
         description: description.trim(),
-        rivalId,
+        currencyId: currencyKind === 'money' ? MONEY_CURRENCY_ID : currencyId,
         stakeAmount: stake,
-        currencyKind,
-        currencyId: currencyKind === 'custom' ? currencyId : null,
         deadline: deadlineEnabled && deadline ? new Date(deadline).toISOString() : null,
-        oddsNumerator: oddsEnabled ? oddsNum : null,
-        oddsDenominator: oddsEnabled ? oddsDenom : null,
-        oddsFavorsUserId: oddsEnabled ? (oddsFavorsCreator ? userId : rivalId) : null,
-        lineValue: lineEnabled ? lineNumber : null,
-        lineCreatorPosition: lineEnabled ? linePosition : null,
-      },
+        odds: oddsEnabled
+          ? { numerator: oddsNum, denominator: oddsDenom, favorsCreator: oddsFavorsCreator }
+          : null,
+        line: lineEnabled ? { value: lineNumber, position: linePosition } : null,
+      }),
       {
         onError: (err) => setError(getErrorMessage(err, 'Could not create the bet')),
       },
     );
   }
 
-  if (createWager.isSuccess) {
+  if (createBet.isSuccess) {
     return (
       <main className="mx-auto flex min-h-screen max-w-app flex-col items-center justify-center gap-four p-four text-center">
         <p className="font-display text-lg font-extrabold">Bet sent to {rivalName ?? 'your rival'}!</p>
         <p className="text-text-secondary">They'll need to accept it before it's on.</p>
-        <Button variant="primary" onClick={() => navigate('/my-wagers', { replace: true })}>
+        <Button variant="primary" onClick={() => navigate('/bets', { replace: true })}>
           View your bets
         </Button>
         <Link to="/home" replace className="text-sm font-bold text-text-secondary">
@@ -340,16 +343,16 @@ export function CreateScreen() {
                 <input
                   placeholder="3"
                   value={oddsNumerator}
-                  onChange={(e) => setOddsNumerator(e.target.value.replace(/[^0-9.]/g, ''))}
-                  inputMode="decimal"
+                  onChange={(e) => setOddsNumerator(e.target.value.replace(/[^0-9]/g, ''))}
+                  inputMode="numeric"
                   className="w-16 rounded-medium border border-line bg-surface p-two text-sm"
                 />
                 <span className="text-sm text-text-secondary">:</span>
                 <input
                   placeholder="1"
                   value={oddsDenominator}
-                  onChange={(e) => setOddsDenominator(e.target.value.replace(/[^0-9.]/g, ''))}
-                  inputMode="decimal"
+                  onChange={(e) => setOddsDenominator(e.target.value.replace(/[^0-9]/g, ''))}
+                  inputMode="numeric"
                   className="w-16 rounded-medium border border-line bg-surface p-two text-sm"
                 />
                 <span className="text-xs text-text-faint">
@@ -413,7 +416,7 @@ export function CreateScreen() {
         <InlineError message={error} />
 
         <Button variant="primary" fullWidth disabled={!canSubmit} onClick={submit}>
-          {createWager.isPending
+          {createBet.isPending
             ? 'Sending…'
             : rivalName
               ? `Send bet to ${rivalName}`

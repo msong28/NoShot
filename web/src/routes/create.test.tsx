@@ -4,15 +4,16 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 
-import { useCreateWager } from '@/hooks/use-wager';
+import { useCreateOrCounterBet } from '@/hooks/use-bets';
 import { useCurrencies } from '@/hooks/use-currencies';
 import { useFriends } from '@/hooks/use-friends';
 import { useSession } from '@/hooks/use-session';
+import { MONEY_CURRENCY_ID } from '@/lib/currency';
 
 import { CreateScreen } from './create';
 
 vi.mock('@/hooks/use-session', () => ({ useSession: vi.fn() }));
-vi.mock('@/hooks/use-wager', () => ({ useCreateWager: vi.fn() }));
+vi.mock('@/hooks/use-bets', () => ({ useCreateOrCounterBet: vi.fn() }));
 vi.mock('@/hooks/use-currencies', () => ({ useCurrencies: vi.fn() }));
 vi.mock('@/hooks/use-friends', () => ({ useFriends: vi.fn() }));
 
@@ -46,7 +47,7 @@ describe('CreateScreen', () => {
       outgoingRequests: [],
       isLoading: false,
     } as never);
-    vi.mocked(useCreateWager).mockReturnValue({
+    vi.mocked(useCreateOrCounterBet).mockReturnValue({
       mutate: vi.fn(),
       isPending: false,
       isSuccess: false,
@@ -85,39 +86,53 @@ describe('CreateScreen', () => {
     expect(submit).toBeEnabled();
   });
 
-  it('shows nothing extra when Line is off, and submits with no modifiers set', async () => {
-    const createWager = { mutate: vi.fn(), isPending: false, isSuccess: false };
-    vi.mocked(useCreateWager).mockReturnValue(createWager as never);
+  it('maps a modifier-free money bet onto the bet engine as symmetric even-odds stakes', async () => {
+    const createBet = { mutate: vi.fn(), isPending: false, isSuccess: false };
+    vi.mocked(useCreateOrCounterBet).mockReturnValue(createBet as never);
 
     renderScreen();
 
     expect(screen.queryByPlaceholderText('e.g. 56.5')).not.toBeInTheDocument();
-    expect(screen.queryByText(/Which side are you taking/i)).not.toBeInTheDocument();
 
     await fillCommonFields();
     await userEvent.click(screen.getByRole('button', { name: 'Send bet to Bob' }));
 
-    expect(createWager.mutate).toHaveBeenCalledWith(
+    expect(createBet.mutate).toHaveBeenCalledWith(
       expect.objectContaining({
-        event: 'Lakers win',
-        rivalId: 'u2',
-        stakeAmount: 5,
-        currencyKind: 'money',
-        currencyId: null,
-        deadline: null,
-        oddsNumerator: null,
-        oddsDenominator: null,
-        oddsFavorsUserId: null,
-        lineValue: null,
-        lineCreatorPosition: null,
+        title: 'Lakers win',
+        groupId: null,
+        resolutionMethod: 'participant_submission',
+        isDraft: false,
+        sides: [
+          { outcomeKey: 'creator', label: 'You' },
+          { outcomeKey: 'rival', label: 'Bob' },
+        ],
+        participants: [
+          {
+            userId: 'u1',
+            outcomeKey: 'creator',
+            currencyId: MONEY_CURRENCY_ID,
+            stakeQuantity: 5,
+            oddsNumerator: 1,
+            oddsDenominator: 1,
+          },
+          {
+            userId: 'u2',
+            outcomeKey: 'rival',
+            currencyId: MONEY_CURRENCY_ID,
+            stakeQuantity: 5,
+            oddsNumerator: 1,
+            oddsDenominator: 1,
+          },
+        ],
       }),
       expect.anything(),
     );
   });
 
   it('requires picking a suggested currency (own first, then built-ins) when Custom is selected', async () => {
-    const createWager = { mutate: vi.fn(), isPending: false, isSuccess: false };
-    vi.mocked(useCreateWager).mockReturnValue(createWager as never);
+    const createBet = { mutate: vi.fn(), isPending: false, isSuccess: false };
+    vi.mocked(useCreateOrCounterBet).mockReturnValue(createBet as never);
 
     renderScreen();
 
@@ -127,8 +142,6 @@ describe('CreateScreen', () => {
     const submit = screen.getByRole('button', { name: /^Send bet/ });
     expect(submit).toBeDisabled();
 
-    // The caller's own previously-created currency should be offered
-    // alongside built-ins, not just a single freeform text box.
     const mine = screen.getByRole('button', { name: /My Custom Thing/ });
     expect(mine).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Chore/ })).toBeInTheDocument();
@@ -138,15 +151,20 @@ describe('CreateScreen', () => {
     expect(submit).toBeEnabled();
 
     await userEvent.click(screen.getByRole('button', { name: 'Send bet to Bob' }));
-    expect(createWager.mutate).toHaveBeenCalledWith(
-      expect.objectContaining({ currencyKind: 'custom', currencyId: 'cur-mine' }),
+    expect(createBet.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        participants: expect.arrayContaining([
+          expect.objectContaining({ userId: 'u1', currencyId: 'cur-mine' }),
+          expect.objectContaining({ userId: 'u2', currencyId: 'cur-mine' }),
+        ]),
+      }),
       expect.anything(),
     );
   });
 
-  it('sends the line value and the creator\'s over/under position', async () => {
-    const createWager = { mutate: vi.fn(), isPending: false, isSuccess: false };
-    vi.mocked(useCreateWager).mockReturnValue(createWager as never);
+  it('turns a line into over/under sides with the creator on their chosen position', async () => {
+    const createBet = { mutate: vi.fn(), isPending: false, isSuccess: false };
+    vi.mocked(useCreateOrCounterBet).mockReturnValue(createBet as never);
 
     renderScreen();
 
@@ -156,15 +174,24 @@ describe('CreateScreen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Under' }));
     await userEvent.click(screen.getByRole('button', { name: 'Send bet to Bob' }));
 
-    expect(createWager.mutate).toHaveBeenCalledWith(
-      expect.objectContaining({ lineValue: 56.5, lineCreatorPosition: 'under' }),
+    expect(createBet.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sides: [
+          { outcomeKey: 'over', label: 'Over 56.5' },
+          { outcomeKey: 'under', label: 'Under 56.5' },
+        ],
+        participants: [
+          expect.objectContaining({ userId: 'u1', outcomeKey: 'under' }),
+          expect.objectContaining({ userId: 'u2', outcomeKey: 'over' }),
+        ],
+      }),
       expect.anything(),
     );
   });
 
-  it('sends the odds ratio and who it favors, defaulting to favoring the creator', async () => {
-    const createWager = { mutate: vi.fn(), isPending: false, isSuccess: false };
-    vi.mocked(useCreateWager).mockReturnValue(createWager as never);
+  it('re-expresses 3:1 odds favoring the creator as per-participant stakes and odds', async () => {
+    const createBet = { mutate: vi.fn(), isPending: false, isSuccess: false };
+    vi.mocked(useCreateOrCounterBet).mockReturnValue(createBet as never);
 
     renderScreen();
 
@@ -175,18 +202,29 @@ describe('CreateScreen', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Send bet to Bob' }));
 
-    expect(createWager.mutate).toHaveBeenCalledWith(
+    expect(createBet.mutate).toHaveBeenCalledWith(
       expect.objectContaining({
-        oddsNumerator: 3,
-        oddsDenominator: 1,
-        oddsFavorsUserId: 'u1',
+        participants: [
+          expect.objectContaining({
+            userId: 'u1',
+            stakeQuantity: 15,
+            oddsNumerator: 3,
+            oddsDenominator: 1,
+          }),
+          expect.objectContaining({
+            userId: 'u2',
+            stakeQuantity: 5,
+            oddsNumerator: 1,
+            oddsDenominator: 3,
+          }),
+        ],
       }),
       expect.anything(),
     );
   });
 
-  it('shows a success screen with a way back home once the wager is created', async () => {
-    vi.mocked(useCreateWager).mockReturnValue({
+  it('shows a success screen with a way back home once the bet is created', async () => {
+    vi.mocked(useCreateOrCounterBet).mockReturnValue({
       mutate: vi.fn(),
       isPending: false,
       isSuccess: true,
