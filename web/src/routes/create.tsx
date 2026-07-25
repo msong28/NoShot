@@ -184,6 +184,51 @@ export function CreateScreen() {
         </div>
 
         <div>
+          <p className="mb-two text-sm font-bold text-text-secondary">What are the stakes?</p>
+          <div className="flex items-center gap-two">
+            <input
+              placeholder="Amount"
+              value={stakeAmount}
+              onChange={(e) => setStakeAmount(e.target.value.replace(/[^0-9.]/g, ''))}
+              inputMode="decimal"
+              className="w-24 rounded-medium border border-line bg-surface p-three"
+            />
+            <div className="flex gap-two">
+              <button
+                type="button"
+                onClick={() => setCurrencyKind('money')}
+                className={`rounded-pill px-three py-two text-sm font-bold ${
+                  currencyKind === 'money'
+                    ? 'bg-grape text-on-grape'
+                    : 'border border-line bg-surface text-ink'
+                }`}
+              >
+                💵 Money
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrencyKind('custom')}
+                className={`rounded-pill px-three py-two text-sm font-bold ${
+                  currencyKind === 'custom'
+                    ? 'bg-grape text-on-grape'
+                    : 'border border-line bg-surface text-ink'
+                }`}
+              >
+                🎯 Custom
+              </button>
+            </div>
+          </div>
+          {currencyKind === 'custom' ? (
+            <input
+              placeholder="What are you staking? (e.g. Chores)"
+              value={currencyLabel}
+              onChange={(e) => setCurrencyLabel(e.target.value)}
+              className="mt-two w-full rounded-medium border border-line bg-surface p-three"
+            />
+          ) : null}
+        </div>
+
+        <div>
           <div className="flex items-center justify-between">
             <p className="text-sm font-bold text-text-secondary">Line (optional)</p>
             <button
@@ -227,51 +272,6 @@ export function CreateScreen() {
                 </Button>
               </div>
             </div>
-          ) : null}
-        </div>
-
-        <div>
-          <p className="mb-two text-sm font-bold text-text-secondary">What are the stakes?</p>
-          <div className="flex items-center gap-two">
-            <input
-              placeholder="Amount"
-              value={stakeAmount}
-              onChange={(e) => setStakeAmount(e.target.value.replace(/[^0-9.]/g, ''))}
-              inputMode="decimal"
-              className="w-24 rounded-medium border border-line bg-surface p-three"
-            />
-            <div className="flex gap-two">
-              <button
-                type="button"
-                onClick={() => setCurrencyKind('money')}
-                className={`rounded-pill px-three py-two text-sm font-bold ${
-                  currencyKind === 'money'
-                    ? 'bg-grape text-on-grape'
-                    : 'border border-line bg-surface text-ink'
-                }`}
-              >
-                💵 Money
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrencyKind('custom')}
-                className={`rounded-pill px-three py-two text-sm font-bold ${
-                  currencyKind === 'custom'
-                    ? 'bg-grape text-on-grape'
-                    : 'border border-line bg-surface text-ink'
-                }`}
-              >
-                🎯 Custom
-              </button>
-            </div>
-          </div>
-          {currencyKind === 'custom' ? (
-            <input
-              placeholder="What are you staking? (e.g. Chores)"
-              value={currencyLabel}
-              onChange={(e) => setCurrencyLabel(e.target.value)}
-              className="mt-two w-full rounded-medium border border-line bg-surface p-three"
-            />
           ) : null}
         </div>
 
