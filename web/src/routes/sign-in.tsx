@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation } from 'react-router';
 
 import { Browser } from '@capacitor/browser';
 
+import { AppleLogo, GoogleLogo } from '@/components/ui/brand-icons';
 import { Brick } from '@/components/ui/brick';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/hooks/use-session';
@@ -86,18 +87,21 @@ export function SignInScreen() {
         <Button
           variant="ink"
           fullWidth
+          style={{ paddingInline: '2rem' }}
           disabled={pendingProvider !== null}
           onClick={() => handleSignIn('apple')}
         >
+          <AppleLogo />
           {pendingProvider === 'apple' ? 'Signing in…' : 'Continue with Apple'}
         </Button>
         <Button
           variant="secondary"
           fullWidth
+          style={{ paddingInline: '2rem' }}
           disabled={pendingProvider !== null}
           onClick={() => handleSignIn('google')}
         >
-          <span className="font-extrabold text-[#4285F4]">G</span>
+          <GoogleLogo />
           {pendingProvider === 'google' ? 'Signing in…' : 'Continue with Google'}
         </Button>
       </div>
