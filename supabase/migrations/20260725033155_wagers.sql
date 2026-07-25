@@ -19,11 +19,14 @@
 -- happens, which is why status is an enum (extensible) rather than a fixed
 -- boolean.
 --
--- Currency: no currencies table dependency (the old one is a separate,
--- untouched app-wide feature currently only used by the old bet system and
--- balances/ledger/redemption). A wager's currency is just "money" or a
--- user-typed label -- both sides always stake in the same currency, same
--- invariant the old create_or_counter_bet() enforced.
+-- Currency: "money" (no row needed -- the currencies table deliberately has
+-- no money category, PRD §5.1 excludes money from stakes) or a reference
+-- into the existing, untouched `currencies` table (builtin or owned by the
+-- creator, same accessibility rule create_or_counter_bet() already
+-- enforced) -- reused here as a shared primitive, not part of this
+-- feature's from-scratch redesign, so "custom" stakes are real, moderated,
+-- reusable entities instead of throwaway strings. Both sides always stake
+-- in the same currency, same invariant the old RPC enforced.
 create type public.wager_status as enum ('pending');
 
 create table public.wagers (
@@ -34,9 +37,9 @@ create table public.wagers (
   description text not null default '',
   status public.wager_status not null default 'pending',
   created_at timestamptz not null default now(),
-  -- Stakes' currency: money, or a user-typed custom label.
+  -- Stakes' currency: money, or a currencies row.
   currency_kind text not null,
-  currency_label text,
+  currency_id uuid references public.currencies (id),
   -- deadline modifier: null = off.
   deadline timestamptz,
   -- odds modifier: all three null together = off. Ratio is risk:reward in
@@ -55,9 +58,9 @@ create table public.wagers (
   constraint wagers_description_length check (char_length(description) <= 2000),
   constraint wagers_creator_not_rival check (creator_id <> rival_id),
   constraint wagers_currency_kind check (currency_kind in ('money', 'custom')),
-  constraint wagers_currency_label_matches_kind check (
-    (currency_kind = 'money' and currency_label is null)
-    or (currency_kind = 'custom' and char_length(trim(coalesce(currency_label, ''))) between 1 and 30)
+  constraint wagers_currency_id_matches_kind check (
+    (currency_kind = 'money' and currency_id is null)
+    or (currency_kind = 'custom' and currency_id is not null)
   ),
   constraint wagers_odds_all_or_nothing check (
     (odds_numerator is null) = (odds_denominator is null)
@@ -141,7 +144,7 @@ create function public.create_wager (
   p_rival_id uuid,
   p_stake_amount numeric,
   p_currency_kind text,
-  p_currency_label text,
+  p_currency_id uuid,
   p_deadline timestamptz,
   p_odds_numerator integer,
   p_odds_denominator integer,
@@ -173,21 +176,33 @@ begin
   if p_stake_amount is null or p_stake_amount <= 0 then
     raise exception 'stake must be a positive amount';
   end if;
+  if p_currency_kind not in ('money', 'custom') then
+    raise exception 'invalid currency kind';
+  end if;
+  if p_currency_kind = 'custom' then
+    if not exists (
+      select 1 from public.currencies c
+      where c.id = p_currency_id
+        and c.moderation_status = 'approved'
+        and (c.is_builtin or c.owner_user_id = auth.uid())
+    ) then
+      raise exception 'that currency is not available to you';
+    end if;
+  end if;
   if public.moderate_text(p_event) = 'block'
     or public.moderate_text(coalesce(p_description, '')) = 'block'
-    or (p_currency_kind = 'custom' and public.moderate_text(coalesce(p_currency_label, '')) = 'block')
   then
     raise exception 'that wager''s text isn''t allowed';
   end if;
 
   insert into public.wagers (
-    creator_id, rival_id, event, description, currency_kind, currency_label,
+    creator_id, rival_id, event, description, currency_kind, currency_id,
     deadline, odds_numerator, odds_denominator, odds_favors_user_id,
     line_value, line_creator_position
   )
   values (
     auth.uid(), p_rival_id, trim(p_event), coalesce(p_description, ''),
-    p_currency_kind, p_currency_label,
+    p_currency_kind, p_currency_id,
     p_deadline, p_odds_numerator, p_odds_denominator, p_odds_favors_user_id,
     p_line_value, p_line_creator_position
   )
@@ -216,7 +231,7 @@ end;
 $$;
 
 revoke execute on function public.create_wager (
-  text, text, uuid, numeric, text, text, timestamptz, integer, integer, uuid,
+  text, text, uuid, numeric, text, uuid, timestamptz, integer, integer, uuid,
   numeric, text
 )
 from
@@ -224,6 +239,6 @@ from
 
 grant
 execute on function public.create_wager (
-  text, text, uuid, numeric, text, text, timestamptz, integer, integer, uuid,
+  text, text, uuid, numeric, text, uuid, timestamptz, integer, integer, uuid,
   numeric, text
 ) to authenticated;

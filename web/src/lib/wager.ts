@@ -11,7 +11,7 @@ export type Wager = {
   status: WagerStatus;
   created_at: string;
   currency_kind: CurrencyKind;
-  currency_label: string | null;
+  currency_id: string | null;
   deadline: string | null;
   odds_numerator: number | null;
   odds_denominator: number | null;

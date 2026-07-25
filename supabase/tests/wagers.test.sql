@@ -44,6 +44,16 @@ values
     'accepted'
   );
 
+insert into
+  public.currencies (name, category, owner_user_id, moderation_status)
+values
+  (
+    'Bob''s Thing',
+    'custom',
+    'bbbbbbbb-0000-0000-0000-000000000002',
+    'approved'
+  );
+
 set role authenticated;
 
 set
@@ -100,16 +110,40 @@ begin
 end;
 $$;
 
--- The simplest case: no modifiers at all, symmetric stakes, custom currency.
+-- A custom currency the caller doesn't own (and isn't builtin) is rejected.
 do $$
 declare
+  v_bob_currency_id uuid;
+begin
+  select id into v_bob_currency_id from public.currencies where name = 'Bob''s Thing';
+
+  begin
+    perform public.create_wager(
+      'Borrow a currency', '', 'bbbbbbbb-0000-0000-0000-000000000002', 5, 'custom', v_bob_currency_id,
+      null, null, null, null, null, null
+    );
+    raise exception 'FAIL: expected an unowned custom currency to be rejected';
+  exception
+    when others then
+      if sqlerrm not like '%not available to you%' then raise; end if;
+      raise notice 'PASS: a custom currency the caller does not own is rejected';
+  end;
+end;
+$$;
+
+-- The simplest case: no modifiers at all, symmetric stakes, a builtin currency.
+do $$
+declare
+  v_chore_id uuid;
   v_wager_id uuid;
   v_status public.wager_status;
   v_alice_amount numeric;
   v_bob_amount numeric;
 begin
+  select id into v_chore_id from public.currencies where name = 'Chore';
+
   select id, status into v_wager_id, v_status from public.create_wager(
-    'Who does the dishes this week?', 'Loser does dishes', 'bbbbbbbb-0000-0000-0000-000000000002', 5, 'custom', 'Chores',
+    'Who does the dishes this week?', 'Loser does dishes', 'bbbbbbbb-0000-0000-0000-000000000002', 5, 'custom', v_chore_id,
     null, null, null, null, null, null
   );
   perform set_config('test.plain_wager_id', v_wager_id::text, false);

@@ -6,10 +6,18 @@ import { BackButton } from '@/components/ui/back-button';
 import { Button } from '@/components/ui/button';
 import { InlineError } from '@/components/ui/inline-error';
 import { useCreateWager } from '@/hooks/use-wager';
+import { useCurrencies } from '@/hooks/use-currencies';
 import { useFriends } from '@/hooks/use-friends';
 import { useSession } from '@/hooks/use-session';
 import { getErrorMessage } from '@/lib/errors';
 import { computeOddsStakes } from '@/lib/wager';
+
+/** A curated slice of the shared currencies table for the "Custom" stake
+ * picker: the caller's own previously-created ones first (most recent
+ * first, since those are the "options we've previously added"), then
+ * built-ins filling any remaining slots -- capped well below the full list
+ * so it doesn't turn into the wall of chips the old create.tsx had. */
+const MAX_CURRENCY_SUGGESTIONS = 6;
 
 /**
  * Ground-up rebuild of bet creation (see conversation for the full design
@@ -27,6 +35,7 @@ export function CreateScreen() {
 
   const { friends } = useFriends(userId);
   const createWager = useCreateWager();
+  const { data: currencies } = useCurrencies({ ownerUserId: userId as string });
 
   const [event, setEvent] = useState('');
   const [description, setDescription] = useState('');
@@ -34,7 +43,7 @@ export function CreateScreen() {
 
   const [stakeAmount, setStakeAmount] = useState('5');
   const [currencyKind, setCurrencyKind] = useState<'money' | 'custom'>('money');
-  const [currencyLabel, setCurrencyLabel] = useState('');
+  const [currencyId, setCurrencyId] = useState('');
 
   const [lineEnabled, setLineEnabled] = useState(false);
   const [lineValue, setLineValue] = useState('');
@@ -55,7 +64,17 @@ export function CreateScreen() {
 
   const stake = Number.parseFloat(stakeAmount);
   const stakeValid = Number.isFinite(stake) && stake > 0;
-  const currencyValid = currencyKind === 'money' || currencyLabel.trim().length > 0;
+  const currencyValid = currencyKind === 'money' || !!currencyId;
+
+  const approvedCurrencies = (currencies ?? []).filter((c) => c.moderation_status === 'approved');
+  const ownCurrencies = approvedCurrencies
+    .filter((c) => !c.is_builtin)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const builtinCurrencies = approvedCurrencies.filter((c) => c.is_builtin);
+  const suggestedCurrencies = [...ownCurrencies, ...builtinCurrencies].slice(
+    0,
+    MAX_CURRENCY_SUGGESTIONS,
+  );
 
   const lineNumber = Number.parseFloat(lineValue);
   const lineValid = !lineEnabled || (Number.isFinite(lineNumber) && lineValue.trim().length > 0);
@@ -105,7 +124,7 @@ export function CreateScreen() {
         rivalId,
         stakeAmount: stake,
         currencyKind,
-        currencyLabel: currencyKind === 'custom' ? currencyLabel.trim() : null,
+        currencyId: currencyKind === 'custom' ? currencyId : null,
         deadline: deadlineEnabled && deadline ? new Date(deadline).toISOString() : null,
         oddsNumerator: oddsEnabled ? oddsNum : null,
         oddsDenominator: oddsEnabled ? oddsDenom : null,
@@ -219,12 +238,29 @@ export function CreateScreen() {
             </div>
           </div>
           {currencyKind === 'custom' ? (
-            <input
-              placeholder="What are you staking? (e.g. Chores)"
-              value={currencyLabel}
-              onChange={(e) => setCurrencyLabel(e.target.value)}
-              className="mt-two w-full rounded-medium border border-line bg-surface p-three"
-            />
+            <div className="mt-two flex flex-wrap gap-two">
+              {suggestedCurrencies.map((currency) => {
+                const selected = currencyId === currency.id;
+                return (
+                  <button
+                    key={currency.id}
+                    type="button"
+                    onClick={() => setCurrencyId(currency.id)}
+                    className={`rounded-pill px-three py-two text-sm font-bold ${
+                      selected ? 'bg-grape text-on-grape' : 'border border-line bg-surface text-ink'
+                    }`}
+                  >
+                    {currency.icon ?? '🎯'} {currency.name}
+                  </button>
+                );
+              })}
+              <Link
+                to="/currencies"
+                className="rounded-pill border border-dashed border-line px-three py-two text-sm font-bold text-text-faint"
+              >
+                + New
+              </Link>
+            </div>
           ) : null}
         </div>
 

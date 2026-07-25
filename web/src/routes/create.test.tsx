@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 
 import { useCreateWager } from '@/hooks/use-wager';
+import { useCurrencies } from '@/hooks/use-currencies';
 import { useFriends } from '@/hooks/use-friends';
 import { useSession } from '@/hooks/use-session';
 
@@ -12,6 +13,7 @@ import { CreateScreen } from './create';
 
 vi.mock('@/hooks/use-session', () => ({ useSession: vi.fn() }));
 vi.mock('@/hooks/use-wager', () => ({ useCreateWager: vi.fn() }));
+vi.mock('@/hooks/use-currencies', () => ({ useCurrencies: vi.fn() }));
 vi.mock('@/hooks/use-friends', () => ({ useFriends: vi.fn() }));
 
 function renderScreen() {
@@ -49,6 +51,27 @@ describe('CreateScreen', () => {
       isPending: false,
       isSuccess: false,
     } as never);
+    vi.mocked(useCurrencies).mockReturnValue({
+      data: [
+        {
+          id: 'cur-chore',
+          name: 'Chore',
+          icon: '🧹',
+          is_builtin: true,
+          moderation_status: 'approved',
+          created_at: '2026-07-01T00:00:00Z',
+        },
+        {
+          id: 'cur-mine',
+          name: 'My Custom Thing',
+          icon: null,
+          is_builtin: false,
+          moderation_status: 'approved',
+          created_at: '2026-07-20T00:00:00Z',
+        },
+      ],
+      isLoading: false,
+    } as never);
   });
 
   it('keeps Send bet disabled until event, rival, and a valid stake are filled', async () => {
@@ -80,7 +103,7 @@ describe('CreateScreen', () => {
         rivalId: 'u2',
         stakeAmount: 5,
         currencyKind: 'money',
-        currencyLabel: null,
+        currencyId: null,
         deadline: null,
         oddsNumerator: null,
         oddsDenominator: null,
@@ -92,7 +115,10 @@ describe('CreateScreen', () => {
     );
   });
 
-  it('requires a custom currency label when Custom is selected', async () => {
+  it('requires picking a suggested currency (own first, then built-ins) when Custom is selected', async () => {
+    const createWager = { mutate: vi.fn(), isPending: false, isSuccess: false };
+    vi.mocked(useCreateWager).mockReturnValue(createWager as never);
+
     renderScreen();
 
     await fillCommonFields();
@@ -101,11 +127,21 @@ describe('CreateScreen', () => {
     const submit = screen.getByRole('button', { name: /^Send bet/ });
     expect(submit).toBeDisabled();
 
-    await userEvent.type(
-      screen.getByPlaceholderText('What are you staking? (e.g. Chores)'),
-      'Chores',
-    );
+    // The caller's own previously-created currency should be offered
+    // alongside built-ins, not just a single freeform text box.
+    const mine = screen.getByRole('button', { name: /My Custom Thing/ });
+    expect(mine).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Chore/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '+ New' })).toHaveAttribute('href', '/currencies');
+
+    await userEvent.click(mine);
     expect(submit).toBeEnabled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Send bet to Bob' }));
+    expect(createWager.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ currencyKind: 'custom', currencyId: 'cur-mine' }),
+      expect.anything(),
+    );
   });
 
   it('sends the line value and the creator\'s over/under position', async () => {

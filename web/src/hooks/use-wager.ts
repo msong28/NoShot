@@ -9,7 +9,7 @@ export type CreateWagerInput = {
   rivalId: string;
   stakeAmount: number;
   currencyKind: 'money' | 'custom';
-  currencyLabel: string | null;
+  currencyId: string | null;
   deadline: string | null;
   oddsNumerator: number | null;
   oddsDenominator: number | null;
@@ -27,7 +27,7 @@ export function useCreateWager() {
         p_rival_id: input.rivalId,
         p_stake_amount: input.stakeAmount,
         p_currency_kind: input.currencyKind,
-        p_currency_label: input.currencyLabel,
+        p_currency_id: input.currencyId,
         p_deadline: input.deadline,
         p_odds_numerator: input.oddsNumerator,
         p_odds_denominator: input.oddsDenominator,
