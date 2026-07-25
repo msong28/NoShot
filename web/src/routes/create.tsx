@@ -5,30 +5,20 @@ import { Avatar } from '@/components/ui/avatar';
 import { BackButton } from '@/components/ui/back-button';
 import { Button } from '@/components/ui/button';
 import { InlineError } from '@/components/ui/inline-error';
-import { useCreateOrCounterBet } from '@/hooks/use-bets';
-import { useCurrencies } from '@/hooks/use-currencies';
+import { useCreateWager } from '@/hooks/use-wager';
 import { useFriends } from '@/hooks/use-friends';
-import { useMyGroups } from '@/hooks/use-groups';
 import { useSession } from '@/hooks/use-session';
-import { ResolutionMethods, type BetResolutionMethod } from '@/lib/bet';
 import { getErrorMessage } from '@/lib/errors';
-
-/** "Decided by" segment copy for our real 3 resolution methods. The mock's
- * own options (Both confirm / Proof / Poll) don't map onto this schema --
- * Proof/Poll are evidence *features* already on the bet-detail tabs, not
- * decision methods -- so these use ResolutionMethods' real values/labels
- * with a short chip word + emoji instead of copying the mismatched copy. */
-const DECIDED_BY: Record<BetResolutionMethod, { emoji: string; short: string }> = {
-  participant_submission: { emoji: '🤝', short: 'Both confirm' },
-  judge: { emoji: '⚖️', short: 'Judge' },
-  group_vote: { emoji: '🗳️', short: 'Group vote' },
-};
+import { computeOddsStakes } from '@/lib/wager';
 
 /**
- * A focused MVP of bet creation: one opponent, even-money stakes on both
- * sides (odds locked at 1:1). The native app's full wizard also supports
- * uneven odds, multi-way bets, and counteroffers — not ported yet, see
- * HANDOFF_WEB_PORT.md.
+ * Ground-up rebuild of bet creation (see conversation for the full design
+ * discussion): a wager is Event + Rival + Stakes, plus three independently
+ * optional modifiers (deadline, odds, line). No modifier contributes
+ * anything when it's off -- in particular, off-Line means there's no
+ * side-naming step at all, since resolution/winner-declaration is out of
+ * scope for creation. "Side" only ever exists as a byproduct of Line
+ * (over/under) or Odds (favored/unfavored).
  */
 export function CreateScreen() {
   const navigate = useNavigate();
@@ -36,84 +26,108 @@ export function CreateScreen() {
   const userId = session?.user.id;
 
   const { friends } = useFriends(userId);
-  const { activeGroups } = useMyGroups(userId);
-  const createBet = useCreateOrCounterBet(userId);
+  const createWager = useCreateWager();
 
-  const [title, setTitle] = useState('');
+  const [event, setEvent] = useState('');
   const [description, setDescription] = useState('');
-  const [opponentId, setOpponentId] = useState('');
-  const [groupId, setGroupId] = useState('');
-  const [sideALabel, setSideALabel] = useState('');
-  const [sideBLabel, setSideBLabel] = useState('');
-  const [mySide, setMySide] = useState<'a' | 'b'>('a');
-  const [stakeQuantity, setStakeQuantity] = useState('1');
-  const [resolutionMethod, setResolutionMethod] =
-    useState<BetResolutionMethod>('participant_submission');
-  const [judgeId, setJudgeId] = useState('');
+  const [rivalId, setRivalId] = useState('');
+
+  const [stakeAmount, setStakeAmount] = useState('5');
+  const [currencyKind, setCurrencyKind] = useState<'money' | 'custom'>('money');
+  const [currencyLabel, setCurrencyLabel] = useState('');
+
+  const [lineEnabled, setLineEnabled] = useState(false);
+  const [lineValue, setLineValue] = useState('');
+  const [linePosition, setLinePosition] = useState<'over' | 'under'>('over');
+
+  const [oddsEnabled, setOddsEnabled] = useState(false);
+  const [oddsNumerator, setOddsNumerator] = useState('3');
+  const [oddsDenominator, setOddsDenominator] = useState('1');
+  const [oddsFavorsCreator, setOddsFavorsCreator] = useState(true);
+
+  const [deadlineEnabled, setDeadlineEnabled] = useState(false);
   const [deadline, setDeadline] = useState('');
+
   const [error, setError] = useState<string | null>(null);
 
-  const currenciesScope = groupId ? { groupId } : { ownerUserId: userId as string };
-  const { data: currencies } = useCurrencies(currenciesScope);
-  const [currencyId, setCurrencyId] = useState('');
+  const rival = friends.find((f) => f.profile.id === rivalId)?.profile;
+  const rivalName = rival?.display_name;
 
-  const stake = Number.parseFloat(stakeQuantity);
-  const opponentName = friends.find((f) => f.profile.id === opponentId)?.profile.display_name;
+  const stake = Number.parseFloat(stakeAmount);
+  const stakeValid = Number.isFinite(stake) && stake > 0;
+  const currencyValid = currencyKind === 'money' || currencyLabel.trim().length > 0;
+
+  const lineNumber = Number.parseFloat(lineValue);
+  const lineValid = !lineEnabled || (Number.isFinite(lineNumber) && lineValue.trim().length > 0);
+
+  const oddsNum = Number.parseFloat(oddsNumerator);
+  const oddsDenom = Number.parseFloat(oddsDenominator);
+  const oddsValid =
+    !oddsEnabled ||
+    (Number.isFinite(oddsNum) && oddsNum > 0 && Number.isFinite(oddsDenom) && oddsDenom > 0);
+
+  const deadlineValid = !deadlineEnabled || deadline.trim().length > 0;
+
+  const oddsPreview =
+    oddsEnabled && oddsValid && stakeValid
+      ? computeOddsStakes(stake, oddsNum, oddsDenom, oddsFavorsCreator)
+      : null;
+
+  // When Line is on, the favored-side picker reads Over/Under (whichever
+  // position the creator picked); otherwise it reads You/{rival}. Either
+  // way it drives the same oddsFavorsCreator boolean.
+  const creatorSideLabel = lineEnabled ? (linePosition === 'over' ? 'Over' : 'Under') : 'You';
+  const rivalSideLabel = lineEnabled
+    ? linePosition === 'over'
+      ? 'Under'
+      : 'Over'
+    : (rivalName ?? 'Rival');
+
   const canSubmit =
     !!userId &&
-    !!opponentId &&
-    title.trim().length > 0 &&
-    sideALabel.trim().length > 0 &&
-    sideBLabel.trim().length > 0 &&
-    !!currencyId &&
-    Number.isFinite(stake) &&
-    stake > 0 &&
-    (resolutionMethod !== 'judge' || !!judgeId) &&
-    !createBet.isPending;
+    !!rivalId &&
+    event.trim().length > 0 &&
+    stakeValid &&
+    currencyValid &&
+    lineValid &&
+    oddsValid &&
+    deadlineValid &&
+    !createWager.isPending;
 
-  function submit(isDraft: boolean) {
+  function submit() {
     if (!userId || !canSubmit) return;
     setError(null);
 
-    const opponentSide = mySide === 'a' ? 'b' : 'a';
-
-    createBet.mutate(
+    createWager.mutate(
       {
-        groupId: groupId || null,
-        title: title.trim(),
+        event: event.trim(),
         description: description.trim(),
-        deadline: deadline ? new Date(deadline).toISOString() : null,
-        resolutionMethod,
-        judgeId: resolutionMethod === 'judge' ? judgeId : null,
-        randomFallbackEnabled: true,
-        isDraft,
-        sides: [
-          { outcomeKey: 'a', label: sideALabel.trim() },
-          { outcomeKey: 'b', label: sideBLabel.trim() },
-        ],
-        participants: [
-          {
-            userId,
-            outcomeKey: mySide,
-            currencyId,
-            stakeQuantity: stake,
-            oddsNumerator: 1,
-            oddsDenominator: 1,
-          },
-          {
-            userId: opponentId,
-            outcomeKey: opponentSide,
-            currencyId,
-            stakeQuantity: stake,
-            oddsNumerator: 1,
-            oddsDenominator: 1,
-          },
-        ],
+        rivalId,
+        stakeAmount: stake,
+        currencyKind,
+        currencyLabel: currencyKind === 'custom' ? currencyLabel.trim() : null,
+        deadline: deadlineEnabled && deadline ? new Date(deadline).toISOString() : null,
+        oddsNumerator: oddsEnabled ? oddsNum : null,
+        oddsDenominator: oddsEnabled ? oddsDenom : null,
+        oddsFavorsUserId: oddsEnabled ? (oddsFavorsCreator ? userId : rivalId) : null,
+        lineValue: lineEnabled ? lineNumber : null,
+        lineCreatorPosition: lineEnabled ? linePosition : null,
       },
       {
-        onSuccess: (bet) => navigate(`/bet/${bet.id}`, { replace: true }),
         onError: (err) => setError(getErrorMessage(err, 'Could not create the bet')),
       },
+    );
+  }
+
+  if (createWager.isSuccess) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-app flex-col items-center justify-center gap-four p-four text-center">
+        <p className="font-display text-lg font-extrabold">Bet sent to {rivalName ?? 'your rival'}!</p>
+        <p className="text-text-secondary">They'll need to accept it before it's on.</p>
+        <Button variant="primary" onClick={() => navigate('/home', { replace: true })}>
+          Back to home
+        </Button>
+      </main>
     );
   }
 
@@ -122,33 +136,25 @@ export function CreateScreen() {
       <div className="flex items-center justify-between">
         <BackButton label="Cancel" />
         <h1 className="font-display text-lg font-extrabold">New bet</h1>
-        <Button
-          variant="secondary"
-          className="px-three py-one text-sm"
-          disabled={!canSubmit}
-          onClick={() => submit(true)}
-        >
-          Draft
-        </Button>
+        <div className="w-16" />
       </div>
 
       <div className="mt-four flex flex-col gap-four">
         <div>
-          <p className="mb-two text-sm font-bold text-text-secondary">What&rsquo;s the bet?</p>
+          <p className="mb-two text-sm font-bold text-text-secondary">What&rsquo;s the event?</p>
           <input
             placeholder="Who does the dishes this week?"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            value={event}
+            onChange={(e) => setEvent(e.target.value)}
             className="w-full rounded-medium border border-line bg-surface p-three focus:border-grape focus:outline-none"
           />
+          <textarea
+            placeholder="Details (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="mt-two w-full rounded-medium border border-line bg-surface p-three"
+          />
         </div>
-
-        <textarea
-          placeholder="Details (optional)"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="rounded-medium border border-line bg-surface p-three"
-        />
 
         <div>
           <p className="mb-two text-sm font-bold text-text-secondary">Pick your rival</p>
@@ -157,11 +163,11 @@ export function CreateScreen() {
               <button
                 key={profile.id}
                 type="button"
-                onClick={() => setOpponentId(profile.id)}
+                onClick={() => setRivalId(profile.id)}
                 className="flex shrink-0 flex-col items-center gap-one"
               >
                 <span
-                  className={`rounded-pill ${opponentId === profile.id ? 'ring-2 ring-grape ring-offset-2 ring-offset-bg' : ''}`}
+                  className={`rounded-pill ${rivalId === profile.id ? 'ring-2 ring-grape ring-offset-2 ring-offset-bg' : ''}`}
                 >
                   <Avatar id={profile.id} name={profile.display_name} size="lg" />
                 </span>
@@ -177,152 +183,199 @@ export function CreateScreen() {
           </div>
         </div>
 
-        {activeGroups.length > 0 ? (
-          <select
-            value={groupId}
-            onChange={(e) => setGroupId(e.target.value)}
-            className="rounded-medium border border-line bg-surface p-three"
-          >
-            <option value="">Not tied to a group</option>
-            {activeGroups.map((group) => (
-              <option key={group.id} value={group.id}>
-                {group.name}
-              </option>
-            ))}
-          </select>
-        ) : null}
-
-        <div className="flex gap-two">
-          <input
-            placeholder="If you win (e.g. Lakers)"
-            value={sideALabel}
-            onChange={(e) => setSideALabel(e.target.value)}
-            className="min-w-0 flex-1 rounded-medium border border-line bg-surface p-three"
-          />
-          <input
-            placeholder="If they win (e.g. Celtics)"
-            value={sideBLabel}
-            onChange={(e) => setSideBLabel(e.target.value)}
-            className="min-w-0 flex-1 rounded-medium border border-line bg-surface p-three"
-          />
-        </div>
-
         <div>
-          <p className="mb-two text-sm text-text-secondary">Which side are you taking?</p>
-          <div className="flex gap-two">
-            <Button
-              variant={mySide === 'a' ? 'primary' : 'secondary'}
-              className="flex-1"
-              onClick={() => setMySide('a')}
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-text-secondary">Line (optional)</p>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={lineEnabled}
+              aria-label="Line"
+              onClick={() => setLineEnabled((v) => !v)}
+              className={`rounded-pill px-three py-one text-xs font-bold ${
+                lineEnabled
+                  ? 'bg-grape text-on-grape'
+                  : 'border border-line bg-surface text-text-secondary'
+              }`}
             >
-              {sideALabel.trim() || 'Side A'}
-            </Button>
-            <Button
-              variant={mySide === 'b' ? 'primary' : 'secondary'}
-              className="flex-1"
-              onClick={() => setMySide('b')}
-            >
-              {sideBLabel.trim() || 'Side B'}
-            </Button>
+              {lineEnabled ? 'On' : 'Off'}
+            </button>
           </div>
-        </div>
-
-        <div>
-          <p className="mb-two text-sm font-bold text-text-secondary">Loser&rsquo;s stake</p>
-          <div className="flex flex-wrap gap-two">
-            {(currencies ?? []).map((currency) => {
-              const selected = currencyId === currency.id;
-              return (
-                <button
-                  key={currency.id}
-                  type="button"
-                  onClick={() => setCurrencyId(currency.id)}
-                  className={`rounded-pill px-three py-two text-sm font-bold ${
-                    selected ? 'bg-grape text-on-grape' : 'border border-line bg-surface text-ink'
-                  }`}
+          {lineEnabled ? (
+            <div className="mt-two flex flex-col gap-two">
+              <input
+                placeholder="e.g. 56.5"
+                value={lineValue}
+                onChange={(e) => setLineValue(e.target.value.replace(/[^0-9.]/g, ''))}
+                inputMode="decimal"
+                className="w-full rounded-medium border border-line bg-surface p-three"
+              />
+              <div className="flex gap-two">
+                <Button
+                  variant={linePosition === 'over' ? 'primary' : 'secondary'}
+                  className="flex-1"
+                  onClick={() => setLinePosition('over')}
                 >
-                  {currency.icon ?? '🎯'} {currency.name}
-                  {selected ? ` ×${stakeQuantity || '1'}` : ''}
-                </button>
-              );
-            })}
-            <Link
-              to="/currencies"
-              className="rounded-pill border border-dashed border-line px-three py-two text-sm font-bold text-text-faint"
-            >
-              + Custom
-            </Link>
-          </div>
-          <div className="mt-two flex items-center gap-two">
-            <span className="text-sm text-text-secondary">×</span>
+                  Over
+                </Button>
+                <Button
+                  variant={linePosition === 'under' ? 'primary' : 'secondary'}
+                  className="flex-1"
+                  onClick={() => setLinePosition('under')}
+                >
+                  Under
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div>
+          <p className="mb-two text-sm font-bold text-text-secondary">What are the stakes?</p>
+          <div className="flex items-center gap-two">
             <input
-              placeholder="Quantity"
-              value={stakeQuantity}
-              onChange={(e) => setStakeQuantity(e.target.value.replace(/[^0-9.]/g, ''))}
+              placeholder="Amount"
+              value={stakeAmount}
+              onChange={(e) => setStakeAmount(e.target.value.replace(/[^0-9.]/g, ''))}
               inputMode="decimal"
-              className="w-24 rounded-medium border border-line bg-surface p-two text-sm"
+              className="w-24 rounded-medium border border-line bg-surface p-three"
             />
-            <span className="text-xs text-text-faint">
-              Symmetric bet · both sides risk the same stake
-            </span>
+            <div className="flex gap-two">
+              <button
+                type="button"
+                onClick={() => setCurrencyKind('money')}
+                className={`rounded-pill px-three py-two text-sm font-bold ${
+                  currencyKind === 'money'
+                    ? 'bg-grape text-on-grape'
+                    : 'border border-line bg-surface text-ink'
+                }`}
+              >
+                💵 Money
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrencyKind('custom')}
+                className={`rounded-pill px-three py-two text-sm font-bold ${
+                  currencyKind === 'custom'
+                    ? 'bg-grape text-on-grape'
+                    : 'border border-line bg-surface text-ink'
+                }`}
+              >
+                🎯 Custom
+              </button>
+            </div>
           </div>
+          {currencyKind === 'custom' ? (
+            <input
+              placeholder="What are you staking? (e.g. Chores)"
+              value={currencyLabel}
+              onChange={(e) => setCurrencyLabel(e.target.value)}
+              className="mt-two w-full rounded-medium border border-line bg-surface p-three"
+            />
+          ) : null}
         </div>
 
         <div>
-          <p className="mb-two text-sm font-bold text-text-secondary">Decided by</p>
-          <div className="flex gap-two">
-            {ResolutionMethods.map((m) => {
-              const selected = resolutionMethod === m.value;
-              return (
-                <button
-                  key={m.value}
-                  type="button"
-                  onClick={() => setResolutionMethod(m.value)}
-                  title={m.label}
-                  className={`flex-1 rounded-medium px-two py-three text-center text-sm font-bold ${
-                    selected ? 'bg-ink text-bg' : 'border border-line bg-surface text-ink'
-                  }`}
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-text-secondary">Uneven odds (optional)</p>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={oddsEnabled}
+              aria-label="Uneven odds"
+              onClick={() => setOddsEnabled((v) => !v)}
+              className={`rounded-pill px-three py-one text-xs font-bold ${
+                oddsEnabled
+                  ? 'bg-grape text-on-grape'
+                  : 'border border-line bg-surface text-text-secondary'
+              }`}
+            >
+              {oddsEnabled ? 'On' : 'Off'}
+            </button>
+          </div>
+          {oddsEnabled ? (
+            <div className="mt-two flex flex-col gap-two">
+              <div className="flex items-center gap-two">
+                <input
+                  placeholder="3"
+                  value={oddsNumerator}
+                  onChange={(e) => setOddsNumerator(e.target.value.replace(/[^0-9.]/g, ''))}
+                  inputMode="decimal"
+                  className="w-16 rounded-medium border border-line bg-surface p-two text-sm"
+                />
+                <span className="text-sm text-text-secondary">:</span>
+                <input
+                  placeholder="1"
+                  value={oddsDenominator}
+                  onChange={(e) => setOddsDenominator(e.target.value.replace(/[^0-9.]/g, ''))}
+                  inputMode="decimal"
+                  className="w-16 rounded-medium border border-line bg-surface p-two text-sm"
+                />
+                <span className="text-xs text-text-faint">
+                  &mdash; your stake above is the &ldquo;1&rdquo; side
+                </span>
+              </div>
+              <div className="flex gap-two">
+                <Button
+                  variant={oddsFavorsCreator ? 'primary' : 'secondary'}
+                  className="flex-1 py-two text-sm"
+                  onClick={() => setOddsFavorsCreator(true)}
                 >
-                  <span className="block">{DECIDED_BY[m.value].emoji}</span>
-                  {DECIDED_BY[m.value].short}
-                </button>
-              );
-            })}
-          </div>
+                  Favoring {creatorSideLabel}
+                </Button>
+                <Button
+                  variant={!oddsFavorsCreator ? 'primary' : 'secondary'}
+                  className="flex-1 py-two text-sm"
+                  onClick={() => setOddsFavorsCreator(false)}
+                >
+                  Favoring {rivalSideLabel}
+                </Button>
+              </div>
+              {oddsPreview ? (
+                <p className="text-xs text-text-faint">
+                  You give {oddsPreview.creatorAmount} if you lose &middot; you win{' '}
+                  {oddsPreview.rivalAmount} if you win
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
-        {resolutionMethod === 'judge' ? (
-          <select
-            value={judgeId}
-            onChange={(e) => setJudgeId(e.target.value)}
-            className="rounded-medium border border-line bg-surface p-three"
-          >
-            <option value="">Who&rsquo;s the judge?</option>
-            {friends.map(({ profile }) => (
-              <option key={profile.id} value={profile.id}>
-                {profile.display_name}
-              </option>
-            ))}
-          </select>
-        ) : null}
-
         <div>
-          <p className="mb-two text-sm text-text-secondary">Deadline (optional)</p>
-          <input
-            type="datetime-local"
-            value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-            className="rounded-medium border border-line bg-surface p-three"
-          />
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-text-secondary">Deadline (optional)</p>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={deadlineEnabled}
+              aria-label="Deadline"
+              onClick={() => setDeadlineEnabled((v) => !v)}
+              className={`rounded-pill px-three py-one text-xs font-bold ${
+                deadlineEnabled
+                  ? 'bg-grape text-on-grape'
+                  : 'border border-line bg-surface text-text-secondary'
+              }`}
+            >
+              {deadlineEnabled ? 'On' : 'Off'}
+            </button>
+          </div>
+          {deadlineEnabled ? (
+            <input
+              type="datetime-local"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              className="mt-two w-full rounded-medium border border-line bg-surface p-three"
+            />
+          ) : null}
         </div>
 
         <InlineError message={error} />
 
-        <Button variant="primary" fullWidth disabled={!canSubmit} onClick={() => submit(false)}>
-          {createBet.isPending
+        <Button variant="primary" fullWidth disabled={!canSubmit} onClick={submit}>
+          {createWager.isPending
             ? 'Sending…'
-            : opponentName
-              ? `Send bet to ${opponentName}`
+            : rivalName
+              ? `Send bet to ${rivalName}`
               : 'Send bet'}
         </Button>
       </div>
