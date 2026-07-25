@@ -96,19 +96,9 @@ export function FriendsScreen() {
 
   return (
     <main className="mx-auto max-w-app p-four pb-28">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-screen-title font-extrabold tracking-display-tight">
-          Friends
-        </h1>
-        <button
-          type="button"
-          aria-label="Search or add a friend"
-          onClick={() => document.getElementById('friend-search')?.focus()}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-pill bg-grape text-on-grape"
-        >
-          <Icons.add size={20} strokeWidth={2.5} />
-        </button>
-      </div>
+      <h1 className="font-display text-screen-title font-extrabold tracking-display-tight">
+        Friends
+      </h1>
 
       <Link to="/obligations" className="mt-one inline-block text-sm font-bold text-grape-ink">
         Manual obligations
