@@ -165,12 +165,14 @@ export function CreateScreen() {
             placeholder="Who does the dishes this week?"
             value={event}
             onChange={(e) => setEvent(e.target.value)}
+            maxLength={200}
             className="w-full rounded-medium border border-line bg-surface p-three focus:border-grape focus:outline-none"
           />
           <textarea
             placeholder="Details (optional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            maxLength={2000}
             className="mt-two w-full rounded-medium border border-line bg-surface p-three"
           />
         </div>

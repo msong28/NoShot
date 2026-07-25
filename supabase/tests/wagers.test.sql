@@ -212,6 +212,94 @@ begin
 end;
 $$;
 
+-- A blank / whitespace-only event is rejected. The client disables submit on
+-- an empty event, but the wagers_event_length constraint must reject it even
+-- if that guard is bypassed.
+do $$
+begin
+  begin
+    perform public.create_wager(
+      '   ', '', 'bbbbbbbb-0000-0000-0000-000000000002', 5, 'money', null,
+      null, null, null, null, null, null
+    );
+    raise exception 'FAIL: expected a blank event to be rejected';
+  exception
+    when check_violation then
+      raise notice 'PASS: a blank event is rejected by wagers_event_length';
+  end;
+end;
+$$;
+
+-- An event over 200 chars is rejected. create.tsx puts no maxlength on the
+-- event input, so this is reachable from the real UI, not just the API.
+do $$
+begin
+  begin
+    perform public.create_wager(
+      repeat('x', 201), '', 'bbbbbbbb-0000-0000-0000-000000000002', 5, 'money', null,
+      null, null, null, null, null, null
+    );
+    raise exception 'FAIL: expected an over-long event to be rejected';
+  exception
+    when check_violation then
+      raise notice 'PASS: an event over 200 chars is rejected by wagers_event_length';
+  end;
+end;
+$$;
+
+-- A non-positive stake is rejected by the RPC before any insert.
+do $$
+begin
+  begin
+    perform public.create_wager(
+      'Zero stake', '', 'bbbbbbbb-0000-0000-0000-000000000002', 0, 'money', null,
+      null, null, null, null, null, null
+    );
+    raise exception 'FAIL: expected a zero stake to be rejected';
+  exception
+    when others then
+      if sqlerrm not like '%positive amount%' then raise; end if;
+      raise notice 'PASS: a non-positive stake is rejected';
+  end;
+end;
+$$;
+
+-- Odds that favor someone who isn't a party to the wager are rejected.
+do $$
+begin
+  begin
+    perform public.create_wager(
+      'Odds favoring an outsider', '', 'bbbbbbbb-0000-0000-0000-000000000002', 5, 'money', null,
+      null, 3, 1, 'cccccccc-0000-0000-0000-000000000003', null, null
+    );
+    raise exception 'FAIL: expected odds favoring a non-participant to be rejected';
+  exception
+    when check_violation then
+      raise notice 'PASS: odds favoring a non-participant is rejected by wagers_odds_favors_participant';
+  end;
+end;
+$$;
+
+-- Money stakes must not carry a currency_id. The client always sends null for
+-- money; the wagers_currency_id_matches_kind constraint enforces it regardless.
+do $$
+declare
+  v_chore_id uuid;
+begin
+  select id into v_chore_id from public.currencies where name = 'Chore';
+  begin
+    perform public.create_wager(
+      'Money with a currency id', '', 'bbbbbbbb-0000-0000-0000-000000000002', 5, 'money', v_chore_id,
+      null, null, null, null, null, null
+    );
+    raise exception 'FAIL: expected money kind with a currency_id to be rejected';
+  exception
+    when check_violation then
+      raise notice 'PASS: money stakes cannot carry a currency_id (wagers_currency_id_matches_kind)';
+  end;
+end;
+$$;
+
 -- Direct table inserts are denied -- only create_wager() may write.
 do $$
 begin
