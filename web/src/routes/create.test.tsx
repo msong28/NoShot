@@ -195,6 +195,7 @@ describe('CreateScreen', () => {
     renderScreen();
 
     expect(screen.getByText('Bet sent to your rival!')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Back to home' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View your bets' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to home' })).toHaveAttribute('href', '/home');
   });
 });

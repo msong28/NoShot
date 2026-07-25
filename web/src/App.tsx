@@ -22,6 +22,7 @@ import { GroupDetailScreen } from '@/routes/group-detail';
 import { GroupsScreen } from '@/routes/groups';
 import { HomeScreen } from '@/routes/home';
 import { InvitePreviewScreen } from '@/routes/invite-preview';
+import { MyWagersScreen } from '@/routes/my-wagers';
 import { ObligationsScreen } from '@/routes/obligations';
 import { PrivacyPolicyScreen } from '@/routes/privacy-policy';
 import { ProfileScreen } from '@/routes/profile';
@@ -66,6 +67,7 @@ export function App() {
             <Route path="/bet/:betId" element={<BetDetailScreen />} />
             <Route path="/group/:groupId" element={<GroupDetailScreen />} />
             <Route path="/create" element={<CreateScreen />} />
+            <Route path="/my-wagers" element={<MyWagersScreen />} />
             <Route path="/balances" element={<BalancesScreen />} />
             <Route path="/currencies" element={<CurrenciesScreen />} />
             <Route path="/friends" element={<FriendsScreen />} />

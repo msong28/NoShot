@@ -143,9 +143,12 @@ export function CreateScreen() {
       <main className="mx-auto flex min-h-screen max-w-app flex-col items-center justify-center gap-four p-four text-center">
         <p className="font-display text-lg font-extrabold">Bet sent to {rivalName ?? 'your rival'}!</p>
         <p className="text-text-secondary">They'll need to accept it before it's on.</p>
-        <Button variant="primary" onClick={() => navigate('/home', { replace: true })}>
-          Back to home
+        <Button variant="primary" onClick={() => navigate('/my-wagers', { replace: true })}>
+          View your bets
         </Button>
+        <Link to="/home" replace className="text-sm font-bold text-text-secondary">
+          Back to home
+        </Link>
       </main>
     );
   }
