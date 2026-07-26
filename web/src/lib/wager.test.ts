@@ -13,6 +13,7 @@ const base: WagerFormInput = {
   deadline: null,
   odds: null,
   line: null,
+  winConditions: null,
 };
 
 /** The funding rule create_or_counter_bet enforces (BET-05): for every side,
@@ -72,6 +73,35 @@ describe('buildBetInput', () => {
     ]);
     expect(out.participants[0]).toMatchObject({ userId: 'creator', outcomeKey: 'under' });
     expect(out.participants[1]).toMatchObject({ userId: 'rival', outcomeKey: 'over' });
+    assertFunded(out);
+  });
+
+  it('labels the sides with custom win conditions while keeping creator/rival keys', () => {
+    const out = buildBetInput({
+      ...base,
+      winConditions: { creatorLabel: 'Maya comes late', rivalLabel: 'Maya does not' },
+    });
+
+    expect(out.sides).toEqual([
+      { outcomeKey: 'creator', label: 'Maya comes late' },
+      { outcomeKey: 'rival', label: 'Maya does not' },
+    ]);
+    expect(out.participants[0]).toMatchObject({ userId: 'creator', outcomeKey: 'creator' });
+    expect(out.participants[1]).toMatchObject({ userId: 'rival', outcomeKey: 'rival' });
+    assertFunded(out);
+  });
+
+  it('lets a line take precedence over win conditions when both are set', () => {
+    const out = buildBetInput({
+      ...base,
+      line: { value: 56.5, position: 'over' },
+      winConditions: { creatorLabel: 'Maya comes late', rivalLabel: 'Maya does not' },
+    });
+
+    expect(out.sides).toEqual([
+      { outcomeKey: 'over', label: 'Over 56.5' },
+      { outcomeKey: 'under', label: 'Under 56.5' },
+    ]);
     assertFunded(out);
   });
 

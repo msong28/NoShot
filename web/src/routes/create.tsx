@@ -50,6 +50,10 @@ export function CreateScreen() {
   const [lineValue, setLineValue] = useState('');
   const [linePosition, setLinePosition] = useState<'over' | 'under'>('over');
 
+  const [winConditionsEnabled, setWinConditionsEnabled] = useState(false);
+  const [winConditionMine, setWinConditionMine] = useState('');
+  const [winConditionTheirs, setWinConditionTheirs] = useState('');
+
   const [oddsEnabled, setOddsEnabled] = useState(false);
   const [oddsNumerator, setOddsNumerator] = useState('3');
   const [oddsDenominator, setOddsDenominator] = useState('1');
@@ -82,6 +86,11 @@ export function CreateScreen() {
   const lineNumber = Number.parseFloat(lineValue);
   const lineValid = !lineEnabled || (Number.isFinite(lineNumber) && lineValue.trim().length > 0);
 
+  const winMine = winConditionMine.trim();
+  const winTheirs = winConditionTheirs.trim();
+  const winConditionsValid =
+    !winConditionsEnabled || (winMine.length > 0 && winTheirs.length > 0);
+
   const oddsNum = Number.parseFloat(oddsNumerator);
   const oddsDenom = Number.parseFloat(oddsDenominator);
   const oddsValid =
@@ -98,12 +107,20 @@ export function CreateScreen() {
   // When Line is on, the favored-side picker reads Over/Under (whichever
   // position the creator picked); otherwise it reads You/{rival}. Either
   // way it drives the same oddsFavorsCreator boolean.
-  const creatorSideLabel = lineEnabled ? (linePosition === 'over' ? 'Over' : 'Under') : 'You';
+  const creatorSideLabel = lineEnabled
+    ? linePosition === 'over'
+      ? 'Over'
+      : 'Under'
+    : winConditionsEnabled && winMine
+      ? winMine
+      : 'You';
   const rivalSideLabel = lineEnabled
     ? linePosition === 'over'
       ? 'Under'
       : 'Over'
-    : (rivalName ?? 'Rival');
+    : winConditionsEnabled && winTheirs
+      ? winTheirs
+      : (rivalName ?? 'Rival');
 
   const canSubmit =
     !!userId &&
@@ -112,6 +129,7 @@ export function CreateScreen() {
     stakeValid &&
     currencyValid &&
     lineValid &&
+    winConditionsValid &&
     oddsValid &&
     deadlineValid &&
     !createBet.isPending;
@@ -134,6 +152,10 @@ export function CreateScreen() {
           ? { numerator: oddsNum, denominator: oddsDenom, favorsCreator: oddsFavorsCreator }
           : null,
         line: lineEnabled ? { value: lineNumber, position: linePosition } : null,
+        winConditions:
+          winConditionsEnabled && !lineEnabled
+            ? { creatorLabel: winMine, rivalLabel: winTheirs }
+            : null,
       }),
       {
         onError: (err) => setError(getErrorMessage(err, 'Could not create the bet')),
@@ -274,13 +296,69 @@ export function CreateScreen() {
 
         <div>
           <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-text-secondary">Win conditions (optional)</p>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={winConditionsEnabled}
+              aria-label="Win conditions"
+              onClick={() =>
+                setWinConditionsEnabled((v) => {
+                  if (!v) setLineEnabled(false);
+                  return !v;
+                })
+              }
+              className={`rounded-pill px-three py-one text-xs font-bold ${
+                winConditionsEnabled
+                  ? 'bg-grape text-on-grape'
+                  : 'border border-line bg-surface text-text-secondary'
+              }`}
+            >
+              {winConditionsEnabled ? 'On' : 'Off'}
+            </button>
+          </div>
+          {winConditionsEnabled ? (
+            <div className="mt-two flex flex-col gap-two">
+              <div>
+                <p className="mb-one text-xs font-bold text-text-faint">You win if…</p>
+                <input
+                  placeholder="e.g. Maya comes late"
+                  value={winConditionMine}
+                  onChange={(e) => setWinConditionMine(e.target.value)}
+                  maxLength={50}
+                  className="w-full rounded-medium border border-line bg-surface p-three focus:border-grape focus:outline-none"
+                />
+              </div>
+              <div>
+                <p className="mb-one text-xs font-bold text-text-faint">
+                  {rivalName ?? 'They'} win{rivalName ? 's' : ''} if…
+                </p>
+                <input
+                  placeholder="e.g. Maya does not"
+                  value={winConditionTheirs}
+                  onChange={(e) => setWinConditionTheirs(e.target.value)}
+                  maxLength={50}
+                  className="w-full rounded-medium border border-line bg-surface p-three focus:border-grape focus:outline-none"
+                />
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between">
             <p className="text-sm font-bold text-text-secondary">Line (optional)</p>
             <button
               type="button"
               role="switch"
               aria-checked={lineEnabled}
               aria-label="Line"
-              onClick={() => setLineEnabled((v) => !v)}
+              onClick={() =>
+                setLineEnabled((v) => {
+                  if (!v) setWinConditionsEnabled(false);
+                  return !v;
+                })
+              }
               className={`rounded-pill px-three py-one text-xs font-bold ${
                 lineEnabled
                   ? 'bg-grape text-on-grape'

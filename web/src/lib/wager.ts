@@ -63,6 +63,11 @@ export type WagerFormInput = {
   deadline: string | null;
   odds: { numerator: number; denominator: number; favorsCreator: boolean } | null;
   line: { value: number; position: 'over' | 'under' } | null;
+  /** Optional custom outcome labels: what each side is wagering will happen
+   * (e.g. "Maya comes late" vs "Maya does not"). `creatorLabel` is the side the
+   * creator is taking. Mutually exclusive with `line` (both name the sides);
+   * when both are somehow present, `line` wins. */
+  winConditions: { creatorLabel: string; rivalLabel: string } | null;
 };
 
 /**
@@ -85,15 +90,24 @@ export function buildBetInput(input: WagerFormInput): CreateOrCounterBetInput {
       : 'over'
     : 'rival';
 
-  const sides: BetSideDraft[] = input.line
-    ? [
-        { outcomeKey: 'over', label: `Over ${input.line.value}` },
-        { outcomeKey: 'under', label: `Under ${input.line.value}` },
-      ]
-    : [
-        { outcomeKey: 'creator', label: 'You' },
-        { outcomeKey: 'rival', label: input.rivalName },
-      ];
+  let sides: BetSideDraft[];
+  if (input.line) {
+    sides = [
+      { outcomeKey: 'over', label: `Over ${input.line.value}` },
+      { outcomeKey: 'under', label: `Under ${input.line.value}` },
+    ];
+  } else if (input.winConditions) {
+    // Same creator/rival keys as the generic case, only the labels change.
+    sides = [
+      { outcomeKey: 'creator', label: input.winConditions.creatorLabel },
+      { outcomeKey: 'rival', label: input.winConditions.rivalLabel },
+    ];
+  } else {
+    sides = [
+      { outcomeKey: 'creator', label: 'You' },
+      { outcomeKey: 'rival', label: input.rivalName },
+    ];
+  }
 
   let creatorStake = input.stakeAmount;
   let creatorNum = 1;
