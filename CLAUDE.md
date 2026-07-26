@@ -17,6 +17,14 @@ Root `.env` uses `EXPO_PUBLIC_*` var names; `web/.env` uses `VITE_*` names for t
 
 `ARCHITECTURE.md`'s "one-codebase principle" (single Expo Router app for iOS/Android/web) describes the **root app's** target shape and predates the `web/` port — treat `HANDOFF_WEB_PORT.md` as the authoritative, up-to-date status doc for `web/` instead.
 
+## Frontend data layer (same convention in both trees)
+
+Both apps talk to Supabase the same way, so a feature usually means editing the mirrored file in each tree:
+
+- **Data access is React Query on top of typed hooks.** Every domain area has a `hooks/use-*.ts` (e.g. `use-bets`, `use-wager`, `use-groups`, `use-ledger`, `use-proof`) that wraps the Supabase client — reads as `useQuery`, mutations as `useMutation` calling the `SECURITY DEFINER` RPCs described under "Server authority model." Components don't call `supabase.from(...)` directly; go through (or add) a hook. The hook lists in `src/hooks/` and `web/src/hooks/` are near-identical — when adding one, add its twin.
+- **Routing differs between the trees.** Root uses **expo-router** file-based routes under `src/app/` (`(auth)`, `(tabs)`, `bet/`, `group/`, `admin/`, etc.). Web uses **react-router** with one module per screen under `web/src/routes/`, including route guards (`protected-route`, `require-admin`, `require-profile`) that have no file-route equivalent on the root side.
+- Session/auth flows through `use-session` + a theme provider in each tree; admin gating uses `use-admin` (server-checked, per the authority model — never a client flag).
+
 ## Commands
 
 Root app (run from repo root):
