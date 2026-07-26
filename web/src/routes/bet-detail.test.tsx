@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 
-import { useBetDetail } from '@/hooks/use-bets';
+import { useBetDetail, useSubmitBetResult } from '@/hooks/use-bets';
 import { useComments, usePostComment } from '@/hooks/use-comments';
 import { useClosePoll, useCreatePoll, usePolls, useVoteOnPoll } from '@/hooks/use-polls';
 import { useProofAssets, useUploadProof } from '@/hooks/use-proof';
@@ -101,11 +101,53 @@ function mockBetDetail(overrides: Partial<ReturnType<typeof useBetDetail>> = {})
   } as never);
 }
 
+/** A second participant plus a commitment on `u1`, so the settle UI has two
+ * outcomes to pick from and the reveal has a stake amount to showcase. */
+const TWO_PERSON_ROSTER = [
+  {
+    ...ROSTER[0],
+    commitment: {
+      id: 'com1',
+      stake_quantity: 5,
+      payout_if_win: 5,
+      currencies: { name: 'bucks', icon: '💵' },
+    },
+  },
+  {
+    participant: {
+      id: 'p2',
+      bet_id: 'bet-1',
+      user_id: 'u2',
+      side_id: 's2',
+      role: 'participant' as const,
+      participation_status: 'active' as const,
+      created_at: '2026-01-01T00:00:00Z',
+    },
+    profile: { id: 'u2', username: 'bob', display_name: 'Bob' },
+    side: { id: 's2', bet_id: 'bet-1', version_no: 1, label: 'No', outcome_key: 'no' },
+    commitment: {
+      id: 'com2',
+      stake_quantity: 5,
+      payout_if_win: 5,
+      currencies: { name: 'bucks', icon: '💵' },
+    },
+    approval: undefined,
+  },
+];
+
+/** Renders wherever the settle flow redirects, so a test can assert it lands
+ * on the Done bets. */
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname + location.search}</div>;
+}
+
 function renderScreen() {
   return render(
     <MemoryRouter initialEntries={['/bet/bet-1']}>
       <Routes>
         <Route path="/bet/:betId" element={<BetDetailScreen />} />
+        <Route path="*" element={<LocationProbe />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -227,6 +269,36 @@ describe('BetDetailScreen', () => {
 
     expect(screen.getByText('Who wins?')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Team A0' })).toBeInTheDocument();
+  });
+
+  it('reveals the result on settle and then drops the settler on their Done bets', async () => {
+    const resolvedBet = {
+      ...BET,
+      status: 'resolved' as const,
+      resolved_outcome_key: 'no',
+      resolved_at: '2026-01-02T00:00:00Z',
+    };
+    const mutateAsync = vi.fn().mockResolvedValue(resolvedBet);
+    vi.mocked(useSubmitBetResult).mockReturnValue({ mutateAsync, isPending: false } as never);
+
+    mockBetDetail({
+      roster: TWO_PERSON_ROSTER,
+      sides: [TWO_PERSON_ROSTER[0].side, TWO_PERSON_ROSTER[1].side],
+    } as never);
+
+    renderScreen();
+
+    // Settle with the outcome that loses it for u1.
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'no' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Settle bet' }));
+
+    // The reveal showcases the loss (and what they owe), for every outcome.
+    expect(await screen.findByText('You lost')).toBeInTheDocument();
+    expect(screen.getByText('YOU OWE BOB')).toBeInTheDocument();
+
+    // Continuing lands them on the Done tab as proof it settled.
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByTestId('location')).toHaveTextContent('/bets?tab=done');
   });
 
   it('opens the report dialog for the bet when Report is clicked', () => {

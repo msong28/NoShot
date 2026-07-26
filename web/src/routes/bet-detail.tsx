@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 
 import { Capacitor } from '@capacitor/core';
 
@@ -16,7 +16,7 @@ import { InlineError } from '@/components/ui/inline-error';
 import { ListRow } from '@/components/ui/list-row';
 import { SectionHeader } from '@/components/ui/section-header';
 import { StatusPill, type StatusPillVariant } from '@/components/ui/status-pill';
-import { WinReveal } from '@/components/ui/win-reveal';
+import { SettleReveal, type SettleOutcome } from '@/components/ui/settle-reveal';
 import {
   useApproveBetVersion,
   useApproveCancelBet,
@@ -125,6 +125,7 @@ type ThreadItem =
 
 export function BetDetailScreen() {
   const { betId } = useParams<{ betId: string }>();
+  const navigate = useNavigate();
   const { session } = useSession();
   const userId = session?.user.id;
 
@@ -154,7 +155,7 @@ export function BetDetailScreen() {
     null,
   );
   const [showPollForm, setShowPollForm] = useState(false);
-  const [wonBet, setWonBet] = useState<Bet | null>(null);
+  const [settleOutcome, setSettleOutcome] = useState<SettleOutcome | null>(null);
   const [pendingProofFile, setPendingProofFile] = useState<File | null>(null);
   const [pendingProofPreviewUrl, setPendingProofPreviewUrl] = useState<string | null>(null);
   const [pendingProofCaption, setPendingProofCaption] = useState('');
@@ -219,19 +220,19 @@ export function BetDetailScreen() {
   const latestResultSubmission = resultSubmissions[resultSubmissions.length - 1];
   const pill = pillFor(bet.status);
 
-  // Fires the win-reveal overlay only for a resolution that happens in
-  // *this* page session (confirming a result, a judge ruling, or the
-  // random fallback) -- never on a plain page load/revisit, so an old win
-  // doesn't replay the celebration every time the bet is opened again.
-  function runAndCheckWin(promise: Promise<Bet>) {
+  // Fires the settle-reveal overlay for a resolution that happens in *this*
+  // page session (the settling action) -- for every outcome, win or lose or
+  // tie, so the settler always sees what happened before being sent to Done.
+  // Never on a plain page load/revisit, so an old result doesn't replay.
+  function runAndReveal(promise: Promise<Bet>) {
     setError(null);
     promise
       .then((updatedBet) => {
-        if (
-          updatedBet.status === 'resolved' &&
-          myParticipant?.side?.outcome_key === updatedBet.resolved_outcome_key
-        ) {
-          setWonBet(updatedBet);
+        if (updatedBet.status === 'tied') {
+          setSettleOutcome('tied');
+        } else if (updatedBet.status === 'resolved') {
+          const iWon = myParticipant?.side?.outcome_key === updatedBet.resolved_outcome_key;
+          setSettleOutcome(iWon ? 'won' : 'lost');
         }
       })
       .catch((err: unknown) => setError(getErrorMessage(err, 'Something went wrong')));
@@ -694,7 +695,7 @@ export function BetDetailScreen() {
               fullWidth
               disabled={!resultOutcomeKey}
               onClick={() =>
-                runAndCheckWin(
+                runAndReveal(
                   submitBetResult.mutateAsync({
                     outcomeKey: resultOutcomeKey,
                     rationale: resultRationale || undefined,
@@ -758,14 +759,19 @@ export function BetDetailScreen() {
         onClose={() => setReportTarget(null)}
       />
 
-      {wonBet ? (
-        <WinReveal
-          betTitle={wonBet.title}
+      {settleOutcome ? (
+        <SettleReveal
+          outcome={settleOutcome}
+          betTitle={bet.title}
           opponentName={opponent?.profile?.display_name ?? 'They'}
-          payout={myParticipant?.commitment?.payout_if_win ?? 0}
+          amount={
+            settleOutcome === 'won'
+              ? (myParticipant?.commitment?.payout_if_win ?? 0)
+              : (myParticipant?.commitment?.stake_quantity ?? 0)
+          }
           currencyName={myParticipant?.commitment?.currencies?.name}
           currencyIcon={myParticipant?.commitment?.currencies?.icon}
-          onDismiss={() => setWonBet(null)}
+          onDone={() => navigate('/bets?tab=done', { replace: true })}
         />
       ) : null}
     </main>
