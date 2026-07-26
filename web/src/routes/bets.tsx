@@ -27,6 +27,33 @@ function betSubtitle(bet: MyBet): string | undefined {
 
 type Filter = 'all' | 'active' | 'pending' | 'done';
 
+/**
+ * Which lifecycle bucket a bet belongs to on this page. This is a plain
+ * status classification -- unlike the hook's `pendingBets`/`activeBets`, which
+ * carry "awaiting your action" semantics (a bet you created and already
+ * approved is dropped from `pendingBets`). The Bets page is a browser of all
+ * your bets by lifecycle, so a bet you just sent must still show under Pending.
+ * Returns null for statuses that don't map to a tab (e.g. voided) -- those
+ * appear only under "All".
+ */
+export function betCategory(status: MyBet['status']): Exclude<Filter, 'all'> | null {
+  switch (status) {
+    case 'draft':
+    case 'pending_acceptance':
+      return 'pending';
+    case 'active':
+    case 'cancellation_pending':
+    case 'pending_result':
+    case 'disputed':
+      return 'active';
+    case 'resolved':
+    case 'tied':
+      return 'done';
+    default:
+      return null;
+  }
+}
+
 function FilterChip({
   label,
   count,
@@ -80,7 +107,11 @@ export function BetsScreen() {
   const userId = session?.user.id;
   const [filter, setFilter] = useState<Filter>('all');
 
-  const { bets, activeBets, pendingBets, resolvedBets } = useMyBets(userId);
+  const { bets } = useMyBets(userId);
+
+  const activeBets = bets.filter((bet) => betCategory(bet.status) === 'active');
+  const pendingBets = bets.filter((bet) => betCategory(bet.status) === 'pending');
+  const doneBets = bets.filter((bet) => betCategory(bet.status) === 'done');
 
   const filtered =
     filter === 'all'
@@ -89,7 +120,7 @@ export function BetsScreen() {
         ? activeBets
         : filter === 'pending'
           ? pendingBets
-          : resolvedBets;
+          : doneBets;
 
   const isDone = (bet: MyBet) => bet.status === 'resolved' || bet.status === 'tied';
 
@@ -120,7 +151,7 @@ export function BetsScreen() {
         />
         <FilterChip
           label="Done"
-          count={resolvedBets.length}
+          count={doneBets.length}
           active={filter === 'done'}
           onClick={() => setFilter('done')}
         />
