@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import { Avatar } from '@/components/ui/avatar';
@@ -19,6 +19,22 @@ import { buildBetInput, computeOddsStakes } from '@/lib/wager';
  * built-ins filling any remaining slots -- capped well below the full list
  * so it doesn't turn into the wall of chips the old create.tsx had. */
 const MAX_CURRENCY_SUGGESTIONS = 6;
+
+/** Tappable starter ideas for the "What's the bet?" field -- concrete,
+ * everyday wagers between friends, meant to make the empty box feel less
+ * blank and to hint at the range of things you can bet on. */
+const EXAMPLE_BETS = [
+  'Max shows up late to the party',
+  'Who wins our game of pool',
+  'The Lakers win tonight',
+  'I run a mile under 8 minutes',
+  'Nobody finishes the whole pizza',
+  'It rains this weekend',
+] as const;
+
+/** How long the "Bet sent!" confirmation animation holds before we send the
+ * creator to their pending bets. */
+const SENT_ANIMATION_MS = 1500;
 
 /**
  * Ground-up rebuild of bet creation (see conversation for the full design
@@ -163,17 +179,31 @@ export function CreateScreen() {
     );
   }
 
+  // After the send lands, hold the confirmation animation briefly, then drop
+  // the creator on their Pending bets so they see proof it went through.
+  useEffect(() => {
+    if (!createBet.isSuccess) return;
+    const timer = setTimeout(() => {
+      navigate('/bets?tab=pending', { replace: true });
+    }, SENT_ANIMATION_MS);
+    return () => clearTimeout(timer);
+  }, [createBet.isSuccess, navigate]);
+
   if (createBet.isSuccess) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-app flex-col items-center justify-center gap-four p-four text-center">
-        <p className="font-display text-lg font-extrabold">Bet sent to {rivalName ?? 'your rival'}!</p>
-        <p className="text-text-secondary">They'll need to accept it before it's on.</p>
-        <Button variant="primary" onClick={() => navigate('/bets', { replace: true })}>
-          View your bets
-        </Button>
-        <Link to="/home" replace className="text-sm font-bold text-text-secondary">
-          Back to home
-        </Link>
+      <main className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-four bg-grape p-four text-center text-white">
+        <div className="relative flex h-28 w-28 items-center justify-center">
+          <span aria-hidden className="absolute inset-0 rounded-pill bg-white/25 animate-ping" />
+          <span className="relative flex h-28 w-28 animate-bounce items-center justify-center rounded-pill bg-white text-5xl">
+            🤝
+          </span>
+        </div>
+        <div>
+          <p className="font-display text-lg font-extrabold">
+            Bet sent to {rivalName ?? 'your rival'}!
+          </p>
+          <p className="mt-one text-white/80">Waiting for them to accept&hellip;</p>
+        </div>
       </main>
     );
   }
@@ -188,25 +218,7 @@ export function CreateScreen() {
 
       <div className="mt-four flex flex-col gap-four">
         <div>
-          <p className="mb-two text-sm font-bold text-text-secondary">What&rsquo;s the event?</p>
-          <input
-            placeholder="Who does the dishes this week?"
-            value={event}
-            onChange={(e) => setEvent(e.target.value)}
-            maxLength={200}
-            className="w-full rounded-medium border border-line bg-surface p-three focus:border-grape focus:outline-none"
-          />
-          <textarea
-            placeholder="Details (optional)"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            maxLength={2000}
-            className="mt-two w-full rounded-medium border border-line bg-surface p-three"
-          />
-        </div>
-
-        <div>
-          <p className="mb-two text-sm font-bold text-text-secondary">Pick your rival</p>
+          <p className="mb-two text-sm font-bold text-text-secondary">Who are you betting?</p>
           <div className="flex gap-three overflow-x-auto pb-one">
             {friends.map(({ profile }) => (
               <button
@@ -230,6 +242,41 @@ export function CreateScreen() {
               <span className="text-xs text-text-faint">More</span>
             </Link>
           </div>
+        </div>
+
+        <div>
+          <p className="mb-two text-sm font-bold text-text-secondary">What&rsquo;s the bet?</p>
+          <input
+            placeholder="Max shows up late to the party"
+            value={event}
+            onChange={(e) => setEvent(e.target.value)}
+            maxLength={200}
+            className="w-full rounded-medium border border-line bg-surface p-three focus:border-grape focus:outline-none"
+          />
+          <p className="mt-two mb-one text-xs font-bold text-text-faint">Need ideas?</p>
+          <div className="flex gap-two overflow-x-auto pb-one">
+            {EXAMPLE_BETS.map((example) => (
+              <button
+                key={example}
+                type="button"
+                onClick={() => setEvent(example)}
+                className={`shrink-0 rounded-pill px-three py-two text-sm font-bold whitespace-nowrap ${
+                  event === example
+                    ? 'bg-grape text-on-grape'
+                    : 'border border-line bg-surface text-text-secondary'
+                }`}
+              >
+                {example}
+              </button>
+            ))}
+          </div>
+          <textarea
+            placeholder="Add any details (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            maxLength={2000}
+            className="mt-two w-full rounded-medium border border-line bg-surface p-three"
+          />
         </div>
 
         <div>

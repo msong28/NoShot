@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 import { BottomNav } from '@/components/bottom-nav';
 import { DebtChip } from '@/components/ui/debt-chip';
@@ -26,6 +26,14 @@ function betSubtitle(bet: MyBet): string | undefined {
 }
 
 type Filter = 'all' | 'active' | 'pending' | 'done';
+
+const FILTERS: Filter[] = ['all', 'active', 'pending', 'done'];
+
+/** Reads the initial tab from `?tab=` so other screens can deep-link into a
+ * bucket (e.g. the create flow drops you on `?tab=pending` after sending). */
+function filterFromParam(value: string | null): Filter {
+  return FILTERS.includes(value as Filter) ? (value as Filter) : 'all';
+}
 
 /**
  * Which lifecycle bucket a bet belongs to on this page. This is a plain
@@ -105,7 +113,8 @@ function statusFor(bet: MyBet): { variant: StatusPillVariant; label?: string; yo
 export function BetsScreen() {
   const { session } = useSession();
   const userId = session?.user.id;
-  const [filter, setFilter] = useState<Filter>('all');
+  const [searchParams] = useSearchParams();
+  const [filter, setFilter] = useState<Filter>(() => filterFromParam(searchParams.get('tab')));
 
   const { bets } = useMyBets(userId);
 

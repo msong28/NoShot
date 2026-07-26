@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 
 import { useCreateOrCounterBet } from '@/hooks/use-bets';
 import { useCurrencies } from '@/hooks/use-currencies';
@@ -17,18 +17,28 @@ vi.mock('@/hooks/use-bets', () => ({ useCreateOrCounterBet: vi.fn() }));
 vi.mock('@/hooks/use-currencies', () => ({ useCurrencies: vi.fn() }));
 vi.mock('@/hooks/use-friends', () => ({ useFriends: vi.fn() }));
 
+/** Renders the location the create flow redirects to on success, so tests can
+ * assert where the "Bet sent!" animation drops the user. */
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname + location.search}</div>;
+}
+
 function renderScreen() {
   return render(
-    <MemoryRouter>
-      <CreateScreen />
+    <MemoryRouter initialEntries={['/create']}>
+      <Routes>
+        <Route path="/create" element={<CreateScreen />} />
+        <Route path="*" element={<LocationProbe />} />
+      </Routes>
     </MemoryRouter>,
   );
 }
 
 /** Fills every field "Send bet" requires except whatever the caller still
- * wants to exercise: event, rival, and the default money stake. */
+ * wants to exercise: the bet text, rival, and the default money stake. */
 async function fillCommonFields() {
-  await userEvent.type(screen.getByPlaceholderText('Who does the dishes this week?'), 'Lakers win');
+  await userEvent.type(screen.getByPlaceholderText('Max shows up late to the party'), 'Lakers win');
   await userEvent.click(screen.getByRole('button', { name: /Bob/ }));
 }
 
@@ -223,17 +233,29 @@ describe('CreateScreen', () => {
     );
   });
 
-  it('shows a success screen with a way back home once the bet is created', async () => {
-    vi.mocked(useCreateOrCounterBet).mockReturnValue({
-      mutate: vi.fn(),
-      isPending: false,
-      isSuccess: true,
-    } as never);
+  it('shows a sent confirmation and then redirects to the pending tab', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(useCreateOrCounterBet).mockReturnValue({
+        mutate: vi.fn(),
+        isPending: false,
+        isSuccess: true,
+      } as never);
 
-    renderScreen();
+      renderScreen();
 
-    expect(screen.getByText('Bet sent to your rival!')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'View your bets' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Back to home' })).toHaveAttribute('href', '/home');
+      // The confirmation animation shows first...
+      expect(screen.getByText('Bet sent to your rival!')).toBeInTheDocument();
+      expect(screen.queryByTestId('location')).not.toBeInTheDocument();
+
+      // ...then it hands off to the pending bets so the user sees proof it sent.
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+
+      expect(screen.getByTestId('location')).toHaveTextContent('/bets?tab=pending');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
