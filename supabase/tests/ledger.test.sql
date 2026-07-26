@@ -95,14 +95,6 @@ set
   request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000001';
 
 do $$
-begin
-  perform public.confirm_bet_result(current_setting('test.bet_id')::uuid, (
-    select id from public.bet_result_submissions where bet_id = current_setting('test.bet_id')::uuid
-  ), 'approved');
-end;
-$$;
-
-do $$
 declare
   v_debtor uuid;
   v_creditor uuid;
@@ -251,10 +243,6 @@ do $$
 declare
   v_count integer;
 begin
-  perform public.confirm_bet_result(current_setting('test.tie_bet_id')::uuid, (
-    select id from public.bet_result_submissions where bet_id = current_setting('test.tie_bet_id')::uuid
-  ), 'approved');
-
   select count(*) into v_count from public.ledger_entries where source_id = current_setting('test.tie_bet_id')::uuid;
   if v_count <> 0 then
     raise exception 'FAIL: expected a tied bet to post 0 ledger entries, got %', v_count;
@@ -361,10 +349,6 @@ do $$
 declare
   v_display_name text;
 begin
-  perform public.confirm_bet_result(current_setting('test.no_friend_bet_id')::uuid, (
-    select id from public.bet_result_submissions where bet_id = current_setting('test.no_friend_bet_id')::uuid
-  ), 'approved');
-
   select display_name into v_display_name
   from public.get_ledger_counterparty_profiles (array['cccccccc-0000-0000-0000-000000000003'::uuid])
   where id = 'cccccccc-0000-0000-0000-000000000003';
@@ -411,17 +395,6 @@ do $$
 begin
   perform public.approve_bet_version(current_setting('test.bob_currency_bet_id')::uuid, 1, 'approved');
   perform public.submit_bet_result(current_setting('test.bob_currency_bet_id')::uuid, 'bob_wins', null);
-end;
-$$;
-
-set
-  request.jwt.claim.sub = 'bbbbbbbb-0000-0000-0000-000000000002';
-
-do $$
-begin
-  perform public.confirm_bet_result(current_setting('test.bob_currency_bet_id')::uuid, (
-    select id from public.bet_result_submissions where bet_id = current_setting('test.bob_currency_bet_id')::uuid
-  ), 'approved');
 end;
 $$;
 

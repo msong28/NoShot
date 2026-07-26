@@ -100,24 +100,40 @@ begin
 end;
 $$;
 
--- Alice submits alice_wins; the bet goes to pending_result.
+-- One-person settlement: Alice reports alice_wins and the bet resolves
+-- immediately -- no second confirmation, no dispute for a participant_submission
+-- bet.
 set
   request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000001';
 
 do $$
 declare
   v_status public.bet_status;
-  v_submission_id uuid;
+  v_outcome text;
 begin
-  select status into v_status from public.submit_bet_result(current_setting('test.bet_id')::uuid, 'alice_wins', 'I won');
-  if v_status <> 'pending_result' then
-    raise exception 'FAIL: expected pending_result, got %', v_status;
+  select status, resolved_outcome_key into v_status, v_outcome
+  from public.submit_bet_result(current_setting('test.bet_id')::uuid, 'alice_wins', 'I won');
+  if v_status <> 'resolved' or v_outcome <> 'alice_wins' then
+    raise exception 'FAIL: expected a single submission to settle to alice_wins, got % / %', v_status, v_outcome;
   end if;
+  raise notice 'PASS: a single participant submission settles the bet outright';
+end;
+$$;
 
-  select id into v_submission_id from public.bet_result_submissions
-  where bet_id = current_setting('test.bet_id')::uuid and submitter_id = 'aaaaaaaa-0000-0000-0000-000000000001';
-  perform set_config('test.submission_id', v_submission_id::text, false);
-  raise notice 'PASS: alice submitted a result and the bet is pending confirmation';
+-- Settling posted the winner/loser ledger obligation: bob (loser) owes alice.
+do $$
+declare
+  v_count integer;
+begin
+  select count(*) into v_count from public.ledger_entries
+  where source_type = 'bet' and source_id = current_setting('test.bet_id')::uuid
+    and entry_type = 'bet_settlement'
+    and debtor_id = 'bbbbbbbb-0000-0000-0000-000000000002'
+    and creditor_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+  if v_count <> 1 then
+    raise exception 'FAIL: expected one bet_settlement ledger entry (bob owes alice), saw %', v_count;
+  end if;
+  raise notice 'PASS: settling a bet posts the winner/loser ledger obligation';
 end;
 $$;
 
@@ -135,110 +151,27 @@ begin
 end;
 $$;
 
--- Bob confirms alice's submission; unanimous confirmation resolves the bet.
+-- Once settled, the other participant can no longer report a competing result.
 set
   request.jwt.claim.sub = 'bbbbbbbb-0000-0000-0000-000000000002';
 
 do $$
-declare
-  v_status public.bet_status;
-  v_outcome text;
-begin
-  select status, resolved_outcome_key into v_status, v_outcome
-  from public.confirm_bet_result(current_setting('test.bet_id')::uuid, current_setting('test.submission_id')::uuid, 'approved');
-  if v_status <> 'resolved' or v_outcome <> 'alice_wins' then
-    raise exception 'FAIL: expected resolved/alice_wins, got % / %', v_status, v_outcome;
-  end if;
-  raise notice 'PASS: unanimous confirmation resolves the bet with the right outcome';
-end;
-$$;
-
--- Bob cannot confirm again once resolved.
-do $$
 begin
   begin
-    perform public.confirm_bet_result(current_setting('test.bet_id')::uuid, current_setting('test.submission_id')::uuid, 'approved');
-    raise exception 'FAIL: expected confirming a resolved bet to be rejected';
+    perform public.submit_bet_result(current_setting('test.bet_id')::uuid, 'bob_wins', null);
+    raise exception 'FAIL: expected reporting a result on a settled bet to be rejected';
   exception
     when others then
-      if sqlerrm not like '%no result awaiting confirmation%' then raise; end if;
-      raise notice 'PASS: cannot confirm a result once the bet is resolved';
+      if sqlerrm not like '%not open for a result submission%' then raise; end if;
+      raise notice 'PASS: a settled bet cannot be re-reported by the other side';
   end;
 end;
 $$;
 
--- A fresh bet where alice and bob submit conflicting outcomes -> disputed,
--- then they converge on the same submission -> resolves without a fallback.
-set
-  request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000001';
-
-do $$
-declare
-  v_meal_id uuid;
-  v_bet_id uuid;
-begin
-  select id into v_meal_id from public.currencies where name = 'Meal';
-  select id into v_bet_id from public.create_or_counter_bet(
-    null, null, 'Race you there', '', null, 'participant_submission', null, false,
-    '[{"outcome_key":"alice_wins","label":"Alice wins"},{"outcome_key":"bob_wins","label":"Bob wins"}]'::jsonb,
-    jsonb_build_array(
-      jsonb_build_object('user_id', 'aaaaaaaa-0000-0000-0000-000000000001', 'outcome_key', 'alice_wins', 'currency_id', v_meal_id, 'stake_quantity', 1, 'odds_numerator', 1, 'odds_denominator', 1),
-      jsonb_build_object('user_id', 'bbbbbbbb-0000-0000-0000-000000000002', 'outcome_key', 'bob_wins', 'currency_id', v_meal_id, 'stake_quantity', 1, 'odds_numerator', 1, 'odds_denominator', 1)
-    )
-  );
-  perform set_config('test.dispute_bet_id', v_bet_id::text, false);
-end;
-$$;
-
-set
-  request.jwt.claim.sub = 'bbbbbbbb-0000-0000-0000-000000000002';
-
-do $$
-begin
-  perform public.approve_bet_version(current_setting('test.dispute_bet_id')::uuid, 1, 'approved');
-  perform public.submit_bet_result(current_setting('test.dispute_bet_id')::uuid, 'bob_wins', null);
-end;
-$$;
-
-set
-  request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000001';
-
-do $$
-declare
-  v_status public.bet_status;
-  v_alice_submission_id uuid;
-begin
-  select status into v_status from public.submit_bet_result(current_setting('test.dispute_bet_id')::uuid, 'alice_wins', null);
-  if v_status <> 'disputed' then
-    raise exception 'FAIL: expected disputed on conflicting submissions, got %', v_status;
-  end if;
-
-  select id into v_alice_submission_id from public.bet_result_submissions
-  where bet_id = current_setting('test.dispute_bet_id')::uuid and submitter_id = 'aaaaaaaa-0000-0000-0000-000000000001';
-  perform set_config('test.alice_submission_id', v_alice_submission_id::text, false);
-  raise notice 'PASS: conflicting submissions put the bet into disputed status';
-end;
-$$;
-
--- Alice (who disagreed) confirms bob's original submission instead --
--- agreement resolves the dispute without any fallback.
-do $$
-declare
-  v_bob_submission_id uuid;
-  v_status public.bet_status;
-begin
-  select id into v_bob_submission_id from public.bet_result_submissions
-  where bet_id = current_setting('test.dispute_bet_id')::uuid and submitter_id = 'bbbbbbbb-0000-0000-0000-000000000002';
-
-  select status into v_status from public.confirm_bet_result(current_setting('test.dispute_bet_id')::uuid, v_bob_submission_id, 'approved');
-  if v_status <> 'resolved' then
-    raise exception 'FAIL: expected converging confirmations to resolve the dispute, got %', v_status;
-  end if;
-  raise notice 'PASS: a disputed bet resolves once affected participants converge on one submission';
-end;
-$$;
-
 -- A judge-resolution bet: carol is the judge. Dispute, then only carol can resolve it.
+set
+  request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000001';
+
 do $$
 declare
   v_meal_id uuid;
@@ -444,7 +377,9 @@ end;
 $$;
 
 -- A random-fallback-enabled bet: dispute it, trigger the fallback, and
--- confirm the selected outcome is one of the ones actually submitted.
+-- confirm the selected outcome is one of the ones actually submitted. Uses the
+-- judge method (carol judge) because a participant_submission bet now settles
+-- on the first report and can never reach a disputed state.
 set
   request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000001';
 
@@ -455,7 +390,7 @@ declare
 begin
   select id into v_meal_id from public.currencies where name = 'Meal';
   select id into v_bet_id from public.create_or_counter_bet(
-    null, null, 'Random fallback bet', '', null, 'participant_submission', null, true,
+    null, null, 'Random fallback bet', '', null, 'judge', 'cccccccc-0000-0000-0000-000000000003', true,
     '[{"outcome_key":"alice_wins","label":"Alice wins"},{"outcome_key":"bob_wins","label":"Bob wins"}]'::jsonb,
     jsonb_build_array(
       jsonb_build_object('user_id', 'aaaaaaaa-0000-0000-0000-000000000001', 'outcome_key', 'alice_wins', 'currency_id', v_meal_id, 'stake_quantity', 1, 'odds_numerator', 1, 'odds_denominator', 1),
@@ -472,18 +407,23 @@ set
 do $$
 begin
   perform public.approve_bet_version(current_setting('test.rand_bet_id')::uuid, 1, 'approved');
-  perform public.submit_bet_result(current_setting('test.rand_bet_id')::uuid, 'bob_wins', null);
 end;
 $$;
 
+-- The judge submits two conflicting outcomes to force a genuine dispute.
 set
-  request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000001';
+  request.jwt.claim.sub = 'cccccccc-0000-0000-0000-000000000003';
 
 do $$
 begin
+  perform public.submit_bet_result(current_setting('test.rand_bet_id')::uuid, 'bob_wins', null);
   perform public.submit_bet_result(current_setting('test.rand_bet_id')::uuid, 'alice_wins', null);
 end;
 $$;
+
+-- A participant triggers the random fallback on the now-disputed bet.
+set
+  request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000001';
 
 do $$
 declare
@@ -499,7 +439,7 @@ begin
 end;
 $$;
 
--- A tie: unanimous confirmation on a 'tie' submission moves the bet to tied.
+-- A tie: a single 'tie' report settles the bet as tied outright.
 do $$
 declare
   v_meal_id uuid;
@@ -524,30 +464,15 @@ set
 
 do $$
 declare
-  v_submission_id uuid;
-begin
-  perform public.approve_bet_version(current_setting('test.tie_bet_id')::uuid, 1, 'approved');
-  perform public.submit_bet_result(current_setting('test.tie_bet_id')::uuid, 'tie', null);
-
-  select id into v_submission_id from public.bet_result_submissions
-  where bet_id = current_setting('test.tie_bet_id')::uuid and submitter_id = 'bbbbbbbb-0000-0000-0000-000000000002';
-  perform set_config('test.tie_submission_id', v_submission_id::text, false);
-end;
-$$;
-
-set
-  request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000001';
-
-do $$
-declare
   v_status public.bet_status;
 begin
+  perform public.approve_bet_version(current_setting('test.tie_bet_id')::uuid, 1, 'approved');
   select status into v_status
-  from public.confirm_bet_result(current_setting('test.tie_bet_id')::uuid, current_setting('test.tie_submission_id')::uuid, 'approved');
+  from public.submit_bet_result(current_setting('test.tie_bet_id')::uuid, 'tie', null);
   if v_status <> 'tied' then
     raise exception 'FAIL: expected tied, got %', v_status;
   end if;
-  raise notice 'PASS: a unanimously confirmed tie moves the bet to tied, not resolved';
+  raise notice 'PASS: a single tie report moves the bet to tied, not resolved';
 end;
 $$;
 

@@ -21,12 +21,8 @@ import {
   useApproveBetVersion,
   useApproveCancelBet,
   useBetDetail,
-  useConfirmBetResult,
   useProposeCancelBet,
-  useResolveDispute,
   useSubmitBetResult,
-  useTriggerRandomFallback,
-  useVoteOnDispute,
 } from '@/hooks/use-bets';
 import { useComments, usePostComment } from '@/hooks/use-comments';
 import { useClosePoll, useCreatePoll, usePolls, useVoteOnPoll } from '@/hooks/use-polls';
@@ -132,25 +128,12 @@ export function BetDetailScreen() {
   const { session } = useSession();
   const userId = session?.user.id;
 
-  const {
-    bet,
-    roster,
-    cancellationApprovals,
-    resultSubmissions,
-    resultConfirmations,
-    disputeVotes,
-    disputeResolution,
-    isLoading,
-  } = useBetDetail(betId);
+  const { bet, roster, cancellationApprovals, resultSubmissions, isLoading } = useBetDetail(betId);
 
   const approveBetVersion = useApproveBetVersion(betId, userId);
   const proposeCancelBet = useProposeCancelBet(betId, userId);
   const approveCancelBet = useApproveCancelBet(betId, userId);
   const submitBetResult = useSubmitBetResult(betId, userId);
-  const confirmBetResult = useConfirmBetResult(betId, userId);
-  const voteOnDispute = useVoteOnDispute(betId, userId);
-  const resolveDispute = useResolveDispute(betId, userId);
-  const triggerRandomFallback = useTriggerRandomFallback(betId, userId);
   const { comments } = useComments(betId);
   const postComment = usePostComment(betId);
   const pollScope = useMemo(() => ({ betId }), [betId]);
@@ -234,13 +217,6 @@ export function BetDetailScreen() {
   const myApprovalResponded = myParticipant?.approval !== undefined;
   const myCancellationResponse = cancellationApprovals.find((a) => a.user_id === userId);
   const latestResultSubmission = resultSubmissions[resultSubmissions.length - 1];
-  const myResultConfirmation = latestResultSubmission
-    ? resultConfirmations.find(
-        (c) => c.result_submission_id === latestResultSubmission.id && c.user_id === userId,
-      )
-    : undefined;
-  const myDisputeVote = disputeVotes.find((v) => v.voter_id === userId);
-  const isJudge = bet.resolution_method === 'judge' && bet.judge_id === userId;
   const pill = pillFor(bet.status);
 
   // Fires the win-reveal overlay only for a resolution that happens in
@@ -266,13 +242,11 @@ export function BetDetailScreen() {
   // own agree/keep-active response UI below, not a second cancel trigger.
   const canCancel = bet.status === 'active';
 
-  // Backend allows a result submission starting from 'active' (the first
-  // submission is what moves the bet to pending_result/disputed) -- the
-  // previous gate of pending_result-only meant "Mark result" never
-  // appeared on an active bet, contradicting what submit_bet_result
-  // actually permits (verified in bet_resolution.sql).
-  const canReportResult =
-    (bet.status === 'active' || bet.status === 'pending_result') && !latestResultSubmission;
+  // One-person settlement: whoever reports the outcome on an active
+  // participant_submission bet settles it outright (submit_bet_result finalizes
+  // immediately). Once a result exists the bet is already resolved, so this
+  // only ever shows on a still-active bet.
+  const canReportResult = bet.status === 'active' && !latestResultSubmission;
 
   // README §"Bet thread": chat, photo-proof, and polls are one merged,
   // chronological feed here, not the separate tabs an earlier pass used --
@@ -688,7 +662,11 @@ export function BetDetailScreen() {
 
       {canReportResult ? (
         <>
-          <SectionHeader title="Mark result" />
+          <SectionHeader title="Settle bet" />
+          <p className="mt-two text-text-secondary">
+            Reporting the result settles this bet right away and notifies{' '}
+            {opponent?.profile?.display_name ?? 'the other player'}.
+          </p>
           <div className="mt-two flex flex-col gap-two">
             <select
               value={resultOutcomeKey}
@@ -716,7 +694,7 @@ export function BetDetailScreen() {
               fullWidth
               disabled={!resultOutcomeKey}
               onClick={() =>
-                run(
+                runAndCheckWin(
                   submitBetResult.mutateAsync({
                     outcomeKey: resultOutcomeKey,
                     rationale: resultRationale || undefined,
@@ -724,104 +702,9 @@ export function BetDetailScreen() {
                 )
               }
             >
-              Mark result
+              Settle bet
             </Button>
           </div>
-        </>
-      ) : null}
-
-      {bet.status === 'pending_result' &&
-      latestResultSubmission &&
-      !myResultConfirmation &&
-      latestResultSubmission.submitter_id !== userId ? (
-        <>
-          <SectionHeader title="Confirm the reported result" />
-          <p className="mt-two text-text-secondary">
-            Proposed outcome: {latestResultSubmission.proposed_outcome_key}
-            {latestResultSubmission.rationale ? ` — ${latestResultSubmission.rationale}` : ''}
-          </p>
-          <div className="mt-two flex gap-two">
-            <Button
-              variant="primary"
-              onClick={() =>
-                runAndCheckWin(
-                  confirmBetResult.mutateAsync({
-                    resultSubmissionId: latestResultSubmission.id,
-                    decision: 'approved',
-                  }),
-                )
-              }
-            >
-              Confirm
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() =>
-                run(
-                  confirmBetResult.mutateAsync({
-                    resultSubmissionId: latestResultSubmission.id,
-                    decision: 'declined',
-                  }),
-                )
-              }
-            >
-              Dispute
-            </Button>
-          </div>
-        </>
-      ) : null}
-
-      {bet.status === 'disputed' ? (
-        <>
-          <SectionHeader title="Disputed" />
-          {disputeResolution ? (
-            <p className="mt-two text-text-secondary">
-              Resolved as: {disputeResolution.selected_outcome_key}
-            </p>
-          ) : (
-            <div className="mt-two flex flex-col gap-two">
-              {isJudge ? (
-                <div className="flex flex-wrap gap-two">
-                  {roster.map(({ side }) =>
-                    side ? (
-                      <Button
-                        key={side.id}
-                        variant="primary"
-                        className="px-three py-two text-sm"
-                        onClick={() => runAndCheckWin(resolveDispute.mutateAsync(side.outcome_key))}
-                      >
-                        Rule for {side.label}
-                      </Button>
-                    ) : null,
-                  )}
-                </div>
-              ) : bet.resolution_method === 'group_vote' && !myDisputeVote ? (
-                <div className="flex flex-wrap gap-two">
-                  {roster.map(({ side }) =>
-                    side ? (
-                      <Button
-                        key={side.id}
-                        variant="secondary"
-                        className="px-three py-two text-sm"
-                        onClick={() => run(voteOnDispute.mutateAsync(side.outcome_key))}
-                      >
-                        Vote {side.label}
-                      </Button>
-                    ) : null,
-                  )}
-                </div>
-              ) : null}
-              {bet.random_fallback_enabled ? (
-                <Button
-                  variant="secondary"
-                  className="self-start"
-                  onClick={() => runAndCheckWin(triggerRandomFallback.mutateAsync())}
-                >
-                  Trigger random fallback
-                </Button>
-              ) : null}
-            </div>
-          )}
         </>
       ) : null}
 
