@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 
-import { useBetDetail, useSubmitBetResult } from '@/hooks/use-bets';
+import { useApproveBetVersion, useBetDetail, useSubmitBetResult } from '@/hooks/use-bets';
 import { useComments, usePostComment } from '@/hooks/use-comments';
 import { useClosePoll, useCreatePoll, usePolls, useVoteOnPoll } from '@/hooks/use-polls';
 import { useProofAssets, useUploadProof } from '@/hooks/use-proof';
@@ -269,6 +269,28 @@ describe('BetDetailScreen', () => {
 
     expect(screen.getByText('Who wins?')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Team A0' })).toBeInTheDocument();
+  });
+
+  it('celebrates acceptance and redirects to Active when approving activates the bet', async () => {
+    const activeBet = { ...BET, status: 'active' as const };
+    const mutateAsync = vi.fn().mockResolvedValue(activeBet);
+    vi.mocked(useApproveBetVersion).mockReturnValue({ mutateAsync, isPending: false } as never);
+
+    mockBetDetail({
+      bet: { ...BET, status: 'pending_acceptance' as const },
+      roster: [{ ...ROSTER[0], approval: undefined }],
+    } as never);
+
+    renderScreen();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+
+    // The acceptance animation shows...
+    expect(await screen.findByText('Bet accepted!')).toBeInTheDocument();
+
+    // ...and continuing lands them on the Active tab.
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByTestId('location')).toHaveTextContent('/bets?tab=active');
   });
 
   it('reveals the result on settle and then drops the settler on their Done bets', async () => {

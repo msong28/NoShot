@@ -16,6 +16,7 @@ import { InlineError } from '@/components/ui/inline-error';
 import { ListRow } from '@/components/ui/list-row';
 import { SectionHeader } from '@/components/ui/section-header';
 import { StatusPill, type StatusPillVariant } from '@/components/ui/status-pill';
+import { ConfirmReveal } from '@/components/ui/confirm-reveal';
 import { SettleReveal, type SettleOutcome } from '@/components/ui/settle-reveal';
 import {
   useApproveBetVersion,
@@ -28,7 +29,7 @@ import { useComments, usePostComment } from '@/hooks/use-comments';
 import { useClosePoll, useCreatePoll, usePolls, useVoteOnPoll } from '@/hooks/use-polls';
 import { useProofAssets, useUploadProof } from '@/hooks/use-proof';
 import { useSession } from '@/hooks/use-session';
-import { TIE_OUTCOME_KEY, type Bet, type BetStatus } from '@/lib/bet';
+import { TIE_OUTCOME_KEY, type Bet, type BetApprovalDecision, type BetStatus } from '@/lib/bet';
 import { getErrorMessage } from '@/lib/errors';
 import { Icons } from '@/lib/icons';
 import { chooseNativeProofPhoto, takeNativeProofPhoto } from '@/lib/native-photo';
@@ -156,6 +157,7 @@ export function BetDetailScreen() {
   );
   const [showPollForm, setShowPollForm] = useState(false);
   const [settleOutcome, setSettleOutcome] = useState<SettleOutcome | null>(null);
+  const [showAccepted, setShowAccepted] = useState(false);
   const [pendingProofFile, setPendingProofFile] = useState<File | null>(null);
   const [pendingProofPreviewUrl, setPendingProofPreviewUrl] = useState<string | null>(null);
   const [pendingProofCaption, setPendingProofCaption] = useState('');
@@ -233,6 +235,21 @@ export function BetDetailScreen() {
         } else if (updatedBet.status === 'resolved') {
           const iWon = myParticipant?.side?.outcome_key === updatedBet.resolved_outcome_key;
           setSettleOutcome(iWon ? 'won' : 'lost');
+        }
+      })
+      .catch((err: unknown) => setError(getErrorMessage(err, 'Something went wrong')));
+  }
+
+  // Approving the current version can flip a fully-agreed bet to active. When
+  // it does, celebrate it and send them to their Active bets; a decline (or an
+  // approval that still leaves others pending) just updates in place.
+  function handleApproval(decision: BetApprovalDecision, versionNo: number) {
+    setError(null);
+    approveBetVersion
+      .mutateAsync({ versionNo, decision })
+      .then((updatedBet) => {
+        if (decision === 'approved' && updatedBet.status === 'active') {
+          setShowAccepted(true);
         }
       })
       .catch((err: unknown) => setError(getErrorMessage(err, 'Something went wrong')));
@@ -613,27 +630,13 @@ export function BetDetailScreen() {
           <div className="mt-two flex gap-two">
             <Button
               variant="primary"
-              onClick={() =>
-                run(
-                  approveBetVersion.mutateAsync({
-                    versionNo: bet.current_version,
-                    decision: 'approved',
-                  }),
-                )
-              }
+              onClick={() => handleApproval('approved', bet.current_version)}
             >
               Approve
             </Button>
             <Button
               variant="secondary"
-              onClick={() =>
-                run(
-                  approveBetVersion.mutateAsync({
-                    versionNo: bet.current_version,
-                    decision: 'declined',
-                  }),
-                )
-              }
+              onClick={() => handleApproval('declined', bet.current_version)}
             >
               Decline
             </Button>
@@ -758,6 +761,15 @@ export function BetDetailScreen() {
         targetId={reportTarget?.id ?? null}
         onClose={() => setReportTarget(null)}
       />
+
+      {showAccepted ? (
+        <ConfirmReveal
+          emoji="🤞"
+          title="Bet accepted!"
+          subtitle="It's on. Good luck."
+          onDone={() => navigate('/bets?tab=active', { replace: true })}
+        />
+      ) : null}
 
       {settleOutcome ? (
         <SettleReveal
