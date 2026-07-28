@@ -15,10 +15,10 @@ import { getErrorMessage } from '@/lib/errors';
 import { buildBetInput, computeOddsStakes } from '@/lib/wager';
 
 /** A curated slice of the shared currencies table for the "Custom" stake
- * picker: the caller's own previously-created ones first (most recent
- * first, since those are the "options we've previously added"), then
- * built-ins filling any remaining slots -- capped well below the full list
- * so it doesn't turn into the wall of chips the old create.tsx had. */
+ * picker: the caller's own currencies first, in the order they've arranged
+ * on the "Manage stakes" screen, then built-ins filling any remaining slots
+ * -- capped well below the full list so it doesn't turn into the wall of
+ * chips the old create.tsx had. */
 const MAX_CURRENCY_SUGGESTIONS = 6;
 
 /** Tappable starter ideas for the "What's the bet?" field -- concrete,
@@ -84,10 +84,11 @@ export function CreateScreen() {
   const stakeValid = Number.isFinite(stake) && stake > 0;
   const currencyValid = currencyKind === 'money' || !!currencyId;
 
+  // useCurrencies already orders by sort_order (the "Manage stakes" screen's
+  // reorder controls), so no client-side re-sort here -- that ordering is
+  // exactly what should surface in this picker.
   const approvedCurrencies = (currencies ?? []).filter((c) => c.moderation_status === 'approved');
-  const ownCurrencies = approvedCurrencies
-    .filter((c) => !c.is_builtin)
-    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const ownCurrencies = approvedCurrencies.filter((c) => !c.is_builtin);
   const builtinCurrencies = approvedCurrencies.filter(
     (c) => c.is_builtin && c.id !== MONEY_CURRENCY_ID,
   );
@@ -201,7 +202,7 @@ export function CreateScreen() {
       <div className="mt-four flex flex-col gap-four">
         <div>
           <p className="mb-two text-sm font-bold text-text-secondary">Who are you betting?</p>
-          <div className="flex gap-three overflow-x-auto pb-one">
+          <div className="flex gap-three overflow-x-auto pt-one pb-one">
             {friends.map(({ profile }) => (
               <button
                 key={profile.id}

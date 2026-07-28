@@ -18,6 +18,7 @@ export type Currency = {
   group_id: string | null;
   is_builtin: boolean;
   moderation_status: CurrencyModerationStatus;
+  sort_order: number;
   created_at: string;
 };
 

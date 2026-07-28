@@ -555,6 +555,34 @@ export function useProposeBetAmendment(betId: string | undefined, userId: string
   });
 }
 
+// Editing a still-pending bet's description/stake/currency, scoped to the
+// creator before the other side has accepted. Reuses create_or_counter_bet
+// (the same counter-offer path the wizard uses) rather than a bespoke RPC --
+// a version bump that resets approvals is exactly the right behaviour here,
+// since the rival should see and re-approve the changed terms. Sides and
+// odds are passed through byte-for-byte from the caller (see bet-detail.tsx)
+// -- this hook doesn't interpret or recompute them.
+export function useEditPendingBetDetails(betId: string | undefined, userId: string | undefined) {
+  const invalidateBet = useInvalidateBetDetail(betId);
+  const invalidateMyBets = useInvalidateMyBets(userId);
+  return useMutation({
+    mutationFn: async (
+      input: Omit<CreateOrCounterBetInput, 'betId' | 'isDraft'>,
+    ): Promise<Bet> => {
+      const { data, error } = await supabase.rpc(
+        'create_or_counter_bet',
+        toRpcArgs({ ...input, betId, isDraft: false }),
+      );
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      invalidateBet();
+      invalidateMyBets();
+    },
+  });
+}
+
 export function useSubmitDraftBet(userId: string | undefined) {
   const invalidateMyBets = useInvalidateMyBets(userId);
   return useMutation({
@@ -602,6 +630,18 @@ export function useApproveCancelBet(betId: string | undefined, userId: string | 
       invalidateBet();
       invalidateMyBets();
     },
+  });
+}
+
+export function useWithdrawBet(userId: string | undefined) {
+  const invalidateMyBets = useInvalidateMyBets(userId);
+  return useMutation({
+    mutationFn: async (betId: string): Promise<Bet> => {
+      const { data, error } = await supabase.rpc('withdraw_bet', { p_bet_id: betId });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: invalidateMyBets,
   });
 }
 

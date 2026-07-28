@@ -20,7 +20,7 @@ function slidesFor(firstName: string): Slide[] {
     {
       brickVariant: 'default',
       title: 'Challenge a friend to anything',
-      body: "Chores, coffee, who's right about something — no real money, just bragging rights.",
+      body: "Chores, coffee, who's right about something — just bragging rights.",
     },
     {
       brickVariant: 'waiting',

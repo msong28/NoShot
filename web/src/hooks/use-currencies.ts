@@ -24,6 +24,7 @@ export function useCurrencies(scope: CurrencyScope) {
         .select('*')
         .or(`is_builtin.eq.true,${scopeFilter}`)
         .order('is_builtin', { ascending: false })
+        .order('sort_order', { ascending: true })
         .order('name', { ascending: true });
 
       if (error) throw error;
@@ -58,6 +59,47 @@ export function useCreateCurrency(scope: CurrencyScope) {
 
       if (error) throw error;
       return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: currenciesQueryKey(scope) }),
+  });
+}
+
+export function useDeleteCurrency(scope: CurrencyScope) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const { error } = await supabase.from('currencies').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: currenciesQueryKey(scope) }),
+  });
+}
+
+/** Swaps two currencies' sort_order so one moves up/down in the "Yours"
+ * list -- the two updates aren't atomic, but a failed second write just
+ * leaves both currencies with their prior order (still valid, if
+ * momentarily identical) rather than any invalid state. */
+export function useReorderCurrency(scope: CurrencyScope) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      a,
+      b,
+    }: {
+      a: { id: string; sortOrder: number };
+      b: { id: string; sortOrder: number };
+    }): Promise<void> => {
+      const { error: firstError } = await supabase
+        .from('currencies')
+        .update({ sort_order: b.sortOrder })
+        .eq('id', a.id);
+      if (firstError) throw firstError;
+
+      const { error: secondError } = await supabase
+        .from('currencies')
+        .update({ sort_order: a.sortOrder })
+        .eq('id', b.id);
+      if (secondError) throw secondError;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: currenciesQueryKey(scope) }),
   });

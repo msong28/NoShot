@@ -4,9 +4,14 @@
  * -- brand logos need their own fixed artwork, not a swappable glyph.
  */
 export function AppleLogo({ size = 18 }: { size?: number }) {
+  // The artwork's viewBox is portrait (384x512, not square) -- forcing a
+  // square box would letterbox it and make the mark look noticeably
+  // smaller than GoogleLogo's square glyph at the same `size`. Deriving
+  // width from the viewBox's aspect ratio keeps the artwork edge-to-edge.
+  const width = (size * 384) / 512;
   return (
     <svg
-      width={size}
+      width={width}
       height={size}
       viewBox="0 0 384 512"
       fill="currentColor"

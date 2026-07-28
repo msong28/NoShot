@@ -91,7 +91,9 @@ export function SignInScreen() {
           disabled={pendingProvider !== null}
           onClick={() => handleSignIn('apple')}
         >
-          <AppleLogo />
+          {/* Apple's mark reads visually smaller than Google's square "G"
+              badge at equal `size` -- bump it a bit to match optical weight. */}
+          <AppleLogo size={22} />
           {pendingProvider === 'apple' ? 'Signing in…' : 'Continue with Apple'}
         </Button>
         <Button

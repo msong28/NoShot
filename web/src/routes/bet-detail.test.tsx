@@ -23,6 +23,12 @@ vi.mock('@/hooks/use-bets', () => ({
   useSubmitBetResult: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
   useTriggerRandomFallback: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
   useVoteOnDispute: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useWithdrawBet: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useEditPendingBetDetails: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useCreateOrCounterBet: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+}));
+vi.mock('@/hooks/use-currencies', () => ({
+  useCurrencies: vi.fn(() => ({ data: [] })),
 }));
 vi.mock('@/hooks/use-comments', () => ({
   useComments: vi.fn(),
