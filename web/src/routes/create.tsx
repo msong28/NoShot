@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import { Avatar } from '@/components/ui/avatar';
 import { BackButton } from '@/components/ui/back-button';
 import { Button } from '@/components/ui/button';
+import { ConfirmReveal } from '@/components/ui/confirm-reveal';
 import { InlineError } from '@/components/ui/inline-error';
 import { useCreateOrCounterBet } from '@/hooks/use-bets';
 import { useCurrencies } from '@/hooks/use-currencies';
@@ -31,10 +32,6 @@ const EXAMPLE_BETS = [
   'Nobody finishes the whole pizza',
   'It rains this weekend',
 ] as const;
-
-/** How long the "Bet sent!" confirmation animation holds before we send the
- * creator to their pending bets. */
-const SENT_ANIMATION_MS = 1500;
 
 /**
  * Ground-up rebuild of bet creation (see conversation for the full design
@@ -179,32 +176,17 @@ export function CreateScreen() {
     );
   }
 
-  // After the send lands, hold the confirmation animation briefly, then drop
-  // the creator on their Pending bets so they see proof it went through.
-  useEffect(() => {
-    if (!createBet.isSuccess) return;
-    const timer = setTimeout(() => {
-      navigate('/bets?tab=pending', { replace: true });
-    }, SENT_ANIMATION_MS);
-    return () => clearTimeout(timer);
-  }, [createBet.isSuccess, navigate]);
-
+  // On send, show the confirmation animation; tapping continue drops the
+  // creator on their Pending bets so they see proof it went through -- same
+  // click-to-continue reveal used everywhere else.
   if (createBet.isSuccess) {
     return (
-      <main className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-four bg-grape p-four text-center text-white">
-        <div className="relative flex h-28 w-28 items-center justify-center">
-          <span aria-hidden className="absolute inset-0 rounded-pill bg-white/25 animate-ping" />
-          <span className="relative flex h-28 w-28 animate-bounce items-center justify-center rounded-pill bg-white text-5xl">
-            🤝
-          </span>
-        </div>
-        <div>
-          <p className="font-display text-lg font-extrabold">
-            Bet sent to {rivalName ?? 'your rival'}!
-          </p>
-          <p className="mt-one text-white/80">Waiting for them to accept&hellip;</p>
-        </div>
-      </main>
+      <ConfirmReveal
+        emoji="🤝"
+        title={`Bet sent to ${rivalName ?? 'your rival'}!`}
+        subtitle="Waiting for them to accept…"
+        onDone={() => navigate('/bets?tab=pending', { replace: true })}
+      />
     );
   }
 

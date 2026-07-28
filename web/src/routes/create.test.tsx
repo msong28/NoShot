@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { act, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 
@@ -233,29 +233,22 @@ describe('CreateScreen', () => {
     );
   });
 
-  it('shows a sent confirmation and then redirects to the pending tab', async () => {
-    vi.useFakeTimers();
-    try {
-      vi.mocked(useCreateOrCounterBet).mockReturnValue({
-        mutate: vi.fn(),
-        isPending: false,
-        isSuccess: true,
-      } as never);
+  it('shows a sent confirmation and then redirects to the pending tab on continue', async () => {
+    vi.mocked(useCreateOrCounterBet).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+      isSuccess: true,
+    } as never);
 
-      renderScreen();
+    renderScreen();
 
-      // The confirmation animation shows first...
-      expect(screen.getByText('Bet sent to your rival!')).toBeInTheDocument();
-      expect(screen.queryByTestId('location')).not.toBeInTheDocument();
+    // The confirmation animation shows first...
+    expect(screen.getByText('Bet sent to your rival!')).toBeInTheDocument();
+    expect(screen.queryByTestId('location')).not.toBeInTheDocument();
 
-      // ...then it hands off to the pending bets so the user sees proof it sent.
-      act(() => {
-        vi.advanceTimersByTime(1500);
-      });
+    // ...then tapping continue hands off to the pending bets.
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
-      expect(screen.getByTestId('location')).toHaveTextContent('/bets?tab=pending');
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(screen.getByTestId('location')).toHaveTextContent('/bets?tab=pending');
   });
 });

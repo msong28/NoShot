@@ -1,11 +1,4 @@
-import { useEffect } from 'react';
-
 export type SettleOutcome = 'won' | 'lost' | 'tied';
-
-/** How long the reveal holds before it hands the settler off to their Done
- * bets. Kept short and punchy -- this is a "here's what happened" beat, not a
- * loading screen; a tap skips it early. */
-const HOLD_MS = 2200;
 
 const CONFETTI = [
   { top: '18%', left: '14%', color: 'bg-lime', rotate: '15deg' },
@@ -35,8 +28,10 @@ const THEME: Record<
 /**
  * Same-session "here's what happened" overlay shown to whoever settles a bet,
  * for every outcome -- a quick, fun beat that showcases the result (including a
- * loss) and then drops them on their Done bets via `onDone`. Only fires off the
- * settling action in this page session, never on a plain revisit.
+ * loss). The animation plays and a tap anywhere continues via `onDone` (which
+ * drops them on their Done bets); it never auto-advances, matching every other
+ * reveal. Only fires off the settling action in this page session, never on a
+ * plain revisit.
  */
 export function SettleReveal({
   outcome,
@@ -55,11 +50,6 @@ export function SettleReveal({
   currencyIcon?: string | null;
   onDone: () => void;
 }) {
-  useEffect(() => {
-    const timer = setTimeout(onDone, HOLD_MS);
-    return () => clearTimeout(timer);
-  }, [onDone]);
-
   const theme = THEME[outcome];
   const amountLabel = `${currencyIcon ? `${currencyIcon} ` : ''}${currencyName ?? 'Payout'} ×${amount}`;
 

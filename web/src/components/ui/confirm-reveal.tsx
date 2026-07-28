@@ -1,15 +1,9 @@
-import { useEffect } from 'react';
-
-/** How long the reveal holds before it auto-advances via `onDone`. Short and
- * punchy -- a "here's what just happened" beat, not a loading screen; a tap
- * skips it early. */
-const HOLD_MS = 1600;
-
 /**
  * A quick, fun full-screen confirmation overlay (emoji + headline) for a
- * positive action that just landed -- e.g. a bet being accepted. Auto-advances
- * to `onDone` after a short hold, and a tap skips it. Only fires off an action
- * in this page session, never on a plain revisit.
+ * positive action that just landed -- e.g. a bet being sent or accepted. The
+ * animation plays and a tap anywhere continues via `onDone`; it never
+ * auto-advances, so every reveal in the app is dismissed the same way. Only
+ * fires off an action in this page session, never on a plain revisit.
  */
 export function ConfirmReveal({
   emoji,
@@ -22,11 +16,6 @@ export function ConfirmReveal({
   subtitle?: string;
   onDone: () => void;
 }) {
-  useEffect(() => {
-    const timer = setTimeout(onDone, HOLD_MS);
-    return () => clearTimeout(timer);
-  }, [onDone]);
-
   return (
     <button
       type="button"
@@ -44,6 +33,7 @@ export function ConfirmReveal({
         <p className="font-display text-lg font-extrabold">{title}</p>
         {subtitle ? <p className="mt-one text-white/80">{subtitle}</p> : null}
       </div>
+      <p className="mt-two text-xs font-bold text-white/60">Tap to continue</p>
     </button>
   );
 }
