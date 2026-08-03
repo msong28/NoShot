@@ -12,7 +12,8 @@ import { BalancesScreen } from '@/routes/balances';
 import { BetDetailScreen } from '@/routes/bet-detail';
 import { BetsScreen } from '@/routes/bets';
 import { CommunityGuidelinesScreen } from '@/routes/community-guidelines';
-import { CreateScreen } from '@/routes/create';
+import { CreateBetDetailsScreen } from '@/routes/create-bet-details';
+import { CreatePickRivalScreen } from '@/routes/create-pick-rival';
 import { CurrenciesScreen } from '@/routes/currencies';
 import { DeleteAccountScreen } from '@/routes/delete-account';
 import { EditProfileScreen } from '@/routes/edit-profile';
@@ -66,7 +67,8 @@ export function App() {
             <Route path="/edit-profile" element={<EditProfileScreen />} />
             <Route path="/bet/:betId" element={<BetDetailScreen />} />
             <Route path="/group/:groupId" element={<GroupDetailScreen />} />
-            <Route path="/create" element={<CreateScreen />} />
+            <Route path="/create" element={<CreatePickRivalScreen />} />
+            <Route path="/create/:rivalId" element={<CreateBetDetailsScreen />} />
             <Route path="/my-wagers" element={<MyWagersScreen />} />
             <Route path="/balances" element={<BalancesScreen />} />
             <Route path="/currencies" element={<CurrenciesScreen />} />
