@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 
@@ -107,17 +107,14 @@ describe('CreateBetDetailsScreen', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/create');
   });
 
-  it('both the recent-bets and currency icon buttons show a visible chevron', () => {
+  it('the recent-bets and currency buttons show only their glyph, no dropdown arrow', () => {
     renderScreen();
 
     const recentBetsButton = screen.getByLabelText('Recent bets');
     const currencyButton = screen.getByLabelText('Choose stake currency');
 
-    // Recent bets: a clock glyph plus the chevron. Currency: an emoji glyph
-    // (not an svg) plus the chevron -- either way, the chevron itself must
-    // render, since a bare glyph with no chevron is Splitwise's own defect.
-    expect(recentBetsButton.querySelectorAll('svg').length).toBe(2);
-    expect(currencyButton.querySelectorAll('svg').length).toBe(1);
+    expect(recentBetsButton.querySelectorAll('svg').length).toBe(1);
+    expect(currencyButton.querySelectorAll('svg').length).toBe(0);
     expect(currencyButton.textContent).toContain('💵');
   });
 
@@ -139,7 +136,12 @@ describe('CreateBetDetailsScreen', () => {
     await userEvent.click(screen.getByText('Coffee run bet'));
 
     expect(screen.getByPlaceholderText('What’s the bet?')).toHaveValue('Coffee run bet');
-    expect(screen.queryByText('Recent bets', { selector: 'h2' })).not.toBeInTheDocument();
+    // The sheet's exit animation (AnimatePresence) keeps it mounted for the
+    // duration of the slide-down, so its removal has to be awaited rather
+    // than asserted synchronously.
+    await waitFor(() =>
+      expect(screen.queryByText('Recent bets', { selector: 'h2' })).not.toBeInTheDocument(),
+    );
   });
 
   it('shows an empty state in the recent-bets sheet when the user has no bet history', async () => {

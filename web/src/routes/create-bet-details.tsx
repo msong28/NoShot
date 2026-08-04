@@ -22,14 +22,13 @@ const MAX_RECENT_BETS = 10;
 
 /**
  * Screen 2 of the Splitwise-"Add expense"-style create flow: event + stake,
- * laid out like Splitwise's description/amount rows, each with a
- * tappable icon button (with a visible chevron -- Splitwise's own pickers
- * famously lack one) opening a sheet. All mapping/validation/mutation logic
- * is unchanged from the previous single-screen create.tsx; only the
+ * laid out like Splitwise's description/amount rows, each with a tappable
+ * icon button opening a full-height sheet. All mapping/validation/mutation
+ * logic is unchanged from the previous single-screen create.tsx; only the
  * layout and the rival source (a route param instead of in-page state)
  * changed. The optional modifiers (win conditions, line, odds, deadline)
- * aren't part of the Splitwise mock but are kept as collapsible sections
- * below the two headline rows so no existing capability is lost.
+ * aren't part of the Splitwise mock but are kept behind a "More betting
+ * options" toggle so no existing capability is lost.
  */
 export function CreateBetDetailsScreen() {
   const { rivalId = '' } = useParams();
@@ -234,44 +233,42 @@ export function CreateBetDetailsScreen() {
       </button>
 
       <div className="mt-four flex flex-col gap-four">
-        <div className="flex items-center gap-two">
+        <div className="flex items-center gap-three">
           <button
             type="button"
             onClick={() => setRecentBetsOpen(true)}
             aria-label="Recent bets"
-            className="flex shrink-0 items-center gap-half rounded-medium border border-line bg-surface-sunken p-three text-text-secondary"
+            className="flex shrink-0 items-center justify-center rounded-medium border border-line bg-surface-sunken p-four text-text-secondary"
           >
-            <Icons.activity size={18} strokeWidth={1.75} />
-            <Icons.disclosure size={14} strokeWidth={2} />
+            <Icons.activity size={24} strokeWidth={1.75} />
           </button>
           <input
             placeholder="What’s the bet?"
             value={event}
             onChange={(e) => setEvent(e.target.value)}
             maxLength={200}
-            className="w-full rounded-medium border border-line bg-surface p-three text-sm outline-none focus:border-grape placeholder:text-text-faint"
+            className="w-full rounded-medium border border-line bg-surface p-four text-base outline-none focus:border-grape placeholder:text-text-faint"
           />
         </div>
 
-        <div className="flex items-center gap-two">
+        <div className="flex items-center gap-three">
           <button
             type="button"
             onClick={() => setCurrencySheetOpen(true)}
             aria-label="Choose stake currency"
-            className="flex shrink-0 items-center gap-half rounded-medium border border-line bg-surface-sunken p-three"
+            className="flex shrink-0 items-center justify-center rounded-medium border border-line bg-surface-sunken p-four"
           >
-            <span className="text-lg leading-none">{selectedCurrencyIcon}</span>
-            <Icons.disclosure size={14} strokeWidth={2} className="text-text-faint" />
+            <span className="text-2xl leading-none">{selectedCurrencyIcon}</span>
           </button>
-          <div className="flex w-full items-center gap-two rounded-medium border border-line bg-surface p-three">
+          <div className="flex w-full items-center gap-two rounded-medium border border-line bg-surface p-four">
             <input
               placeholder="What are you wagering?"
               value={stakeAmount}
               onChange={(e) => setStakeAmount(e.target.value.replace(/[^0-9.]/g, ''))}
               inputMode="decimal"
-              className="w-full bg-transparent text-sm outline-none placeholder:text-text-faint"
+              className="w-full bg-transparent text-base outline-none placeholder:text-text-faint"
             />
-            <span className="shrink-0 text-sm font-bold text-text-secondary">
+            <span className="shrink-0 text-base font-bold text-text-secondary">
               {selectedCurrencyLabel}
             </span>
           </div>
@@ -280,11 +277,11 @@ export function CreateBetDetailsScreen() {
         <button
           type="button"
           onClick={() => setMoreOptionsOpen((v) => !v)}
-          className="flex items-center gap-one self-start text-sm font-bold text-grape-ink"
+          className="flex items-center gap-one self-start text-base font-bold text-grape-ink"
         >
           More betting options
           <Icons.disclosure
-            size={16}
+            size={18}
             strokeWidth={2}
             className={moreOptionsOpen ? 'rotate-180' : ''}
           />
@@ -498,7 +495,7 @@ export function CreateBetDetailsScreen() {
           fullWidth
           disabled={!canSubmit}
           onClick={submit}
-          className="py-four text-lg"
+          className="py-five text-xl"
         >
           {createBet.isPending ? 'Sending…' : 'Send bet'}
         </Button>
