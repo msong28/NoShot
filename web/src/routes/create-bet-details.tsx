@@ -5,11 +5,12 @@ import { Avatar } from '@/components/ui/avatar';
 import { BackButton } from '@/components/ui/back-button';
 import { Button } from '@/components/ui/button';
 import { ConfirmReveal } from '@/components/ui/confirm-reveal';
-import { EmptyState } from '@/components/ui/empty-state';
+import { Eyebrow } from '@/components/ui/eyebrow';
 import { InlineError } from '@/components/ui/inline-error';
 import { Sheet } from '@/components/ui/sheet';
 import { useCreateOrCounterBet, useMyBets } from '@/hooks/use-bets';
 import { useCurrencies } from '@/hooks/use-currencies';
+import { useCustomBetTemplates } from '@/hooks/use-custom-bet-templates';
 import { useFriends } from '@/hooks/use-friends';
 import { useSession } from '@/hooks/use-session';
 import { MONEY_CURRENCY_ID } from '@/lib/currency';
@@ -40,6 +41,11 @@ export function CreateBetDetailsScreen() {
   const { bets } = useMyBets(userId);
   const createBet = useCreateOrCounterBet(userId);
   const { data: currencies } = useCurrencies({ ownerUserId: userId as string });
+  const {
+    templates: customBetTemplates,
+    addTemplate: addCustomBetTemplate,
+    removeTemplate: removeCustomBetTemplate,
+  } = useCustomBetTemplates(userId);
 
   const rival = friends.find((f) => f.profile.id === rivalId)?.profile;
   const rivalName = rival?.display_name;
@@ -83,6 +89,7 @@ export function CreateBetDetailsScreen() {
   const [recentBetsOpen, setRecentBetsOpen] = useState(false);
   const [currencySheetOpen, setCurrencySheetOpen] = useState(false);
   const [moreOptionsOpen, setMoreOptionsOpen] = useState(false);
+  const [newCustomBet, setNewCustomBet] = useState('');
 
   const stake = Number.parseFloat(stakeAmount);
   const stakeValid = Number.isFinite(stake) && stake > 0;
@@ -502,11 +509,11 @@ export function CreateBetDetailsScreen() {
       </div>
 
       <Sheet visible={recentBetsOpen} title="Recent bets" onClose={() => setRecentBetsOpen(false)}>
+        <Eyebrow>Recents</Eyebrow>
         {recentBetTitles.length === 0 ? (
-          <EmptyState
-            title="No recent bets yet"
-            description="Bets you create will show up here for quick reuse."
-          />
+          <p className="text-sm text-text-faint">
+            Bets you create will show up here for quick reuse.
+          </p>
         ) : (
           recentBetTitles.map((title) => (
             <button
@@ -522,6 +529,58 @@ export function CreateBetDetailsScreen() {
             </button>
           ))
         )}
+
+        <Eyebrow className="mt-two">Custom</Eyebrow>
+        {customBetTemplates.length === 0 ? (
+          <p className="text-sm text-text-faint">Save a bet below to reuse it here anytime.</p>
+        ) : (
+          customBetTemplates.map((title) => (
+            <div key={title} className="flex items-center gap-two">
+              <button
+                type="button"
+                onClick={() => {
+                  setEvent(title);
+                  setRecentBetsOpen(false);
+                }}
+                className="flex-1 rounded-medium border border-line bg-surface p-three text-left text-sm font-bold"
+              >
+                {title}
+              </button>
+              <button
+                type="button"
+                aria-label={`Remove "${title}" from custom bets`}
+                onClick={() => removeCustomBetTemplate(title)}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-pill bg-surface-sunken text-text-secondary"
+              >
+                <Icons.close size={14} strokeWidth={2} />
+              </button>
+            </div>
+          ))
+        )}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            addCustomBetTemplate(newCustomBet);
+            setNewCustomBet('');
+          }}
+          className="flex items-center gap-two"
+        >
+          <input
+            placeholder="Add one you want to repeat"
+            value={newCustomBet}
+            onChange={(e) => setNewCustomBet(e.target.value)}
+            maxLength={200}
+            className="w-full rounded-medium border border-line bg-surface p-three text-sm outline-none focus:border-grape placeholder:text-text-faint"
+          />
+          <button
+            type="submit"
+            disabled={!newCustomBet.trim()}
+            aria-label="Add custom bet"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-pill bg-grape text-on-grape disabled:opacity-40"
+          >
+            <Icons.add size={18} strokeWidth={2} />
+          </button>
+        </form>
       </Sheet>
 
       <Sheet

@@ -46,6 +46,9 @@ async function fillStake(amount = '5') {
 describe('CreateBetDetailsScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // useCustomBetTemplates is real (localStorage-backed, not mocked) so its
+    // state has to be reset between tests to avoid leaking across them.
+    window.localStorage.clear();
     vi.mocked(useSession).mockReturnValue({
       session: { user: { id: 'u1' } } as never,
       isLoading: false,
@@ -144,12 +147,61 @@ describe('CreateBetDetailsScreen', () => {
     );
   });
 
-  it('shows an empty state in the recent-bets sheet when the user has no bet history', async () => {
+  it('splits the sheet into a Recents section and a Custom section', async () => {
     renderScreen();
 
     await userEvent.click(screen.getByLabelText('Recent bets'));
 
-    expect(screen.getByText('No recent bets yet')).toBeInTheDocument();
+    expect(screen.getByText('Recents')).toBeInTheDocument();
+    expect(
+      screen.getByText('Bets you create will show up here for quick reuse.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Custom')).toBeInTheDocument();
+    expect(screen.getByText('Save a bet below to reuse it here anytime.')).toBeInTheDocument();
+  });
+
+  it('saves a custom bet, persists it across reopening the sheet, and prefills on tap', async () => {
+    renderScreen();
+
+    await userEvent.click(screen.getByLabelText('Recent bets'));
+    await userEvent.type(
+      screen.getByPlaceholderText('Add one you want to repeat'),
+      'Loser buys dinner',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Add custom bet' }));
+
+    expect(screen.getByPlaceholderText('Add one you want to repeat')).toHaveValue('');
+    expect(
+      screen.queryByText('Save a bet below to reuse it here anytime.'),
+    ).not.toBeInTheDocument();
+
+    // Reopening the sheet still has it -- it's persisted, not just local state.
+    await userEvent.click(screen.getByLabelText('Close'));
+    await waitFor(() => expect(screen.queryByText('Custom')).not.toBeInTheDocument());
+    await userEvent.click(screen.getByLabelText('Recent bets'));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Loser buys dinner' }));
+
+    expect(screen.getByPlaceholderText('What’s the bet?')).toHaveValue('Loser buys dinner');
+    await waitFor(() => expect(screen.queryByText('Custom')).not.toBeInTheDocument());
+  });
+
+  it('removes a custom bet', async () => {
+    renderScreen();
+
+    await userEvent.click(screen.getByLabelText('Recent bets'));
+    await userEvent.type(
+      screen.getByPlaceholderText('Add one you want to repeat'),
+      'Loser buys dinner',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Add custom bet' }));
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Remove "Loser buys dinner" from custom bets' }),
+    );
+
+    expect(screen.queryByRole('button', { name: 'Loser buys dinner' })).not.toBeInTheDocument();
+    expect(screen.getByText('Save a bet below to reuse it here anytime.')).toBeInTheDocument();
   });
 
   it('hides the optional modifiers behind a "More betting options" toggle', async () => {
