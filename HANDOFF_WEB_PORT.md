@@ -2,10 +2,100 @@
 
 Originally written 2026-07-20; updated after a second work session that night, again
 after a third session the next day, again after a fourth session later the same day, and
-again after a fifth (interactive, not scheduled) session right after that. This file is a
-snapshot, not a plan — verify anything below against the actual code before relying on it.
-**Trust this "Status as of" section over anything below it that contradicts it** — the
-sections further down are historical and partly stale now.
+again after a fifth (interactive, not scheduled) session right after that, and again
+after a sixth (interactive) session on 2026-07-27. This file is a snapshot, not a plan —
+verify anything below against the actual code before relying on it. **Trust this "Status
+as of" section over anything below it that contradicts it** — the sections further down
+are historical and partly stale now.
+
+## Status as of 2026-07-27 (sixth session — "Phase 1" fixes, branch `max-phase1-fixes`)
+
+The two founders split up a punch list of fixes/changes during a sync. This session
+(mine) took one half; the other founder is working the rest of the list solo on his own
+branch, in parallel, directly in the app -- **if you're his Claude session, read the
+"boundary with the other founder's work" note below before touching bet settlement,
+debt-direction, or the home/favors hero card.**
+
+Root `src/` (the original Expo app) has been abandoned as of this sync -- `web/` is the
+only actively-developed frontend now. Don't bother porting fixes there.
+
+**Built this session, all on branch `max-phase1-fixes` (based on `web-port`, not yet
+merged), typecheck/test/DB-test clean throughout:**
+
+- Fixed the rival-avatar selection ring getting clipped at the top on the create-bet
+  screen (`web/src/routes/create.tsx`) -- an `overflow-x-auto` scroll container with no
+  top padding was clipping the ring's box-shadow. Added `pt-one`.
+- Removed the "no real money" line from the onboarding carousel copy
+  (`web/src/components/onboarding-carousel.tsx`). Left the near-identical line in the
+  invite-share text (`web/src/lib/invite-link.ts`) alone -- that's a separate surface,
+  wasn't in scope.
+- **Delete/withdraw a bet**: new `withdraw_bet(p_bet_id)` RPC
+  (`supabase/migrations/20260727090000_bet_withdrawal.sql`, tested in
+  `supabase/tests/bet_withdrawal.test.sql`) -- creator-only, only for `draft` (hard
+  deletes, nothing was ever shared) or `pending_acceptance` (voids, same terminal state
+  a decline reaches). An *active* bet still goes through the existing
+  `propose_cancel_bet`/`approve_cancel_bet` mutual-consent path, untouched. Wired into
+  `bet-detail.tsx` as a "Delete bet" button.
+- **Edit a pending bet's description/stake/currency**: no new RPC -- reuses the existing
+  `create_or_counter_bet` counter-offer path (new hook
+  `useEditPendingBetDetails` in `use-bets.ts`). Deliberately scoped to description/
+  stake/currency only, *not* odds/line/win-conditions -- those are stored as opaque
+  label text on `bet_sides` with no structured line-value field, so editing them would
+  mean regex-parsing numbers back out of strings, which felt too fragile to ship.
+  Sides/odds are passed through byte-for-byte unchanged; only title/description/currency
+  change, and stake scales proportionally to preserve the agreed odds ratio.
+- **Emoji + management for custom currencies**: the `icon` column and insert plumbing
+  already existed end-to-end, just needed a UI input (`currencies.tsx`). Added real
+  delete/rename/reorder on top: new `sort_order` column, new RLS `update`/`delete`
+  policies, and the insert-time moderation trigger now also fires on UPDATE — but only
+  recomputes `moderation_status` when `name` actually changes, so an unrelated reorder
+  can't silently undo an admin's `moderation_actions` block. See
+  `supabase/migrations/20260727100000_currency_management.sql` /
+  `supabase/tests/currency_management.test.sql` (12 assertions) if you need the exact
+  RLS shape. `create.tsx`'s currency picker now reflects the user's manual `sort_order`
+  instead of most-recent-first.
+- **Bottom-nav "+" FAB**: turned out to already exist (`web/src/components/
+  bottom-nav.tsx`) and already be wired into every main tab screen. Just removed one
+  redundant leftover inline "+ New bet" button on Home that duplicated it.
+- **Double or nothing**: also no new RPC -- calls `create_or_counter_bet` fresh (not a
+  counter) with the same title/sides/odds ratio as the resolved bet, stakes doubled, no
+  deadline (the original's had already passed). Goes through the normal
+  pending_acceptance → approval flow like any new bet, so it needs the other side's
+  consent, not a one-tap auto-create. Either side (winner or loser) can propose it.
+  Button lives in `bet-detail.tsx`'s Result section, shown once a bet is
+  `resolved`/`tied`.
+- Login screen: fixed the Apple/Google continue-button icon sizing (Apple's SVG has a
+  portrait, non-square viewBox that was rendering visually smaller/thinner than
+  Google's square one at the same nominal `size`) and bumped Apple's icon size a bit for
+  optical parity. The residual few px of text-start misalignment between the two
+  buttons is just "Apple" vs "Google" being different string lengths under center
+  alignment -- normal, not a bug.
+- "Humiliate button": searched the whole repo (`web/`, root `src/`, all docs) -- doesn't
+  exist anywhere. Nothing to remove; presumably only existed in a design/plan.
+
+**Boundary with the other founder's work (important if you're his Claude):** he's
+solo-revamping, on his own branch: the favors/ledger hero view (who owes what), the
+landing/pre-auth page, friend search, the settle page's layout, keeping "invite a
+friend" visible after a friend's added, a currency-padding bug on custom currencies of a
+certain size on phone, settle notifications, a settle button next to active bets, and
+accept/renegotiate buttons on pending bets. Two things were explicitly *dropped* from
+this session's scope and left entirely to him: **who settles a debt (debtor vs
+creditor direction logic)** and **editing a bet's outcome after the fact** -- both live
+on the settle page he owns. This session's "edit bet details" only touches
+description/stake/currency on a *not-yet-accepted* bet, never a resolved one's outcome,
+so there shouldn't be overlap -- but if you're about to touch `bet-detail.tsx`'s Result
+section, the home screen's favors hero card, or anything settle-direction-related,
+check with the humans first rather than assuming this file is exhaustive.
+
+**Not yet done**: a new mascot to replace the current one (waiting on an asset from the
+non-Claude founder, not a code task).
+
+**Verification**: DB migration tests (`npm run test:db` from repo root) and the full
+`web/` suite (`npm run typecheck`, `npm test`) were run clean after every change. No
+live logged-in browser click-through against the real `noshot-dev` Supabase project was
+done for the delete/edit-bet backend work specifically (would've needed a real
+authenticated session + existing friend/bet) -- everything else that could be checked
+visually in an unauthenticated or locally-served view was.
 
 ## Status as of 2026-07-21, later still (fifth session — the golden path is now verified)
 

@@ -96,9 +96,10 @@ export function CreateBetDetailsScreen() {
   const currencyValid = currencyKind === 'money' || !!currencyId;
 
   const approvedCurrencies = (currencies ?? []).filter((c) => c.moderation_status === 'approved');
-  const ownCurrencies = approvedCurrencies
-    .filter((c) => !c.is_builtin)
-    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  // useCurrencies already orders by sort_order (the "Manage stakes" screen's
+  // reorder controls), so no client-side re-sort here -- that ordering is
+  // exactly what should surface in this picker.
+  const ownCurrencies = approvedCurrencies.filter((c) => !c.is_builtin);
   const builtinCurrencies = approvedCurrencies.filter(
     (c) => c.is_builtin && c.id !== MONEY_CURRENCY_ID,
   );

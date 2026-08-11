@@ -96,9 +96,18 @@ export function FriendsScreen() {
 
   return (
     <main className="mx-auto max-w-app p-four pb-28">
-      <h1 className="font-display text-screen-title font-extrabold tracking-display-tight">
-        Friends
-      </h1>
+      <div className="flex items-start justify-between gap-two">
+        <h1 className="font-display text-screen-title font-extrabold tracking-display-tight">
+          Friends
+        </h1>
+        <button
+          type="button"
+          onClick={handleInvite}
+          className="mt-one shrink-0 text-sm font-bold text-grape-ink"
+        >
+          {inviteCopied ? 'Link copied!' : 'Invite a friend'}
+        </button>
+      </div>
 
       <Link to="/obligations" className="mt-one inline-block text-sm font-bold text-grape-ink">
         Manual obligations
@@ -241,15 +250,6 @@ export function FriendsScreen() {
             icon="friends"
             title="No friends yet"
             description="Search above, or send an invite link to someone who isn't on NoShot yet."
-            action={
-              <Button
-                variant="primary"
-                className="mt-two px-four py-two text-sm"
-                onClick={handleInvite}
-              >
-                {inviteCopied ? 'Link copied!' : 'Invite a friend'}
-              </Button>
-            }
           />
         ) : (
           friends.map(({ friendship, profile }) => (

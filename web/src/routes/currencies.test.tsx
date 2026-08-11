@@ -13,6 +13,8 @@ vi.mock('@/hooks/use-session', () => ({ useSession: vi.fn() }));
 vi.mock('@/hooks/use-currencies', () => ({
   useCurrencies: vi.fn(),
   useCreateCurrency: vi.fn(),
+  useDeleteCurrency: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useReorderCurrency: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
 }));
 
 function renderScreen() {

@@ -22,14 +22,19 @@ import {
   useApproveBetVersion,
   useApproveCancelBet,
   useBetDetail,
+  useCreateOrCounterBet,
+  useEditPendingBetDetails,
   useProposeCancelBet,
   useSubmitBetResult,
+  useWithdrawBet,
 } from '@/hooks/use-bets';
 import { useComments, usePostComment } from '@/hooks/use-comments';
+import { useCurrencies } from '@/hooks/use-currencies';
 import { useClosePoll, useCreatePoll, usePolls, useVoteOnPoll } from '@/hooks/use-polls';
 import { useProofAssets, useUploadProof } from '@/hooks/use-proof';
 import { useSession } from '@/hooks/use-session';
 import { TIE_OUTCOME_KEY, type Bet, type BetApprovalDecision, type BetStatus } from '@/lib/bet';
+import { MONEY_CURRENCY_ID } from '@/lib/currency';
 import { getErrorMessage } from '@/lib/errors';
 import { Icons } from '@/lib/icons';
 import { chooseNativeProofPhoto, takeNativeProofPhoto } from '@/lib/native-photo';
@@ -130,12 +135,17 @@ export function BetDetailScreen() {
   const { session } = useSession();
   const userId = session?.user.id;
 
-  const { bet, roster, cancellationApprovals, resultSubmissions, isLoading } = useBetDetail(betId);
+  const { bet, sides, roster, cancellationApprovals, resultSubmissions, isLoading } =
+    useBetDetail(betId);
 
   const approveBetVersion = useApproveBetVersion(betId, userId);
   const proposeCancelBet = useProposeCancelBet(betId, userId);
   const approveCancelBet = useApproveCancelBet(betId, userId);
   const submitBetResult = useSubmitBetResult(betId, userId);
+  const withdrawBet = useWithdrawBet(userId);
+  const editBetDetails = useEditPendingBetDetails(betId, userId);
+  const createOrCounterBet = useCreateOrCounterBet(userId);
+  const { data: currencies } = useCurrencies({ ownerUserId: userId as string });
   const { comments } = useComments(betId);
   const postComment = usePostComment(betId);
   const pollScope = useMemo(() => ({ betId }), [betId]);
@@ -148,6 +158,14 @@ export function BetDetailScreen() {
 
   const [error, setError] = useState<string | null>(null);
   const [pendingCancel, setPendingCancel] = useState(false);
+  const [pendingWithdraw, setPendingWithdraw] = useState(false);
+  const [pendingDoubleOrNothing, setPendingDoubleOrNothing] = useState(false);
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editStakeAmount, setEditStakeAmount] = useState('');
+  const [editCurrencyKind, setEditCurrencyKind] = useState<'money' | 'custom'>('money');
+  const [editCurrencyId, setEditCurrencyId] = useState('');
   const [resultOutcomeKey, setResultOutcomeKey] = useState('');
   const [resultRationale, setResultRationale] = useState('');
   const [commentBody, setCommentBody] = useState('');
@@ -260,11 +278,128 @@ export function BetDetailScreen() {
   // own agree/keep-active response UI below, not a second cancel trigger.
   const canCancel = bet.status === 'active';
 
+  // Withdrawing (deleting) is only for the creator's own not-yet-agreed
+  // proposal -- once the other side has approved, it's active and only
+  // mutual cancellation (canCancel above) can undo it.
+  const canWithdraw =
+    bet.creator_id === userId && (bet.status === 'draft' || bet.status === 'pending_acceptance');
+
+  // Editing (description/stake/currency only -- odds, line, and win-condition
+  // wording stay fixed once proposed) is the same "not yet agreed to" window
+  // as withdrawing, minus the draft case: a draft is edited by resuming the
+  // create flow, not here.
+  const canEdit = bet.creator_id === userId && bet.status === 'pending_acceptance';
+
+  function openEditDetails() {
+    if (!bet || !myParticipant?.commitment) return;
+    setEditTitle(bet.title);
+    setEditDescription(bet.description);
+    setEditStakeAmount(String(myParticipant.commitment.stake_quantity));
+    if (myParticipant.commitment.currency_id === MONEY_CURRENCY_ID) {
+      setEditCurrencyKind('money');
+      setEditCurrencyId('');
+    } else {
+      setEditCurrencyKind('custom');
+      setEditCurrencyId(myParticipant.commitment.currency_id);
+    }
+    setError(null);
+    setIsEditingDetails(true);
+  }
+
+  // Preserves every participant's existing odds ratio and each side's label
+  // untouched -- only title/description/currency change, and stake scales
+  // proportionally from the creator's new amount so the agreed risk:reward
+  // ratio (and BET-05's funding check, which scaling preserves) doesn't move.
+  function submitEditDetails() {
+    if (!bet) return;
+    const newStake = Number.parseFloat(editStakeAmount);
+    if (!Number.isFinite(newStake) || newStake <= 0) {
+      setError('Enter a valid stake amount');
+      return;
+    }
+    if (editCurrencyKind === 'custom' && !editCurrencyId) {
+      setError('Pick a currency');
+      return;
+    }
+    const oldCreatorStake = myParticipant?.commitment?.stake_quantity;
+    if (!oldCreatorStake) return;
+    const scale = newStake / oldCreatorStake;
+    const newCurrencyId = editCurrencyKind === 'money' ? MONEY_CURRENCY_ID : editCurrencyId;
+
+    setError(null);
+    editBetDetails.mutate(
+      {
+        title: editTitle.trim(),
+        description: editDescription.trim(),
+        deadline: bet.deadline,
+        resolutionMethod: bet.resolution_method,
+        judgeId: bet.judge_id,
+        randomFallbackEnabled: bet.random_fallback_enabled,
+        sides: sides.map((s) => ({ outcomeKey: s.outcome_key, label: s.label })),
+        participants: roster
+          .filter((r) => r.side && r.commitment)
+          .map((r) => ({
+            userId: r.participant.user_id,
+            outcomeKey: r.side!.outcome_key,
+            currencyId: newCurrencyId,
+            stakeQuantity:
+              r.participant.user_id === userId ? newStake : r.commitment!.stake_quantity * scale,
+            oddsNumerator: r.commitment!.odds_numerator,
+            oddsDenominator: r.commitment!.odds_denominator,
+          })),
+      },
+      {
+        onSuccess: () => setIsEditingDetails(false),
+        onError: (err) => setError(getErrorMessage(err, 'Could not update the bet')),
+      },
+    );
+  }
+
   // One-person settlement: whoever reports the outcome on an active
   // participant_submission bet settles it outright (submit_bet_result finalizes
   // immediately). Once a result exists the bet is already resolved, so this
   // only ever shows on a still-active bet.
   const canReportResult = bet.status === 'active' && !latestResultSubmission;
+
+  // Double or nothing: once a bet is settled, either side (winner or loser)
+  // can propose running it back at double the stake -- same event, same
+  // sides, same odds ratio, just doubled amounts. It's a brand-new bet
+  // (create_or_counter_bet with no betId), not an edit of this one, so it
+  // goes through the normal pending_acceptance -> approval flow like any
+  // other proposal rather than skipping consent.
+  const canDoubleOrNothing = bet.status === 'resolved' || bet.status === 'tied';
+
+  function proposeDoubleOrNothing() {
+    if (!bet) return;
+    setError(null);
+    createOrCounterBet.mutate(
+      {
+        title: bet.title,
+        description: bet.description,
+        // No deadline carried over -- the original one has already passed
+        // (the bet resolved), so reusing it would start the rematch overdue.
+        deadline: null,
+        resolutionMethod: bet.resolution_method,
+        judgeId: bet.judge_id,
+        randomFallbackEnabled: bet.random_fallback_enabled,
+        sides: sides.map((s) => ({ outcomeKey: s.outcome_key, label: s.label })),
+        participants: roster
+          .filter((r) => r.side && r.commitment)
+          .map((r) => ({
+            userId: r.participant.user_id,
+            outcomeKey: r.side!.outcome_key,
+            currencyId: r.commitment!.currency_id,
+            stakeQuantity: r.commitment!.stake_quantity * 2,
+            oddsNumerator: r.commitment!.odds_numerator,
+            oddsDenominator: r.commitment!.odds_denominator,
+          })),
+      },
+      {
+        onSuccess: () => navigate('/bets?tab=pending', { replace: true }),
+        onError: (err) => setError(getErrorMessage(err, 'Could not propose a rematch')),
+      },
+    );
+  }
 
   // README §"Bet thread": chat, photo-proof, and polls are one merged,
   // chronological feed here, not the separate tabs an earlier pass used --
@@ -721,6 +856,46 @@ export function BetDetailScreen() {
         </>
       ) : null}
 
+      {canDoubleOrNothing ? (
+        <Button
+          variant="primary"
+          fullWidth
+          className="mt-four"
+          onClick={() => setPendingDoubleOrNothing(true)}
+        >
+          🎲 Double or nothing
+        </Button>
+      ) : null}
+
+      <ConfirmationDialog
+        visible={pendingDoubleOrNothing}
+        title="Run it back at double the stakes?"
+        description={`Same bet, same terms, twice the stake. ${
+          opponent?.profile?.display_name ?? 'The other player'
+        } will need to accept before it's on.`}
+        confirmLabel="Propose it"
+        cancelLabel="Not now"
+        onConfirm={() => {
+          setPendingDoubleOrNothing(false);
+          proposeDoubleOrNothing();
+        }}
+        onCancel={() => setPendingDoubleOrNothing(false)}
+      >
+        <ListRow
+          leading={
+            <IconTile>
+              <Icons.bet size={18} strokeWidth={1.75} />
+            </IconTile>
+          }
+          title={bet.title}
+          subtitle={
+            myParticipant?.commitment
+              ? `Your stake: ${myParticipant.commitment.stake_quantity * 2}`
+              : undefined
+          }
+        />
+      </ConfirmationDialog>
+
       {canCancel ? (
         <button
           type="button"
@@ -728,6 +903,109 @@ export function BetDetailScreen() {
           className="mt-four block w-full text-center text-sm font-bold text-danger-ink"
         >
           Cancel bet
+        </button>
+      ) : null}
+
+      {canEdit && !isEditingDetails ? (
+        <button
+          type="button"
+          onClick={openEditDetails}
+          className="mt-four block w-full text-center text-sm font-bold text-text-secondary"
+        >
+          Edit bet
+        </button>
+      ) : null}
+
+      {canEdit && isEditingDetails ? (
+        <div className="mt-four rounded-medium border border-line bg-surface p-three">
+          <SectionHeader title="Edit bet" />
+          <p className="mt-two mb-one text-xs font-bold text-text-faint">What&rsquo;s the bet?</p>
+          <input
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            maxLength={200}
+            className="w-full rounded-medium border border-line bg-surface p-three"
+          />
+          <p className="mt-two mb-one text-xs font-bold text-text-faint">Details</p>
+          <textarea
+            placeholder="Add any details (optional)"
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
+            maxLength={2000}
+            className="w-full rounded-medium border border-line bg-surface p-three"
+          />
+          <p className="mt-two mb-one text-xs font-bold text-text-faint">Your stake</p>
+          <div className="flex items-center gap-two">
+            <input
+              value={editStakeAmount}
+              onChange={(e) => setEditStakeAmount(e.target.value.replace(/[^0-9.]/g, ''))}
+              inputMode="decimal"
+              className="w-24 rounded-medium border border-line bg-surface p-three"
+            />
+            <div className="flex gap-two">
+              <button
+                type="button"
+                onClick={() => setEditCurrencyKind('money')}
+                className={`rounded-pill px-three py-two text-sm font-bold ${
+                  editCurrencyKind === 'money'
+                    ? 'bg-grape text-on-grape'
+                    : 'border border-line bg-surface text-text-secondary'
+                }`}
+              >
+                Money
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditCurrencyKind('custom')}
+                className={`rounded-pill px-three py-two text-sm font-bold ${
+                  editCurrencyKind === 'custom'
+                    ? 'bg-grape text-on-grape'
+                    : 'border border-line bg-surface text-text-secondary'
+                }`}
+              >
+                Custom
+              </button>
+            </div>
+          </div>
+          {editCurrencyKind === 'custom' ? (
+            <select
+              value={editCurrencyId}
+              onChange={(e) => setEditCurrencyId(e.target.value)}
+              className="mt-two w-full rounded-medium border border-line bg-surface p-three"
+            >
+              <option value="">Pick a currency…</option>
+              {(currencies ?? [])
+                .filter((c) => c.moderation_status === 'approved' && c.id !== MONEY_CURRENCY_ID)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+            </select>
+          ) : null}
+          <div className="mt-three flex gap-two">
+            <Button
+              variant="primary"
+              fullWidth
+              disabled={editBetDetails.isPending}
+              onClick={submitEditDetails}
+            >
+              Save changes
+            </Button>
+            <Button variant="secondary" fullWidth onClick={() => setIsEditingDetails(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {canWithdraw ? (
+        <button
+          type="button"
+          onClick={() => setPendingWithdraw(true)}
+          className="mt-four block w-full text-center text-sm font-bold text-danger-ink"
+        >
+          Delete bet
         </button>
       ) : null}
 
@@ -752,6 +1030,38 @@ export function BetDetailScreen() {
           }
           title={bet.title}
           subtitle={opponent?.profile ? `Active · vs ${opponent.profile.display_name}` : 'Active'}
+        />
+      </ConfirmationDialog>
+
+      <ConfirmationDialog
+        visible={pendingWithdraw}
+        title={bet.status === 'draft' ? 'Delete this draft?' : 'Delete this bet?'}
+        description={
+          bet.status === 'draft'
+            ? 'This draft will be gone for good.'
+            : `${opponent?.profile?.display_name ?? 'The other player'} hasn't accepted yet, so no one needs to agree -- it'll just disappear.`
+        }
+        confirmLabel="Delete"
+        cancelLabel="Keep it"
+        destructive
+        onConfirm={() => {
+          setPendingWithdraw(false);
+          setError(null);
+          withdrawBet.mutateAsync(bet.id).then(
+            () => navigate('/bets?tab=pending', { replace: true }),
+            (err: unknown) => setError(getErrorMessage(err, 'Something went wrong')),
+          );
+        }}
+        onCancel={() => setPendingWithdraw(false)}
+      >
+        <ListRow
+          leading={
+            <IconTile>
+              <Icons.bet size={18} strokeWidth={1.75} />
+            </IconTile>
+          }
+          title={bet.title}
+          subtitle={opponent?.profile ? `Pending · vs ${opponent.profile.display_name}` : 'Pending'}
         />
       </ConfirmationDialog>
 

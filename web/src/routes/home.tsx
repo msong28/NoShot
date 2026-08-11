@@ -373,13 +373,8 @@ export function HomeScreen() {
         </div>
       </div>
 
-      <div className="mt-three flex gap-two">
-        <Link to="/create" className="flex-[2]">
-          <Button variant="primary" fullWidth>
-            + New bet
-          </Button>
-        </Link>
-        <Link to="/balances" className="flex-1">
+      <div className="mt-three">
+        <Link to="/balances">
           <Button variant="secondary" fullWidth>
             🤝 Settle
           </Button>

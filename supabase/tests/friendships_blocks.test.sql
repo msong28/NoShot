@@ -7,7 +7,8 @@ values
   ('bbbbbbbb-0000-0000-0000-000000000002'), -- bob
   ('cccccccc-0000-0000-0000-000000000003'), -- carol
   ('dddddddd-0000-0000-0000-000000000004'), -- dave
-  ('eeeeeeee-0000-0000-0000-000000000005'); -- eve
+  ('eeeeeeee-0000-0000-0000-000000000005'), -- eve
+  ('ffffffff-0000-0000-0000-000000000006'); -- frank, for the search tests below
 
 insert into
   public.profiles (id, username, display_name, birth_year, age_acknowledged_at)
@@ -46,7 +47,36 @@ values
     'Eve',
     1995,
     now()
+  ),
+  (
+    -- Display name doesn't share a substring with the username, so a
+    -- display-name-only query below can only succeed via the broadened match.
+    'ffffffff-0000-0000-0000-000000000006',
+    'frankxyz',
+    'Frankie Zephyr',
+    1994,
+    now()
   );
+
+-- 12 more profiles sharing a distinctive substring, to check the search
+-- results cap below.
+insert into
+  auth.users (id)
+select
+  ('a0000000-0000-0000-0000-0000000000' || lpad(i::text, 2, '0'))::uuid
+from
+  generate_series(1, 12) as i;
+
+insert into
+  public.profiles (id, username, display_name, birth_year, age_acknowledged_at)
+select
+  ('a0000000-0000-0000-0000-0000000000' || lpad(i::text, 2, '0'))::uuid,
+  'manyresult' || lpad(i::text, 2, '0'),
+  'Many Result ' || i,
+  1990,
+  now()
+from
+  generate_series(1, 12) as i;
 
 set role authenticated;
 
@@ -256,6 +286,37 @@ begin
     raise exception 'FAIL: expected exactly 1 match for ''bob'', got %', v_count;
   end if;
   raise notice 'PASS: username prefix search finds the right user';
+
+  -- Not just a prefix match -- 'arol' only appears mid-string in 'carol'.
+  select count(*) into v_count from public.search_profiles_by_username('arol');
+  if v_count <> 1 then
+    raise exception 'FAIL: expected a substring (non-prefix) match on username, got %', v_count;
+  end if;
+  raise notice 'PASS: search matches a substring anywhere in the username, not just a prefix';
+end;
+$$;
+
+do $$
+declare
+  v_count integer;
+begin
+  select count(*) into v_count from public.search_profiles_by_username('zephyr');
+  if v_count <> 1 then
+    raise exception 'FAIL: expected search to match on display_name too, got %', v_count;
+  end if;
+  raise notice 'PASS: search matches on display_name as well as username';
+end;
+$$;
+
+do $$
+declare
+  v_count integer;
+begin
+  select count(*) into v_count from public.search_profiles_by_username('manyresult');
+  if v_count <> 10 then
+    raise exception 'FAIL: expected search results capped at 10, got %', v_count;
+  end if;
+  raise notice 'PASS: search results are capped at 10';
 end;
 $$;
 
