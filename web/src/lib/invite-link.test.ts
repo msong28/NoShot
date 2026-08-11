@@ -33,7 +33,9 @@ describe('shareInviteLink', () => {
   });
 
   it('reports "cancelled" without falling back to a clipboard copy when the user dismisses the share sheet', async () => {
-    const share = vi.fn().mockRejectedValue(Object.assign(new Error('dismissed'), { name: 'AbortError' }));
+    const share = vi
+      .fn()
+      .mockRejectedValue(Object.assign(new Error('dismissed'), { name: 'AbortError' }));
     const writeText = vi.fn();
     Object.defineProperty(navigator, 'share', { value: share, configurable: true });
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });

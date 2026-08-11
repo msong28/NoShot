@@ -44,9 +44,7 @@ export function GroupsScreen() {
       <h1 className="mt-three font-display text-screen-title font-extrabold tracking-display-tight">
         Groups
       </h1>
-      <p className="mt-two text-text-secondary">
-        Group bets, split with everyone chipping in.
-      </p>
+      <p className="mt-two text-text-secondary">Group bets, split with everyone chipping in.</p>
 
       <SectionHeader title="Create a group" />
       <div className="mt-two flex flex-col gap-two rounded-large border border-line bg-surface p-three">

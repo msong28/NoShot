@@ -25,7 +25,7 @@ describe('OnboardingCarousel', () => {
     expect(screen.getByRole('button', { name: "Let's go" })).toBeInTheDocument();
   });
 
-  it('calls onDone when the last slide\'s button is clicked', async () => {
+  it("calls onDone when the last slide's button is clicked", async () => {
     const onDone = vi.fn();
     render(<OnboardingCarousel firstName="Maya" onDone={onDone} />);
 

@@ -37,7 +37,12 @@ async function ensureProviderInitialized(provider: OAuthProvider) {
       );
     }
     await SocialLogin.initialize({
-      google: { iOSClientId: iosClientId, iOSServerClientId: webClientId, webClientId, mode: 'online' },
+      google: {
+        iOSClientId: iosClientId,
+        iOSServerClientId: webClientId,
+        webClientId,
+        mode: 'online',
+      },
     });
   } else {
     await SocialLogin.initialize({ apple: { clientId: 'com.noshot.web' } });
@@ -58,7 +63,8 @@ export async function signInWithProvider(provider: OAuthProvider) {
     await ensureProviderInitialized(provider);
     const { result } = await SocialLogin.login({
       provider,
-      options: provider === 'google' ? { scopes: ['email', 'profile'] } : { scopes: ['email', 'name'] },
+      options:
+        provider === 'google' ? { scopes: ['email', 'profile'] } : { scopes: ['email', 'name'] },
     });
     const idToken = 'idToken' in result ? result.idToken : null;
     if (!idToken) throw new Error(`${provider} sign-in did not return an identity token`);

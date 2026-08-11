@@ -77,7 +77,9 @@ export function AdminReportQueueScreen() {
               <ListRow
                 title={`${TARGET_TYPE_LABELS[report.target_type] ?? report.target_type} report`}
                 subtitle={REPORT_REASON_LABELS[report.reason]}
-                trailing={<StatusPill variant={statusVariant(report.status)} label={report.status} />}
+                trailing={
+                  <StatusPill variant={statusVariant(report.status)} label={report.status} />
+                }
               />
             </Link>
           ))

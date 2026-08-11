@@ -84,11 +84,7 @@ export type WagerFormInput = {
  */
 export function buildBetInput(input: WagerFormInput): CreateOrCounterBetInput {
   const creatorKey = input.line ? input.line.position : 'creator';
-  const rivalKey = input.line
-    ? input.line.position === 'over'
-      ? 'under'
-      : 'over'
-    : 'rival';
+  const rivalKey = input.line ? (input.line.position === 'over' ? 'under' : 'over') : 'rival';
 
   let sides: BetSideDraft[];
   if (input.line) {

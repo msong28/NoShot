@@ -133,7 +133,14 @@ export function useMyBets(userId: string | undefined) {
           ? (commitmentsByParticipantId.get(row.id) ?? null)
           : undefined,
       }));
-  }, [rows, userId, participantProfilesQuery.data, participantProfilesQuery.isSuccess, commitmentsQuery.data, commitmentsQuery.isSuccess]);
+  }, [
+    rows,
+    userId,
+    participantProfilesQuery.data,
+    participantProfilesQuery.isSuccess,
+    commitmentsQuery.data,
+    commitmentsQuery.isSuccess,
+  ]);
   const activeBets = useMemo(() => bets.filter((bet) => bet.status === 'active'), [bets]);
   const pendingBetIds = useMemo(
     () => bets.filter((bet) => bet.status === 'pending_acceptance').map((bet) => bet.id),
@@ -566,9 +573,7 @@ export function useEditPendingBetDetails(betId: string | undefined, userId: stri
   const invalidateBet = useInvalidateBetDetail(betId);
   const invalidateMyBets = useInvalidateMyBets(userId);
   return useMutation({
-    mutationFn: async (
-      input: Omit<CreateOrCounterBetInput, 'betId' | 'isDraft'>,
-    ): Promise<Bet> => {
+    mutationFn: async (input: Omit<CreateOrCounterBetInput, 'betId' | 'isDraft'>): Promise<Bet> => {
       const { data, error } = await supabase.rpc(
         'create_or_counter_bet',
         toRpcArgs({ ...input, betId, isDraft: false }),

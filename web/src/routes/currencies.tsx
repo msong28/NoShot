@@ -131,7 +131,11 @@ export function CurrenciesScreen() {
             {builtins.map((currency) => (
               <ListRow
                 key={currency.id}
-                leading={<IconTile>{currency.icon ?? <Icons.currency size={18} strokeWidth={1.75} />}</IconTile>}
+                leading={
+                  <IconTile>
+                    {currency.icon ?? <Icons.currency size={18} strokeWidth={1.75} />}
+                  </IconTile>
+                }
                 title={currency.name}
                 subtitle={currency.category}
               />
@@ -146,11 +150,15 @@ export function CurrenciesScreen() {
                   <ListRow
                     key={currency.id}
                     leading={
-                      <IconTile>{currency.icon ?? <Icons.currency size={18} strokeWidth={1.75} />}</IconTile>
+                      <IconTile>
+                        {currency.icon ?? <Icons.currency size={18} strokeWidth={1.75} />}
+                      </IconTile>
                     }
                     title={currency.name}
                     subtitle={
-                      currency.moderation_status === 'pending_review' ? undefined : currency.category
+                      currency.moderation_status === 'pending_review'
+                        ? undefined
+                        : currency.category
                     }
                     trailing={
                       <div className="flex items-center gap-two">

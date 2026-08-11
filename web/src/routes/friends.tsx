@@ -174,7 +174,9 @@ export function FriendsScreen() {
                 key={friendship.id}
                 leading={<Avatar id={profile.id} name={profile.display_name} />}
                 title={profile.display_name}
-                subtitle={<UsernameWithMutual username={profile.username} otherUserId={profile.id} />}
+                subtitle={
+                  <UsernameWithMutual username={profile.username} otherUserId={profile.id} />
+                }
                 borderColorClassName="border-grape"
                 className="shadow-attention"
                 trailing={

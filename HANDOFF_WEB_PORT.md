@@ -33,13 +33,13 @@ merged), typecheck/test/DB-test clean throughout:**
   (`supabase/migrations/20260727090000_bet_withdrawal.sql`, tested in
   `supabase/tests/bet_withdrawal.test.sql`) -- creator-only, only for `draft` (hard
   deletes, nothing was ever shared) or `pending_acceptance` (voids, same terminal state
-  a decline reaches). An *active* bet still goes through the existing
+  a decline reaches). An _active_ bet still goes through the existing
   `propose_cancel_bet`/`approve_cancel_bet` mutual-consent path, untouched. Wired into
   `bet-detail.tsx` as a "Delete bet" button.
 - **Edit a pending bet's description/stake/currency**: no new RPC -- reuses the existing
   `create_or_counter_bet` counter-offer path (new hook
   `useEditPendingBetDetails` in `use-bets.ts`). Deliberately scoped to description/
-  stake/currency only, *not* odds/line/win-conditions -- those are stored as opaque
+  stake/currency only, _not_ odds/line/win-conditions -- those are stored as opaque
   label text on `bet_sides` with no structured line-value field, so editing them would
   mean regex-parsing numbers back out of strings, which felt too fragile to ship.
   Sides/odds are passed through byte-for-byte unchanged; only title/description/currency
@@ -55,7 +55,7 @@ merged), typecheck/test/DB-test clean throughout:**
   RLS shape. `create.tsx`'s currency picker now reflects the user's manual `sort_order`
   instead of most-recent-first.
 - **Bottom-nav "+" FAB**: turned out to already exist (`web/src/components/
-  bottom-nav.tsx`) and already be wired into every main tab screen. Just removed one
+bottom-nav.tsx`) and already be wired into every main tab screen. Just removed one
   redundant leftover inline "+ New bet" button on Home that duplicated it.
 - **Double or nothing**: also no new RPC -- calls `create_or_counter_bet` fresh (not a
   counter) with the same title/sides/odds ratio as the resolved bet, stakes doubled, no
@@ -78,11 +78,11 @@ solo-revamping, on his own branch: the favors/ledger hero view (who owes what), 
 landing/pre-auth page, friend search, the settle page's layout, keeping "invite a
 friend" visible after a friend's added, a currency-padding bug on custom currencies of a
 certain size on phone, settle notifications, a settle button next to active bets, and
-accept/renegotiate buttons on pending bets. Two things were explicitly *dropped* from
+accept/renegotiate buttons on pending bets. Two things were explicitly _dropped_ from
 this session's scope and left entirely to him: **who settles a debt (debtor vs
 creditor direction logic)** and **editing a bet's outcome after the fact** -- both live
 on the settle page he owns. This session's "edit bet details" only touches
-description/stake/currency on a *not-yet-accepted* bet, never a resolved one's outcome,
+description/stake/currency on a _not-yet-accepted_ bet, never a resolved one's outcome,
 so there shouldn't be overlap -- but if you're about to touch `bet-detail.tsx`'s Result
 section, the home screen's favors hero card, or anything settle-direction-related,
 check with the humans first rather than assuming this file is exhaustive.
