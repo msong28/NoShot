@@ -1,0 +1,47 @@
+{
+  "name": "noshot-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "cap:sync": "npm run build && npx cap sync ios",
+    "cap:open:ios": "npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/browser": "^8.0.4",
+    "@capacitor/camera": "^8.2.1",
+    "@capacitor/core": "^8.4.2",
+    "@capacitor/ios": "^8.4.2",
+    "@capgo/capacitor-social-login": "^8.3.38",
+    "@supabase/supabase-js": "^2.110.7",
+    "@tanstack/react-query": "^5.101.3",
+    "lucide-react": "^1.25.0",
+    "motion": "^12.42.2",
+    "onesignal-cordova-plugin": "^5.5.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router": "^8.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.2",
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^6.0.3",
+    "jsdom": "^29.1.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
+  }
+}
