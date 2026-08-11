@@ -13,9 +13,9 @@ This repo contains **two independent frontends against the same Supabase project
 
 The two share the same domain logic _shape_ (`src/lib/*.ts` vs `web/src/lib/*.ts`, `src/hooks/use-*.ts` vs `web/src/hooks/use-*.ts`) but are **not** code-shared — a fix to a bug in one usually needs the same fix ported to the other by hand. Before editing, check whether the equivalent file exists in both trees; increasingly it does not.
 
-**`web/` is where active development happens and the trees have measurably diverged.** Recent history touches `web/src` roughly 50× more than `src/`. Features that exist only in `web/`:
+**`web/` is where active development happens and the trees have measurably diverged.** `src/` has not been touched since 2026-07-22 (`c81aa05`); every commit since then is `web/`-only. Features that exist only in `web/`:
 
-- the wager/create-a-bet flow (`web/src/lib/wager.ts`, `web/src/hooks/use-wager.ts`, `web/src/routes/create.tsx`, `web/src/routes/my-wagers.tsx`) — **no root-tree equivalent at all**
+- the wager/create-a-bet flow (`web/src/lib/wager.ts`, `web/src/hooks/use-wager.ts`, `web/src/routes/my-wagers.tsx`) plus the two-screen Splitwise-style creation flow — `/create` = `routes/create-pick-rival.tsx` (single-select rival picker), `/create/:rivalId` = `routes/create-bet-details.tsx` (event, stake, optional modifiers behind a "More betting options" toggle) — **no root-tree equivalent at all**
 - a `/home` dashboard screen, bet-accept / settle reveal animations (`web/src/components/ui/confirm-reveal.tsx`, `settle-reveal.tsx`)
 - route guards (`protected-route`, `require-admin`, `require-profile`, `require-session-no-profile`) — no file-route equivalent on the root side
 
@@ -30,6 +30,8 @@ Root `.env` uses `EXPO_PUBLIC_*` var names; `web/.env` uses `VITE_*` names for t
 - **Data access is React Query on top of typed hooks.** Every domain area has a `hooks/use-*.ts` (e.g. `use-bets`, `use-groups`, `use-ledger`, `use-proof`, `use-polls`) that wraps the Supabase client — reads as `useQuery`, mutations as `useMutation` calling the `SECURITY DEFINER` RPCs described under "Server authority model." Components don't call `supabase.from(...)` directly; go through (or add) a hook.
 - **Routing differs.** Root uses **expo-router** file-based routes under `src/app/` (`(auth)`, `(tabs)`, `bet/`, `group/`, `admin/`, `invite/`). Web declares every route explicitly in `web/src/App.tsx`, one module per screen under `web/src/routes/`, with guard components as layout routes wrapping groups of children.
 - Session/auth flows through `use-session`; admin gating uses `use-admin` (server-checked, per the authority model — never a client flag).
+- **`useSession()` starts every fresh mount at `session === null` for one tick** before `getSession()` resolves, and this has already caused real bugs: any hook fed `session?.user.id` (e.g. `useFriends(userId)`) briefly looks like "loaded, and the answer is empty." Never let a redirect/bounce-back guard fire on that state — gate it on `!!userId` (and the query's own loading flag) as `create-bet-details.tsx:61` does, or use `isLoading`.
+- **Exception to "everything goes through a hook + RPC": genuinely device-local, non-authoritative UI state.** `use-custom-bet-templates.ts` keeps the user's saved bet titles in `localStorage` keyed per user id, deliberately unsynced. That's the bar for skipping the server — a personal quick-fill convenience, never bet state, money, or moderation.
 
 ## Styling: two implementations of one token set
 
@@ -37,6 +39,8 @@ Both trees implement the same design system (`design_handoff_noshot 2/README.md`
 
 - **Root**: `src/constants/theme.ts` (plus `typography.ts`, `shadows.ts`, `motion.ts`, `breakpoints.ts`, `component-variants.ts`) consumed via `StyleSheet`; theme state in `src/providers/theme-provider.tsx` (persisted through AsyncStorage) + `use-theme` / `use-color-scheme`.
 - **Web**: Tailwind v4 (`@tailwindcss/vite`, no config file) with tokens declared as CSS custom properties in `web/src/styles/index.css`; theme state in `use-theme-mode`.
+
+Animation is web-only and uses `motion` (`motion/react`), not Reanimated: `components/ui/sheet.tsx` (the shared full-height bottom-sheet chrome behind the create flow's recent-bets and currency pickers), `confirm-reveal.tsx`, `settle-reveal.tsx`, `onboarding-carousel.tsx`. Anything that animates on unmount must be wrapped in `AnimatePresence` — a plain `visible ? … : null` only animates the mount.
 
 Source-of-truth token names are the README's (`bg`, `ink`, `grape`, `lime`, `up`, `down`, `gold`, `surface`, `line`, …); legacy names (`background`, `primary`, `success`, `danger`, …) are aliases onto them. **Dark mode is a token swap only** — one set of values per mode, never duplicated component styles. Web's dark variant is attribute-driven: `@custom-variant dark (&:where([data-theme='dark'], …))`, so `data-theme` on the root element is what flips it, not `prefers-color-scheme` alone.
 
@@ -75,7 +79,7 @@ npm run cap:open:ios
 
 CI (`.github/workflows/ci.yml`) runs only root scripts: `format:check`, `lint`, `typecheck`, `test`, `test:db`. It never builds or tests `web/` — run `web/`'s own checks locally when you change it.
 
-**But root `format:check` does cover `web/`**: it is `prettier --check .` from the repo root, and `.prettierignore` excludes only `node_modules/`, `dist/`, `ios/`, `.expo/`, and `supabase/.temp|.branches` — not `web/src`. `web/`'s `package.json` has no format script, so web files are easy to leave unformatted and thereby fail root CI. After editing `web/`, run `npm run format` (or `npx prettier --write web/src/...`) from the repo root. Likewise root `lint`/`typecheck` do **not** cover `web/` — its tsconfig `include`s only `src`, `vite.config.ts`, `capacitor.config.ts`, and there is no ESLint setup under `web/` at all.
+**But root `format:check` does cover `web/`**: it is `prettier --check .` from the repo root, and `.prettierignore` excludes only build/vendor dirs (`node_modules/`, `.expo/`, `dist/`, `web-build/`, `ios/`, `android/`, `package-lock.json`, `supabase/.temp|.branches`) — not `web/src`. `web/`'s `package.json` has no format script, so web files are easy to leave unformatted and thereby fail root CI. After editing `web/`, run `npm run format` (or `npx prettier --write web/src/...`) from the repo root. Likewise root `lint`/`typecheck` do **not** cover `web/` — its tsconfig `include`s only `src`, `vite.config.ts`, `capacitor.config.ts`, and there is no ESLint setup under `web/` at all.
 
 `npm run test:db` needs `initdb`/`postgres`/`psql` on `PATH` (e.g. `brew install postgresql@17`); it does not use Docker or `supabase start`. It builds a minimal stand-in for the Supabase-managed parts of the schema (`auth.users`, `anon`/`authenticated` roles, `auth.uid()`) before applying migrations, so pure-Postgres SQL logic can be tested without a running Supabase instance.
 
@@ -83,6 +87,7 @@ CI (`.github/workflows/ci.yml`) runs only root scripts: `format:check`, `lint`, 
 
 - **SQL is the primary test surface** — `supabase/tests/*.sql`, one file per migration/feature area, and it's the most thoroughly covered layer. Any change to an RPC or RLS policy should come with (or update) a test here.
 - **`web/`** has meaningful frontend coverage: Vitest + jsdom + `@testing-library/react`, globals enabled, setup in `web/src/test/setup.ts`, tests colocated as `*.test.ts(x)` beside the module. Route-level tests (`routes/*.test.tsx`) rendering a screen with mocked hooks are the established pattern — follow it for new screens.
+- **jsdom is structurally blind to a whole class of web bugs**: overlays/sticky bars swallowing taps (no layout or hit-testing), animation and `AnimatePresence` timing, and anything Capacitor-native. A green Vitest run is not evidence the screen works — the create-flow bugs in `facbd6f` were both found by clicking through a real browser against live Supabase, not by tests.
 - **Root** has only a couple of component tests (`src/components/**/*.test.tsx`) using `jest-expo` and the shared helper `src/test/render.tsx`. Jest's `moduleNameMapper` handles `@/`, CSS, and AsyncStorage mocking (`jest.config.js`) — new native tests generally need nothing extra.
 
 ## Server authority model (applies to both frontends)
