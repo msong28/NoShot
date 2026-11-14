@@ -172,4 +172,27 @@ describe('FriendProfileScreen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'See all 7' }));
     expect(screen.getByText('Old bet 6')).toBeInTheDocument();
   });
+
+  it('stacks up to 3 waiting bets, and turns into a swipe row at 4', () => {
+    const mk = (n: number) =>
+      Array.from({ length: n }, (_, i) =>
+        bet({ id: `w${i}`, title: `Proposal ${i}`, status: 'pending_acceptance' }),
+      );
+    for (const [n, slides] of [
+      [3, false],
+      [4, true],
+    ] as const) {
+      const waiting = mk(n);
+      vi.mocked(useMyBets).mockReturnValue({
+        bets: waiting,
+        resolvedBets: [],
+        pendingBets: waiting,
+        resolutionPendingBets: [],
+        cancellationPendingBets: [],
+      } as never);
+      const { unmount } = renderAt('/friend/u2');
+      expect(screen.queryByRole('list', { name: /swipe for more/ }) !== null).toBe(slides);
+      unmount();
+    }
+  });
 });

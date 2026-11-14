@@ -3,8 +3,6 @@ import { useNavigate, useParams } from 'react-router';
 
 import { Capacitor } from '@capacitor/core';
 
-import { PollCard } from '@/components/poll-card';
-import { PollCreateForm } from '@/components/poll-create-form';
 import { ReportDialog } from '@/components/report-dialog';
 import { Avatar } from '@/components/ui/avatar';
 import { StatusBadge } from '@/components/ui/badge';
@@ -28,9 +26,7 @@ import {
   useSubmitBetResult,
   useWithdrawBet,
 } from '@/hooks/use-bets';
-import { useComments, usePostComment } from '@/hooks/use-comments';
 import { useCurrencies } from '@/hooks/use-currencies';
-import { useClosePoll, useCreatePoll, usePolls, useVoteOnPoll } from '@/hooks/use-polls';
 import { useProofAssets, useUploadProof } from '@/hooks/use-proof';
 import { useSession } from '@/hooks/use-session';
 import { TIE_OUTCOME_KEY, type Bet, type BetApprovalDecision, type BetStatus } from '@/lib/bet';
@@ -38,7 +34,6 @@ import { MONEY_CURRENCY_ID } from '@/lib/currency';
 import { getErrorMessage } from '@/lib/errors';
 import { Icons } from '@/lib/icons';
 import { chooseNativeProofPhoto, takeNativeProofPhoto } from '@/lib/native-photo';
-import type { Poll, PollOption, PollVote } from '@/lib/poll';
 import type { ReportTargetType } from '@/lib/report';
 
 /** Maps every real BetStatus onto the 5-state StatusPill vocabulary, same
@@ -103,15 +98,6 @@ function formatShortDate(iso: string): string {
 type ThreadItem =
   | { kind: 'system'; id: string; timestamp: string; text: string }
   | {
-      kind: 'comment';
-      id: string;
-      timestamp: string;
-      authorId: string;
-      authorName: string;
-      body: string;
-      moderationPending: boolean;
-    }
-  | {
       kind: 'proof';
       id: string;
       timestamp: string;
@@ -119,14 +105,6 @@ type ThreadItem =
       caption: string | null;
       signedUrl: string | null;
       moderationPending: boolean;
-    }
-  | {
-      kind: 'poll';
-      id: string;
-      timestamp: string;
-      poll: Poll;
-      options: PollOption[];
-      votes: PollVote[];
     };
 
 export function BetDetailScreen() {
@@ -146,13 +124,6 @@ export function BetDetailScreen() {
   const editBetDetails = useEditPendingBetDetails(betId, userId);
   const createOrCounterBet = useCreateOrCounterBet(userId);
   const { data: currencies } = useCurrencies({ ownerUserId: userId as string });
-  const { comments } = useComments(betId);
-  const postComment = usePostComment(betId);
-  const pollScope = useMemo(() => ({ betId }), [betId]);
-  const { polls } = usePolls(pollScope);
-  const createPoll = useCreatePoll(pollScope);
-  const voteOnPoll = useVoteOnPoll(pollScope);
-  const closePoll = useClosePoll(pollScope);
   const { assets: proofAssets } = useProofAssets(betId);
   const uploadProof = useUploadProof(betId, userId);
 
@@ -168,12 +139,10 @@ export function BetDetailScreen() {
   const [editCurrencyId, setEditCurrencyId] = useState('');
   const [resultOutcomeKey, setResultOutcomeKey] = useState('');
   const [resultRationale, setResultRationale] = useState('');
-  const [commentBody, setCommentBody] = useState('');
   const proofInputRef = useRef<HTMLInputElement>(null);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(
     null,
   );
-  const [showPollForm, setShowPollForm] = useState(false);
   const [settleOutcome, setSettleOutcome] = useState<SettleOutcome | null>(null);
   const [showAccepted, setShowAccepted] = useState(false);
   const [pendingProofFile, setPendingProofFile] = useState<File | null>(null);
@@ -183,14 +152,6 @@ export function BetDetailScreen() {
   function run(promise: Promise<unknown>) {
     setError(null);
     promise.catch((err: unknown) => setError(getErrorMessage(err, 'Something went wrong')));
-  }
-
-  function handlePostComment() {
-    setError(null);
-    postComment.mutate(commentBody, {
-      onSuccess: () => setCommentBody(''),
-      onError: (err) => setError(getErrorMessage(err, 'Failed to post comment')),
-    });
   }
 
   // Staged, not uploaded immediately -- lets a caption be added, same
@@ -417,15 +378,6 @@ export function BetDetailScreen() {
           },
         ] as const)
       : []),
-    ...comments.map(({ comment, author }): ThreadItem => ({
-      kind: 'comment',
-      id: comment.id,
-      timestamp: comment.created_at,
-      authorId: comment.author_id,
-      authorName: author?.display_name ?? 'Someone',
-      body: comment.body,
-      moderationPending: comment.moderation_status === 'pending_review',
-    })),
     ...proofAssets.map(({ asset, signedUrl }): ThreadItem => ({
       kind: 'proof',
       id: asset.id,
@@ -435,15 +387,16 @@ export function BetDetailScreen() {
       signedUrl: signedUrl ?? null,
       moderationPending: asset.moderation_status === 'pending_review',
     })),
-    ...polls.map(({ poll, options, votes }): ThreadItem => ({
-      kind: 'poll',
-      id: poll.id,
-      timestamp: poll.created_at,
-      poll,
-      options,
-      votes,
-    })),
   ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  // Sides worth showing only when they carry real information (an over/under
+  // line or custom win conditions) -- the default "You"/"{name}" labels just
+  // repeat what the header already says.
+  const rosterNames = new Set(roster.map((r) => r.profile?.display_name).filter(Boolean));
+  const isGenericLabel = (label: string | undefined) =>
+    !label || label === 'You' || label === 'Them' || rosterNames.has(label);
+  const genericSides =
+    isGenericLabel(myParticipant?.side?.label) && isGenericLabel(opponent?.side?.label);
 
   return (
     <main className="mx-auto max-w-app p-four pb-16">
@@ -470,21 +423,11 @@ export function BetDetailScreen() {
       {bet.description ? <p className="mt-two text-text-secondary">{bet.description}</p> : null}
 
       {roster.length === 2 && myParticipant && opponent ? (
-        <div className="mt-four flex items-center justify-around rounded-large border border-line bg-surface p-four">
-          <div className="flex flex-col items-center gap-two">
-            <Avatar id={myParticipant.participant.user_id} name="You" size="lg" />
-            <p className="text-sm font-bold">You</p>
-          </div>
-          <p className="font-display text-lg font-extrabold italic text-text-faint">VS</p>
-          <div className="flex flex-col items-center gap-two">
-            <Avatar
-              id={opponent.participant.user_id}
-              name={opponent.profile?.display_name ?? '?'}
-              size="lg"
-            />
-            <p className="text-sm font-bold">{opponent.profile?.display_name ?? 'Unknown'}</p>
-          </div>
-        </div>
+        <p className="mt-two text-text-secondary">
+          {bet.creator_id === opponent.participant.user_id && bet.status === 'pending_acceptance'
+            ? `${opponent.profile?.display_name ?? 'Someone'} is challenging you`
+            : `vs ${opponent.profile?.display_name ?? 'Unknown'}`}
+        </p>
       ) : null}
 
       {myParticipant?.commitment ? (
@@ -517,106 +460,66 @@ export function BetDetailScreen() {
         </>
       ) : null}
 
-      <SectionHeader title="Participants" />
-      <div className="mt-two flex flex-col gap-two">
-        {roster.map(({ participant, profile, side, commitment }) => (
-          <ListRow
-            key={participant.id}
-            leading={<Avatar id={participant.user_id} name={profile?.display_name ?? '?'} />}
-            title={profile?.display_name ?? 'Unknown'}
-            subtitle={
-              side
-                ? `${side.label}${
-                    commitment
-                      ? ` · staking ${commitment.stake_quantity} ${commitment.currencies?.name ?? ''}`
-                      : ''
-                  }`
-                : undefined
-            }
-            trailing={
-              commitment ? (
-                <span className="text-sm text-text-secondary">
-                  Wins {commitment.payout_if_win} {commitment.currencies?.name ?? ''}
-                </span>
-              ) : undefined
-            }
-          />
-        ))}
-      </div>
+      {roster.length === 2 && myParticipant && opponent && !genericSides ? (
+        <div className="mt-three flex flex-col gap-one rounded-large border border-line bg-surface p-three text-sm">
+          <p>
+            <span className="text-text-secondary">Your side:</span>{' '}
+            <span className="font-bold">{myParticipant.side?.label}</span>
+          </p>
+          <p>
+            <span className="text-text-secondary">
+              {opponent.profile?.display_name ?? 'Their'} side:
+            </span>{' '}
+            <span className="font-bold">{opponent.side?.label}</span>
+          </p>
+        </div>
+      ) : null}
+
+      {roster.length > 2 ? (
+        <>
+          <SectionHeader title="Participants" />
+          <div className="mt-two flex flex-col gap-two">
+            {roster.map(({ participant, profile, side, commitment }) => (
+              <ListRow
+                key={participant.id}
+                leading={<Avatar id={participant.user_id} name={profile?.display_name ?? '?'} />}
+                title={profile?.display_name ?? 'Unknown'}
+                subtitle={
+                  side
+                    ? `${side.label}${
+                        commitment
+                          ? ` · staking ${commitment.stake_quantity} ${commitment.currencies?.name ?? ''}`
+                          : ''
+                      }`
+                    : undefined
+                }
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
 
       <InlineError message={error} />
 
       <div className="mt-four flex flex-col gap-three">
-        {threadItems.length === 0 ? (
-          <p className="text-sm text-text-faint">
-            No activity yet — say something to get it started.
-          </p>
-        ) : (
-          threadItems.map((item) => {
-            if (item.kind === 'system') {
-              return (
-                <p key={item.id} className="text-center text-xs text-text-faint">
-                  {item.text}
-                </p>
-              );
-            }
+        {threadItems.map((item) => {
+          if (item.kind === 'system') {
+            return (
+              <p key={item.id} className="text-center text-xs text-text-faint">
+                {item.text}
+              </p>
+            );
+          }
 
-            if (item.kind === 'poll') {
-              return (
-                <PollCard
-                  key={item.id}
-                  poll={item.poll}
-                  options={item.options}
-                  votes={item.votes}
-                  userId={userId}
-                  onVote={(optionId) =>
-                    run(voteOnPoll.mutateAsync({ pollId: item.poll.id, optionId }))
-                  }
-                  onClose={() => run(closePoll.mutateAsync(item.poll.id))}
-                />
-              );
-            }
-
-            if (item.kind === 'proof') {
-              const mine = item.uploaderId === userId;
-              return (
-                <div
-                  key={item.id}
-                  className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}
-                >
-                  <div className="max-w-[80%] rounded-large border border-line bg-surface-sunken p-two">
-                    {item.signedUrl ? (
-                      <ProofImage src={item.signedUrl} alt={item.caption ?? 'Proof'} />
-                    ) : null}
-                    {item.caption ? <p className="mt-one px-one text-sm">{item.caption}</p> : null}
-                  </div>
-                  <div className="mt-half flex items-center gap-two px-one">
-                    {item.moderationPending ? (
-                      <StatusBadge label="Pending review" variant="warning" />
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => setReportTarget({ type: 'proof_asset', id: item.id })}
-                      className="text-xs text-text-faint"
-                    >
-                      Report
-                    </button>
-                  </div>
-                </div>
-              );
-            }
-
-            const mine = item.authorId === userId;
+          {
+            const mine = item.uploaderId === userId;
             return (
               <div key={item.id} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
-                <div
-                  className={`max-w-[80%] p-three text-sm ${
-                    mine
-                      ? 'rounded-large rounded-br-none bg-grape text-on-grape'
-                      : 'rounded-large rounded-bl-none border border-line bg-surface'
-                  }`}
-                >
-                  {item.body}
+                <div className="max-w-[80%] rounded-large border border-line bg-surface-sunken p-two">
+                  {item.signedUrl ? (
+                    <ProofImage src={item.signedUrl} alt={item.caption ?? 'Proof'} />
+                  ) : null}
+                  {item.caption ? <p className="mt-one px-one text-sm">{item.caption}</p> : null}
                 </div>
                 <div className="mt-half flex items-center gap-two px-one">
                   {item.moderationPending ? (
@@ -624,7 +527,7 @@ export function BetDetailScreen() {
                   ) : null}
                   <button
                     type="button"
-                    onClick={() => setReportTarget({ type: 'comment', id: item.id })}
+                    onClick={() => setReportTarget({ type: 'proof_asset', id: item.id })}
                     className="text-xs text-text-faint"
                   >
                     Report
@@ -632,32 +535,12 @@ export function BetDetailScreen() {
                 </div>
               </div>
             );
-          })
-        )}
+          }
+        })}
       </div>
 
       {myParticipant ? (
         <>
-          {showPollForm ? (
-            <div className="mt-three">
-              <PollCreateForm
-                disabled={createPoll.isPending}
-                onSubmit={(input) => {
-                  run(createPoll.mutateAsync(input));
-                  setShowPollForm(false);
-                }}
-              />
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowPollForm(true)}
-              className="mt-three self-start text-sm font-bold text-grape-ink"
-            >
-              📊 New poll
-            </button>
-          )}
-
           <div className="sticky bottom-0 mt-three bg-bg pb-one pt-two">
             {pendingProofFile ? (
               <div className="mb-two flex items-center gap-two rounded-large border border-line bg-surface p-two">
@@ -736,24 +619,6 @@ export function BetDetailScreen() {
                   </button>
                 </>
               )}
-              <input
-                placeholder="Message…"
-                value={commentBody}
-                onChange={(e) => setCommentBody(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && commentBody.trim()) handlePostComment();
-                }}
-                className="flex-1 rounded-pill border border-line bg-surface p-three"
-              />
-              <button
-                type="button"
-                aria-label="Send"
-                disabled={!commentBody.trim() || postComment.isPending}
-                onClick={handlePostComment}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-pill bg-grape text-on-grape disabled:opacity-60"
-              >
-                <Icons.send size={18} strokeWidth={2} />
-              </button>
             </div>
           </div>
         </>

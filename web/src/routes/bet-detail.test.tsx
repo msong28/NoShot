@@ -4,8 +4,6 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 
 import { useApproveBetVersion, useBetDetail, useSubmitBetResult } from '@/hooks/use-bets';
-import { useComments, usePostComment } from '@/hooks/use-comments';
-import { useClosePoll, useCreatePoll, usePolls, useVoteOnPoll } from '@/hooks/use-polls';
 import { useProofAssets, useUploadProof } from '@/hooks/use-proof';
 import { useSubmitReport } from '@/hooks/use-reports';
 import { useSession } from '@/hooks/use-session';
@@ -29,16 +27,6 @@ vi.mock('@/hooks/use-bets', () => ({
 }));
 vi.mock('@/hooks/use-currencies', () => ({
   useCurrencies: vi.fn(() => ({ data: [] })),
-}));
-vi.mock('@/hooks/use-comments', () => ({
-  useComments: vi.fn(),
-  usePostComment: vi.fn(),
-}));
-vi.mock('@/hooks/use-polls', () => ({
-  usePolls: vi.fn(),
-  useCreatePoll: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
-  useVoteOnPoll: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
-  useClosePoll: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
 }));
 vi.mock('@/hooks/use-proof', () => ({
   useProofAssets: vi.fn(),
@@ -166,9 +154,6 @@ describe('BetDetailScreen', () => {
       session: { user: { id: 'u1' } } as never,
       isLoading: false,
     });
-    vi.mocked(useComments).mockReturnValue({ comments: [], isLoading: false });
-    vi.mocked(usePostComment).mockReturnValue({ mutate: vi.fn(), isPending: false } as never);
-    vi.mocked(usePolls).mockReturnValue({ polls: [], isLoading: false });
     vi.mocked(useProofAssets).mockReturnValue({ assets: [], isLoading: false });
     vi.mocked(useSubmitReport).mockReturnValue({
       mutate: vi.fn(),
@@ -179,43 +164,23 @@ describe('BetDetailScreen', () => {
     } as never);
   });
 
-  it('renders comments and lets a participant post one', () => {
+  it('has no chat or polls, but still lets a participant attach proof', () => {
     mockBetDetail();
-    vi.mocked(useComments).mockReturnValue({
-      comments: [
-        {
-          comment: {
-            id: 'c1',
-            bet_id: 'bet-1',
-            author_id: 'u1',
-            body: 'Good luck',
-            moderation_status: 'visible' as never,
-            created_at: '2026-01-01T00:00:00Z',
-            removed_at: null,
-          },
-          author: { id: 'u1', username: 'alice', display_name: 'Alice' },
-        },
-      ],
-      isLoading: false,
-    });
-
-    renderScreen();
-
-    expect(screen.getByText('Good luck')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument();
-  });
-
-  it('hides the comment and poll-create forms for a non-participant', () => {
-    mockBetDetail();
-    vi.mocked(useSession).mockReturnValue({
-      session: { user: { id: 'stranger' } } as never,
-      isLoading: false,
-    });
 
     renderScreen();
 
     expect(screen.queryByPlaceholderText('Message…')).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('New poll question')).not.toBeInTheDocument();
+    expect(screen.queryByText(/New poll/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /attach a photo/i })).toBeInTheDocument();
+  });
+
+  it('shows the opponent in one line instead of a VS card and a participants list', () => {
+    mockBetDetail();
+
+    renderScreen();
+
+    expect(screen.queryByText('VS')).not.toBeInTheDocument();
+    expect(screen.queryByText('Participants')).not.toBeInTheDocument();
   });
 
   it('renders an uploaded proof image and its caption', () => {
@@ -247,34 +212,6 @@ describe('BetDetailScreen', () => {
       'src',
       'https://example.com/signed.jpg',
     );
-  });
-
-  it('renders a poll with its options', () => {
-    mockBetDetail();
-    vi.mocked(usePolls).mockReturnValue({
-      polls: [
-        {
-          poll: {
-            id: 'poll-1',
-            bet_id: 'bet-1',
-            group_id: null,
-            creator_id: 'u1',
-            question: 'Who wins?',
-            allow_multiple: false,
-            created_at: '2026-01-01T00:00:00Z',
-            closed_at: null,
-          },
-          options: [{ id: 'o1', poll_id: 'poll-1', label: 'Team A', position: 0 }],
-          votes: [],
-        },
-      ],
-      isLoading: false,
-    });
-
-    renderScreen();
-
-    expect(screen.getByText('Who wins?')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Team A0' })).toBeInTheDocument();
   });
 
   it('celebrates acceptance and redirects to Active when approving activates the bet', async () => {

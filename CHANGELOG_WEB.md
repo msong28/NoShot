@@ -8,6 +8,32 @@ see `HANDOFF_WEB_PORT.md`; for already-decided items see `DECISIONS.md`.
 
 ## 2026-11-13
 
+### 00000. Simpler bet page; "Waiting on you" slider
+
+**Bet detail page (`routes/bet-detail.tsx`)**
+
+- **Removed chat messages and polls** from the bet page (UI only). Why: nobody asked for them,
+  "New poll" was unexplained, and a message thread on a two-person bet duplicates real
+  conversation. The comment/poll hooks, tables and components (`poll-card`, `poll-create-form`,
+  `use-comments`, `use-polls`) are untouched, so they can come back — they're just unused here.
+- **Kept photo proof** (attach button + proof images in the feed): it's evidence for settling,
+  not chat. The sticky composer is now just the attach button.
+- **"You VS Cy" card → one line.** "Cy Okafor is challenging you" while a proposal is waiting on
+  you, otherwise "vs Cy Okafor". Why: the card repeated the title area.
+- **Removed the Participants list on two-person bets** (it repeated the header and the "On the
+  line" payout cards). It still shows for 3+ person bets. For two-person bets, a small
+  "Your side / Their side" card appears **only** when the side labels carry information (an
+  over/under line or custom win conditions); default labels ("You", names) are hidden.
+- Open question for later: whether the opponent line is needed at all once bets are reached
+  from a friend's page.
+
+**Friend page:** "Waiting on you" stacks up to 3 rows; with 4+ it becomes a horizontal
+snap-scroll row (cards at 85% width so the next one peeks).
+
+**Group bets:** deprioritized for now (back burner); nothing built or removed.
+
+---
+
 ### 0000. Shared bets on the friend page
 
 - `/friend/:userId` now lists your **one-on-one** bets with that friend in three sections:

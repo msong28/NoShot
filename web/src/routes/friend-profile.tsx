@@ -19,25 +19,45 @@ import { getErrorMessage } from '@/lib/errors';
 
 const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
 
+const WAITING_STACK_LIMIT = 3;
+
 function BetSection({
   title,
   bets,
   count,
   highlight = false,
+  slideAbove,
 }: {
   title: string;
   bets: MyBet[];
   count?: number;
   highlight?: boolean;
+  /** Stack up to this many rows; more than that becomes a swipeable row. */
+  slideAbove?: number;
 }) {
+  const slides = slideAbove !== undefined && bets.length > slideAbove;
   return (
     <>
       <SectionHeader title={title} count={count ?? bets.length} />
-      <div className="mt-two flex flex-col gap-two">
-        {bets.map((bet) => (
-          <BetRow key={bet.id} bet={bet} highlight={highlight} />
-        ))}
-      </div>
+      {slides ? (
+        <div
+          role="list"
+          aria-label={`${title}, swipe for more`}
+          className="mt-two -mx-four flex snap-x snap-mandatory gap-two overflow-x-auto px-four pb-two"
+        >
+          {bets.map((bet) => (
+            <div key={bet.id} role="listitem" className="w-[85%] shrink-0 snap-start">
+              <BetRow bet={bet} highlight={highlight} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-two flex flex-col gap-two">
+          {bets.map((bet) => (
+            <BetRow key={bet.id} bet={bet} highlight={highlight} />
+          ))}
+        </div>
+      )}
     </>
   );
 }
@@ -182,7 +202,12 @@ export function FriendProfileScreen() {
       </div>
 
       {waitingOnMe.length > 0 ? (
-        <BetSection title="Waiting on you" bets={waitingOnMe} highlight />
+        <BetSection
+          title="Waiting on you"
+          bets={waitingOnMe}
+          highlight
+          slideAbove={WAITING_STACK_LIMIT}
+        />
       ) : null}
       {inProgress.length > 0 ? <BetSection title="In progress" bets={inProgress} /> : null}
       {history.length > 0 ? (
