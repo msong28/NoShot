@@ -54,14 +54,14 @@ function BetSection({
         >
           {bets.map((bet) => (
             <div key={bet.id} role="listitem" className="snap-start">
-              <BetRow bet={bet} highlight={highlight} />
+              <BetRow bet={bet} highlight={highlight} showOpponent={false} />
             </div>
           ))}
         </div>
       ) : (
         <div className="mt-two flex flex-col gap-two">
           {bets.map((bet) => (
-            <BetRow key={bet.id} bet={bet} highlight={highlight} />
+            <BetRow key={bet.id} bet={bet} highlight={highlight} showOpponent={false} />
           ))}
         </div>
       )}

@@ -23,7 +23,7 @@ So "port the fix to the other tree" is the default assumption, but verify the co
 
 Root `.env` uses `EXPO_PUBLIC_*` var names; `web/.env` uses `VITE_*` names for the same underlying values (plus native-only `VITE_GOOGLE_*_CLIENT_ID` and `VITE_ONESIGNAL_APP_ID`). See both `.env.example` files. Never put the Supabase service-role key in either — only the anon key belongs client-side (RLS enforces authorization, not key secrecy).
 
-`ARCHITECTURE.md`'s "one-codebase principle" (single Expo Router app for iOS/Android/web) describes the **root app's** target shape and predates the `web/` port. `HANDOFF_WEB_PORT.md` is the narrative status log for `web/`, but its newest dated section lags the actual code — read it for context, then trust `git log` and the code itself.
+`ARCHITECTURE.md`'s "one-codebase principle" (single Expo Router app for iOS/Android/web) describes the **root app's** target shape and predates the `web/` port. `CHANGELOG_WEB.md` is the current, newest-first log for `web/` (what/why/where per change, plus a "Design philosophy" section of UI rules to apply or argue with); recent `web/` commits each append to it, so do the same. `HANDOFF_WEB_PORT.md` is the older narrative log and lags the code — read it for history, then trust `git log` and the code itself.
 
 ## Frontend data layer (same convention in both trees)
 
@@ -115,7 +115,8 @@ Any new mutation that touches money, bet state, or moderation should follow this
 
 ## Key docs to check before large changes
 
-- `HANDOFF_WEB_PORT.md` — dated log of `web/`'s status; each session appends rather than rewrites. Trust the top-most "Status as of" section over older ones, and `git log` over all of them.
+- `CHANGELOG_WEB.md` — newest-first record of `web/` changes and proposals; its "Design philosophy" section (one place per thing, lead with what needs action, rare/dangerous actions behind a confirmed ⋯ menu, no unexplained features) governs UI decisions. Add an entry when you change `web/`.
+- `HANDOFF_WEB_PORT.md` — older dated narrative log of the `web/` port; each session appended rather than rewrote. Trust the top-most "Status as of" section over older ones, and `git log` over all of them.
 - `ARCHITECTURE.md` — target architecture for the root app (navigation IA, styling approach, data layer, server authority model, admin surface, testing strategy).
 - `DESIGN_SYSTEM.md` + `design_handoff_noshot 2/README.md` — token definitions and component specs both trees implement.
 - `DECISIONS.md` — open items needing sign-off, store/legal risks, and a decided-and-why log; check before revisiting something that looks already decided.

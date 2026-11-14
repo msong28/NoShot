@@ -47,7 +47,16 @@ function statusFor(bet: MyBet): { variant: StatusPillVariant; label?: string; yo
 
 /** One bet as a tappable list row (status pill, "your move", payout chip).
  * Shared by the Bets tab and a friend's page. */
-export function BetRow({ bet, highlight = false }: { bet: MyBet; highlight?: boolean }) {
+export function BetRow({
+  bet,
+  highlight = false,
+  showOpponent = true,
+}: {
+  bet: MyBet;
+  highlight?: boolean;
+  /** Off on a friend's own page, where "vs {that friend}" on every row is noise. */
+  showOpponent?: boolean;
+}) {
   const isDone = bet.status === 'resolved' || bet.status === 'tied';
   const status = statusFor(bet);
   return (
@@ -55,7 +64,7 @@ export function BetRow({ bet, highlight = false }: { bet: MyBet; highlight?: boo
       <ListRow
         leading={<BetIconTile bet={bet} />}
         title={bet.title}
-        subtitle={betSubtitle(bet)}
+        subtitle={showOpponent ? betSubtitle(bet) : bet.description || undefined}
         borderColorClassName={
           status.variant === 'disputed'
             ? 'border-danger'

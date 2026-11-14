@@ -62,6 +62,29 @@ and argue with that — it's easier to change a principle than to re-litigate ev
 
 ## 2026-11-13
 
+### 00000000000. Audit findings (void bets, CI, theme) + friend-row subtitle
+
+- **"Voided" bets were not a bug.** "Ping pong final" shows voided because the recipient
+  _declined_ it (`bet_approvals` has a `declined` decision); "Race to the bus stop" was
+  _withdrawn_ by its creator on purpose. Both become the same `voided` status, so the app can't
+  tell users which happened — logged in `BET_TAXONOMY_HANDOFF.md` ("Void states") as three labels.
+- **GitHub CI is red, and has been since at least late July** — unrelated to the web work. The
+  failing step is the root app's `npm run typecheck`: one expo-router route type error
+  (`src/app/admin/index.tsx`, `/report/${id}`) and the Supabase edge function using `Deno` types
+  that root `tsc` doesn't know. Because it fails there, the later CI steps (jest, `test:db`) never
+  run. `format:check` and `lint` pass. Not fixed yet.
+- **Dark is the default theme** (`data-theme="dark"` in `index.html`, mode defaults to dark), so
+  light mode is opt-in via Settings. Checked in a real headless browser: landing page and friend
+  page render correctly in both; I have not checked every other screen in both.
+- **Friend page rows:** dropped the repeated "vs {friend}" subtitle (principle 1) — the page is
+  already about that friend; rows now show the bet description instead.
+- **Unfriend migration pending live:** `supabase migration list` shows every migration through
+  `20260730120000` applied remotely and only `20260801090000_remove_friend` missing. Applying it
+  is one command (`npx supabase db push`) that the user runs.
+- **Taxonomy handoff written:** `BET_TAXONOMY_HANDOFF.md`.
+
+---
+
 ### 0000000000. Settle button bounce fixed; handoff notes for the bet-taxonomy session
 
 **Bug — "Settle bet" bounced back to the bet page, typed URL worked.** Root cause: the
