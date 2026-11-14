@@ -8,6 +8,89 @@ see `HANDOFF_WEB_PORT.md`; for already-decided items see `DECISIONS.md`.
 
 ## 2026-11-13
 
+### 000. Blocked users → Settings; quieter friends header (uncommitted → see git log)
+
+- **Blocked users moved off the friends page** to Settings → Account → **Blocked users**
+  (`/blocked`, `routes/blocked-users.tsx`) with the same Unblock action.
+- **Friends page header:** the visible "Friends" title is gone (the bottom-nav tab and screen
+  context already say it); it stays as a screen-reader-only `<h1>`. Header is now just search
+  (left) and **Add friend** (right).
+- **"Manual obligations"** link is now small, faint, underlined text instead of a bold purple link.
+
+---
+
+### 00. Add-friends page, nav fixes (uncommitted)
+
+- **Bug fix — missing "+" button:** the bottom nav's create "+" vanished on `/friends` because I
+  had hidden it there (`showCreate={false}`) from a misreading of "remove the + signal". Reverted
+  and the prop deleted; the nav is identical on every screen again.
+- **Friends tab icon:** was `UserPlus` (a person with a +), which also made the tab look like
+  "add friend". Now `User` (single person), distinct from Groups (`Users`). `UserPlus` kept as
+  `Icons.addFriend`. Also changes the friends empty-state icon.
+- **Add friends page** (`/friends/add`, `routes/add-friend.tsx`): the header **Add friend** button
+  now opens it instead of copying immediately. Options: **Search by username** (→
+  `/friends/search`), **Copy invite link**, **Share invite link** (native share sheet →
+  Messages/WhatsApp/contacts; falls back to copying on desktop).
+- **Contacts import is NOT built.** The browser Contact Picker API is Android-Chrome-only; iOS
+  needs a Capacitor contacts plugin + permission strings, and matching contacts to users needs a
+  server RPC that takes phone numbers/emails (privacy + rate-limit design). The share sheet is the
+  stand-in for now.
+
+---
+
+### 0. Friends becomes a real friends hub: search screen, friend page, safer Block (uncommitted)
+
+**What**
+
+- **Whole row is tappable.** Each friend row is now a link to `/friend/:userId` (`ListRow` gained a
+  `to` prop). The balance chip inside it is display-only (a link inside a link is invalid HTML).
+- **New friend page** (`routes/friend-profile.tsx`): avatar/name/@handle, head-to-head record, a
+  **New bet with …** button (`/create/:id`), the full per-currency balance list, and **Block** at
+  the very bottom behind a confirmation sheet. This is the Phase 1 page from the proposal below,
+  minus shared-bet history.
+- **Block removed from the list.** It was one mis-tap from a real, hard-to-undo action.
+- **New search screen** (`/friends/search`, `routes/friend-search.tsx`) opened by the header
+  search button. The friends page no longer shows search results inline.
+- **Blocked section + Unblock** at the bottom of the friends page (needed anyway: blocking hides
+  someone from search, and there was no way back in the UI).
+- Friends page is now list-first: Requests → Your friends → Sent → Blocked.
+
+**Why (and what the research said)**
+
+Search UI follows common mobile-search guidance ([Algolia](https://www.algolia.com/blog/ux/mobile-search-ux-best-practices/),
+[Experro](https://www.experro.com/blog/mobile-search-best-practices/),
+[Screensdesign](https://screensdesign.com/articles/mobile-app-search-screen-examples/)):
+full-screen with autofocus and keyboard ready, `type="search"` + search key, a clear (x) button,
+a useful empty state instead of a blank panel, recent searches, and no dead-end "no results"
+(ours points to the invite link). Caveats: those sources are mostly vendor blogs, not usability
+research.
+
+Two choices come from our backend, not the research: search runs **on submit, not per keystroke**,
+because `search_profiles_by_username` requires ≥3 characters and rate-limits to 20/minute. Recent
+searches live in `localStorage` per user (device-local convenience, same exception as
+`use-custom-bet-templates`).
+
+Friend page placement follows what I found on profile pages: keep block/remove **out of the
+primary action row, behind a confirmation** (a Miro profile template and Facebook/Messenger help
+pages say the same); the sources were thin and none is an authoritative design guide.
+
+**Important behavior to know**
+
+- There is **no "remove friend" RPC** — only `block_user`, which sets the friendship to
+  `cancelled` and records a block. So "removing" a friend = blocking them. Un-blocking does
+  **not** restore the friendship; you must send a new request and they must accept. A true
+  "Remove friend" (no block) would need a new migration.
+- Bets/ledger balances are not deleted by a block.
+
+**Files:** `routes/friends.tsx`, `friend-search.tsx`, `friend-profile.tsx` (+ tests),
+`components/ui/list-row.tsx`, `hooks/use-friends.ts` (`useBlockedUsers`, `useUnblockUser`),
+`App.tsx` (two routes).
+
+**Not done / open:** shared-bet history on the friend page; a real "Remove friend"; browser
+check against live data.
+
+---
+
 ### 1. Friends page redesign — `1bfaea0`
 
 **What**

@@ -42,7 +42,7 @@ function NavTab({
   );
 }
 
-export function BottomNav({ showCreate = true }: { showCreate?: boolean }) {
+export function BottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const AddIcon = Icons.add;
@@ -57,16 +57,14 @@ export function BottomNav({ showCreate = true }: { showCreate?: boolean }) {
             active={(tab.activePaths ?? [tab.to]).includes(location.pathname)}
           />
         ))}
-        {showCreate ? (
-          <button
-            type="button"
-            aria-label="Create a bet or obligation"
-            onClick={() => navigate('/create')}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-pill bg-primary text-on-primary shadow-card"
-          >
-            <AddIcon size={22} strokeWidth={2.5} />
-          </button>
-        ) : null}
+        <button
+          type="button"
+          aria-label="Create a bet or obligation"
+          onClick={() => navigate('/create')}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-pill bg-primary text-on-primary shadow-card"
+        >
+          <AddIcon size={22} strokeWidth={2.5} />
+        </button>
         {TABS.slice(2).map((tab) => (
           <NavTab
             key={tab.to}

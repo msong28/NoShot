@@ -8,6 +8,7 @@ import { ActivityScreen } from '@/routes/activity';
 import { AdminReportDetailScreen } from '@/routes/admin-report-detail';
 import { AdminReportQueueScreen } from '@/routes/admin-reports';
 import { AuthCallbackScreen } from '@/routes/auth-callback';
+import { BlockedUsersScreen } from '@/routes/blocked-users';
 import { BalancesScreen } from '@/routes/balances';
 import { BetDetailScreen } from '@/routes/bet-detail';
 import { BetsScreen } from '@/routes/bets';
@@ -18,6 +19,9 @@ import { CurrenciesScreen } from '@/routes/currencies';
 import { DeleteAccountScreen } from '@/routes/delete-account';
 import { EditProfileScreen } from '@/routes/edit-profile';
 import { ForgotPasswordScreen } from '@/routes/forgot-password';
+import { FriendProfileScreen } from '@/routes/friend-profile';
+import { AddFriendScreen } from '@/routes/add-friend';
+import { FriendSearchScreen } from '@/routes/friend-search';
 import { FriendsScreen } from '@/routes/friends';
 import { GroupDetailScreen } from '@/routes/group-detail';
 import { GroupsScreen } from '@/routes/groups';
@@ -74,7 +78,11 @@ export function App() {
             <Route path="/my-wagers" element={<MyWagersScreen />} />
             <Route path="/balances" element={<BalancesScreen />} />
             <Route path="/currencies" element={<CurrenciesScreen />} />
+            <Route path="/blocked" element={<BlockedUsersScreen />} />
             <Route path="/friends" element={<FriendsScreen />} />
+            <Route path="/friends/add" element={<AddFriendScreen />} />
+            <Route path="/friends/search" element={<FriendSearchScreen />} />
+            <Route path="/friend/:userId" element={<FriendProfileScreen />} />
             <Route path="/obligations" element={<ObligationsScreen />} />
             <Route path="/delete-account" element={<DeleteAccountScreen />} />
           </Route>

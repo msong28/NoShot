@@ -207,15 +207,59 @@ export function useCancelFriendRequest(userId: string | undefined) {
   });
 }
 
+function blockedUsersQueryKey(userId: string | undefined) {
+  return ['blocked-users', userId] as const;
+}
+
+/** People the caller has blocked, with whatever profile info
+ * get_profiles_for_relations will give back (it resolves anyone the caller
+ * has ever had a friendships row with, which covers a block-after-friends). */
+export function useBlockedUsers(userId: string | undefined) {
+  const blocksQuery = useQuery({
+    queryKey: blockedUsersQueryKey(userId),
+    queryFn: async (): Promise<string[]> => {
+      const { data, error } = await supabase
+        .from('blocks')
+        .select('blocked_id')
+        .eq('blocker_id', userId as string);
+      if (error) throw error;
+      return data.map((row) => row.blocked_id);
+    },
+    enabled: !!userId,
+  });
+  const ids = useMemo(() => blocksQuery.data ?? [], [blocksQuery.data]);
+  const profilesQuery = useRelatedProfiles(ids);
+  const blocked = ids.map((id) => ({
+    id,
+    profile: (profilesQuery.data ?? []).find((p) => p.id === id),
+  }));
+  return { blocked, isLoading: blocksQuery.isLoading || profilesQuery.isLoading };
+}
+
+export function useUnblockUser(userId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (blockedId: string) => {
+      const { error } = await supabase.rpc('unblock_user', { p_blocked_id: blockedId });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: blockedUsersQueryKey(userId) }),
+  });
+}
+
 export function useBlockUser(userId: string | undefined) {
   const invalidate = useInvalidateFriendships(userId);
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (blockedId: string) => {
       const { data, error } = await supabase.rpc('block_user', { p_blocked_id: blockedId });
       if (error) throw error;
       return data;
     },
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: blockedUsersQueryKey(userId) });
+    },
   });
 }
 

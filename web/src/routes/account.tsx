@@ -107,6 +107,7 @@ export function AccountScreen({
       <div className="mt-two flex flex-col divide-y divide-line rounded-large border border-line bg-surface">
         <SettingsRow label="Edit profile" icon="account" to="/edit-profile" />
         <SettingsRow label="Manage stakes" icon="currency" to="/currencies" />
+        <SettingsRow label="Blocked users" icon="block" to="/blocked" />
         <SettingsRow
           label="Notifications"
           icon="notifications"
