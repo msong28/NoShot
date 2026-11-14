@@ -62,6 +62,39 @@ and argue with that — it's easier to change a principle than to re-litigate ev
 
 ## 2026-11-13
 
+### 000000000000. Bet lifecycle: consent to change, "Who won?" report-then-confirm, call off, expiry; taxonomy proposal
+
+**Why:** the flow should be _propose → accept → active (can't change without the other person) →
+who won → settle up (debts)_. Comparing that to the code turned up a real bug and a weak spot.
+
+- **Bug fixed — declining a change killed the bet.** `propose_bet_amendment()` rewrote the live
+  bet and flipped it back to pending, so a decline voided an agreed bet. Now a change is a
+  pending request (`bet_amendments`); the bet stays active on its agreed terms until the other
+  person taps **Accept change**, and **Keep as is** just closes the request. The ⋯ menu has
+  **Propose a change** on active bets, and the recipient of a proposal gets **Suggest different
+  terms** (counter-offer) — the server always supported counters, there was no button.
+- **"Who won?" replaces one-person-final settling (option C).** Saying you _lost_ is final at
+  once. Claiming a win or a tie waits for the other side: **That's right** / **Dispute**; if they
+  don't answer within **48 hours** it locks in. A disputed bet can be re-reported (a claim the
+  other side already rejected can't be pushed again) or **called off** by either side, nothing
+  owed. The debt is only posted when the result is final. (`DECISIONS.md` updated.)
+- **Naming:** "Who won?" decides the result (page moved to `/bet/:id/result`,
+  `routes/who-won.tsx`); **Settle up** is only for paying debts. No timer on settling up.
+- **Voided bets say why:** Declined / Withdrawn / Cancelled / Called off / Expired.
+- **Unanswered proposals expire after 7 days.** The timers run whenever someone loads their bets
+  (`finalize_due_bets`), and on a 15-minute pg_cron schedule if that extension is enabled.
+- **Deadline passed** → the bet page says "time to call it" above **Who won?**.
+- **Removed the orphaned `wagers` tables**, `/my-wagers` and `use-wager` (nothing has written to
+  them since the create flow moved onto the bets engine).
+- Restored the `submit_bet_result` rate limit that `20260726090000` had dropped.
+- Where: `supabase/migrations/20261113090000_bet_lifecycle.sql`, `20261113091000_drop_wagers.sql`,
+  `supabase/tests/bet_lifecycle.test.sql`, `routes/bet-detail.tsx`, `routes/who-won.tsx`,
+  `hooks/use-bets.ts`, home/activity cards.
+- **Not live yet:** both migrations need `npx supabase db push`. Until then the web app degrades
+  (no timers, no change requests) rather than breaking.
+- **Taxonomy proposal:** `BET_TAXONOMY.md` — five building blocks (question, roles, verdict rule,
+  stakes, timing), contests and pledges as two presets; three decisions for you at the end.
+
 ### 00000000000. Audit findings (void bets, CI, theme) + friend-row subtitle
 
 - **"Voided" bets were not a bug.** "Ping pong final" shows voided because the recipient

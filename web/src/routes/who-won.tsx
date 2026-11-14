@@ -6,7 +6,12 @@ import { Button } from '@/components/ui/button';
 import { ConfirmationDialog } from '@/components/ui/confirm-dialog';
 import { InlineError } from '@/components/ui/inline-error';
 import { SettleReveal, type SettleOutcome } from '@/components/ui/settle-reveal';
-import { useBetDetail, useProposeCancelBet, useSubmitBetResult } from '@/hooks/use-bets';
+import {
+  useBetDetail,
+  useCallOffBet,
+  useProposeCancelBet,
+  useSubmitBetResult,
+} from '@/hooks/use-bets';
 import { useUploadProof } from '@/hooks/use-proof';
 import { useSession } from '@/hooks/use-session';
 import { TIE_OUTCOME_KEY } from '@/lib/bet';
@@ -25,22 +30,24 @@ function winLabel(label: string | undefined, fallback: string, generic: boolean)
 }
 
 /**
- * Dedicated "what happened?" page, opened from the bet's Settle bet button.
- * Whoever reports the outcome settles it right away (a recorded product
- * decision -- see DECISIONS.md), so the page picks the outcome, takes an
- * optional note and photo, and asks for one last confirmation before it
- * posts. "Inconclusive" doesn't settle anything: it proposes cancelling,
- * which the other side has to agree to.
+ * Dedicated "Who won?" page (deciding the result -- "settle" is reserved for
+ * paying debts on Balances). Report-then-confirm: saying you LOST is final
+ * immediately; claiming a win or a tie waits for the other side to confirm or
+ * dispute, and locks in by itself if they don't answer in time. Reachable from
+ * an active bet, or from a disputed one to report something different.
+ * "Couldn't tell": on an active bet it proposes cancelling (the other side has
+ * to agree); on a disputed bet it calls the bet off outright.
  */
-export function SettleBetScreen() {
+export function WhoWonScreen() {
   const { betId } = useParams<{ betId: string }>();
   const navigate = useNavigate();
   const { session } = useSession();
   const userId = session?.user.id;
 
-  const { bet, roster, resultSubmissions, isLoading } = useBetDetail(betId);
+  const { bet, roster, resultSubmissions, resultConfirmations, isLoading } = useBetDetail(betId);
   const submitBetResult = useSubmitBetResult(betId, userId);
   const proposeCancelBet = useProposeCancelBet(betId, userId);
+  const callOffBet = useCallOffBet(betId, userId);
   const uploadProof = useUploadProof(betId, userId);
 
   const [choice, setChoice] = useState<Choice | null>(null);
@@ -66,19 +73,33 @@ export function SettleBetScreen() {
   const me = roster.find((r) => r.participant.user_id === userId);
   const other =
     roster.length === 2 ? roster.find((r) => r.participant.user_id !== userId) : undefined;
-  const alreadyReported = resultSubmissions.length > 0;
+  const disputed = bet.status === 'disputed';
 
-  // Only a running bet nobody has reported on can be settled from here.
-  if (bet.status !== 'active' || alreadyReported || !me) {
+  // Only a running bet, or a disputed one, can be reported on from here.
+  if ((bet.status !== 'active' && !disputed) || !me) {
     return <Navigate to={`/bet/${bet.id}`} replace />;
   }
+
+  // Claims of mine the other side already rejected can't be sent again
+  // (the server refuses them) -- don't offer them.
+  const rejectedMine = new Set(
+    resultSubmissions
+      .filter(
+        (s) =>
+          s.submitter_id === userId &&
+          resultConfirmations.some(
+            (c) => c.result_submission_id === s.id && c.decision === 'declined',
+          ),
+      )
+      .map((s) => s.proposed_outcome_key),
+  );
 
   const otherName = other?.profile?.display_name ?? 'They';
   const rosterNames = new Set(roster.map((r) => r.profile?.display_name));
   const isGeneric = (label?: string) =>
     !label || label === 'You' || label === 'Them' || rosterNames.has(label);
 
-  const choices: Choice[] = [
+  const allChoices: Choice[] = [
     {
       kind: 'outcome',
       key: me.side?.outcome_key ?? '',
@@ -96,6 +117,10 @@ export function SettleBetScreen() {
     { kind: 'tie', key: TIE_OUTCOME_KEY, label: 'It was a tie' },
     { kind: 'inconclusive', key: 'inconclusive', label: "Couldn't tell / call it off" },
   ];
+  const choices = allChoices.filter((c) => c.kind === 'inconclusive' || !rejectedMine.has(c.key));
+
+  // Saying the other side won is admitting a loss: final right away.
+  const isFinalChoice = choice?.kind === 'outcome' && choice.key !== me.side?.outcome_key;
 
   const selectedLabel = choice?.label ?? '';
 
@@ -105,7 +130,8 @@ export function SettleBetScreen() {
     setError(null);
     try {
       if (choice.kind === 'inconclusive') {
-        await proposeCancelBet.mutateAsync(undefined);
+        if (disputed) await callOffBet.mutateAsync();
+        else await proposeCancelBet.mutateAsync(undefined);
         navigate(`/bet/${bet!.id}`, { replace: true });
         return;
       }
@@ -125,18 +151,38 @@ export function SettleBetScreen() {
     }
   }
 
-  const busy = submitBetResult.isPending || proposeCancelBet.isPending || uploadProof.isPending;
+  const busy =
+    submitBetResult.isPending ||
+    proposeCancelBet.isPending ||
+    callOffBet.isPending ||
+    uploadProof.isPending;
+
+  const inconclusiveCopy = disputed
+    ? {
+        button: 'Call it off',
+        title: 'Call this bet off?',
+        description: `It ends right away and nobody owes anything. ${otherName} gets notified.`,
+        confirm: 'Call it off',
+      }
+    : {
+        button: 'Propose calling it off',
+        title: 'Propose calling this bet off?',
+        description: `${otherName} has to agree before it's cancelled. Nothing is owed if it is.`,
+        confirm: 'Propose',
+      };
 
   return (
     <main className="mx-auto max-w-app p-four pb-six">
       <BackButton />
 
       <div className="mt-three text-center">
-        <p className="text-sm text-text-secondary">Settling</p>
+        <p className="text-sm text-text-secondary">Who won?</p>
         <h1 className="mt-one font-display text-screen-title font-extrabold tracking-display-tight">
           {bet.title}
         </h1>
-        <p className="mt-two text-text-secondary">What happened?</p>
+        <p className="mt-two text-text-secondary">
+          {disputed ? "You didn't agree last time. What happened?" : 'What happened?'}
+        </p>
       </div>
 
       <InlineError message={error} />
@@ -194,23 +240,29 @@ export function SettleBetScreen() {
         disabled={!choice || busy}
         onClick={() => setConfirming(true)}
       >
-        {choice?.kind === 'inconclusive' ? 'Propose calling it off' : 'Settle bet'}
+        {choice?.kind === 'inconclusive' ? inconclusiveCopy.button : 'Report result'}
       </Button>
 
       <ConfirmationDialog
         visible={confirming}
         destructive={choice?.kind === 'inconclusive'}
         title={
-          choice?.kind === 'inconclusive'
-            ? 'Propose calling this bet off?'
-            : `Settle as “${selectedLabel}”?`
+          choice?.kind === 'inconclusive' ? inconclusiveCopy.title : `Report “${selectedLabel}”?`
         }
         description={
           choice?.kind === 'inconclusive'
-            ? `${otherName} has to agree before it's cancelled. Nothing is owed if it is.`
-            : `This is final. It settles the bet right away and ${otherName} gets notified.`
+            ? inconclusiveCopy.description
+            : isFinalChoice
+              ? `This is final — it decides the bet right away and ${otherName} gets notified.`
+              : `${otherName} gets 48 hours to confirm or dispute it. If they don't answer, it locks in.`
         }
-        confirmLabel={choice?.kind === 'inconclusive' ? 'Propose' : 'Settle it'}
+        confirmLabel={
+          choice?.kind === 'inconclusive'
+            ? inconclusiveCopy.confirm
+            : isFinalChoice
+              ? 'Yes, decide it'
+              : 'Send it'
+        }
         cancelLabel="Go back"
         onConfirm={handleConfirm}
         onCancel={() => setConfirming(false)}

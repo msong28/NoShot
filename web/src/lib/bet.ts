@@ -35,7 +35,59 @@ export type Bet = {
   activated_at: string | null;
   resolved_at: string | null;
   resolved_outcome_key: string | null;
+  /** Why a voided bet ended. Null for every other status. */
+  void_reason: BetVoidReason | null;
+  /** Who made the most recent "who won?" report (participant_submission bets). */
+  result_reported_by: string | null;
+  /** The report waiting for an answer while pending_result (or the last one disputed). */
+  result_submission_id: string | null;
+  /** When a pending_result report locks in if the other side doesn't respond. */
+  result_due_at: string | null;
 };
+
+export type BetVoidReason = 'declined' | 'withdrawn' | 'cancelled' | 'called_off' | 'expired';
+
+/** A proposed change to an active bet. The bet keeps its agreed terms until
+ * the other participant accepts (respond_to_bet_amendment). */
+export type BetAmendment = {
+  id: string;
+  bet_id: string;
+  proposed_by: string;
+  base_version: number;
+  title: string;
+  description: string;
+  deadline: string | null;
+  sides: { outcome_key: string; label: string }[];
+  participants: {
+    user_id: string;
+    outcome_key: string;
+    currency_id: string;
+    stake_quantity: number;
+    odds_numerator: number;
+    odds_denominator: number;
+  }[];
+  status: 'pending' | 'accepted' | 'declined' | 'withdrawn';
+  created_at: string;
+  responded_at: string | null;
+};
+
+/** Plain-language end state for a voided bet. */
+export function voidedLabel(bet: Pick<Bet, 'void_reason'>): string {
+  switch (bet.void_reason) {
+    case 'declined':
+      return 'Declined';
+    case 'withdrawn':
+      return 'Withdrawn';
+    case 'cancelled':
+      return 'Cancelled';
+    case 'called_off':
+      return 'Called off';
+    case 'expired':
+      return 'Expired';
+    default:
+      return 'Voided';
+  }
+}
 
 export type BetSide = {
   id: string;

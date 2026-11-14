@@ -18,15 +18,20 @@ import {
   useApproveBetVersion,
   useApproveCancelBet,
   useBetDetail,
+  useCallOffBet,
+  useConfirmBetResult,
   useCreateOrCounterBet,
   useEditPendingBetDetails,
+  useProposeBetAmendment,
   useProposeCancelBet,
+  useRespondToBetAmendment,
   useWithdrawBet,
+  useWithdrawBetAmendment,
 } from '@/hooks/use-bets';
 import { useCurrencies } from '@/hooks/use-currencies';
 import { useProofAssets } from '@/hooks/use-proof';
 import { useSession } from '@/hooks/use-session';
-import type { BetApprovalDecision, BetStatus } from '@/lib/bet';
+import { TIE_OUTCOME_KEY, voidedLabel, type Bet, type BetApprovalDecision } from '@/lib/bet';
 import { MONEY_CURRENCY_ID } from '@/lib/currency';
 import { getErrorMessage } from '@/lib/errors';
 import { Icons } from '@/lib/icons';
@@ -35,8 +40,8 @@ import type { ReportTargetType } from '@/lib/report';
 /** Maps every real BetStatus onto the 5-state StatusPill vocabulary, same
  * approach as the Bets tab -- anything not one of the mock's named states
  * gets a neutral pill with its real status word rather than being hidden. */
-function pillFor(status: BetStatus): { variant: StatusPillVariant; label?: string } {
-  switch (status) {
+function pillFor(bet: Bet): { variant: StatusPillVariant; label?: string } {
+  switch (bet.status) {
     case 'pending_acceptance':
       return { variant: 'pending' };
     case 'active':
@@ -44,7 +49,9 @@ function pillFor(status: BetStatus): { variant: StatusPillVariant; label?: strin
     case 'cancellation_pending':
       return { variant: 'active', label: 'Cancel pending' };
     case 'pending_result':
-      return { variant: 'active', label: 'Awaiting result' };
+      return { variant: 'active', label: 'Result reported' };
+    case 'voided':
+      return { variant: 'tied', label: voidedLabel(bet) };
     case 'disputed':
       return { variant: 'disputed' };
     case 'resolved':
@@ -52,8 +59,19 @@ function pillFor(status: BetStatus): { variant: StatusPillVariant; label?: strin
     case 'tied':
       return { variant: 'tied' };
     default:
-      return { variant: 'tied', label: status };
+      return { variant: 'tied', label: bet.status };
   }
+}
+
+/** "in 2 days" / "in 5 hours" for the result lock-in countdown. */
+function timeUntil(iso: string): string {
+  const hours = Math.max(0, Math.round((new Date(iso).getTime() - Date.now()) / 3600000));
+  if (hours >= 24) {
+    const days = Math.round(hours / 24);
+    return `in ${days} day${days === 1 ? '' : 's'}`;
+  }
+  if (hours >= 1) return `in ${hours} hour${hours === 1 ? '' : 's'}`;
+  return 'soon';
 }
 
 function daysUntil(iso: string): string {
@@ -109,14 +127,26 @@ export function BetDetailScreen() {
   const { session } = useSession();
   const userId = session?.user.id;
 
-  const { bet, sides, roster, cancellationApprovals, resultSubmissions, isLoading } =
-    useBetDetail(betId);
+  const {
+    bet,
+    sides,
+    roster,
+    cancellationApprovals,
+    resultSubmissions,
+    pendingAmendment,
+    isLoading,
+  } = useBetDetail(betId);
 
   const approveBetVersion = useApproveBetVersion(betId, userId);
   const proposeCancelBet = useProposeCancelBet(betId, userId);
   const approveCancelBet = useApproveCancelBet(betId, userId);
   const withdrawBet = useWithdrawBet(userId);
   const editBetDetails = useEditPendingBetDetails(betId, userId);
+  const proposeAmendment = useProposeBetAmendment(betId, userId);
+  const respondToAmendment = useRespondToBetAmendment(betId, userId);
+  const withdrawAmendment = useWithdrawBetAmendment(betId, userId);
+  const confirmResult = useConfirmBetResult(betId, userId);
+  const callOffBet = useCallOffBet(betId, userId);
   const createOrCounterBet = useCreateOrCounterBet(userId);
   const { data: currencies } = useCurrencies({ ownerUserId: userId as string });
   const { assets: proofAssets } = useProofAssets(betId);
@@ -136,6 +166,8 @@ export function BetDetailScreen() {
   );
   const [menuOpen, setMenuOpen] = useState(false);
   const [showAccepted, setShowAccepted] = useState(false);
+  const [pendingDispute, setPendingDispute] = useState(false);
+  const [pendingCallOff, setPendingCallOff] = useState(false);
 
   function run(promise: Promise<unknown>) {
     setError(null);
@@ -154,10 +186,40 @@ export function BetDetailScreen() {
   const myParticipant = roster.find((r) => r.participant.user_id === userId);
   const opponent =
     roster.length === 2 ? roster.find((r) => r.participant.user_id !== userId) : undefined;
+  // Sides worth showing only when they carry real information (an over/under
+  // line or custom win conditions) -- the default "You"/"{name}" labels just
+  // repeat what the header already says.
+  const rosterNames = new Set(roster.map((r) => r.profile?.display_name).filter(Boolean));
+  const isGenericLabel = (label: string | undefined) =>
+    !label || label === 'You' || label === 'Them' || rosterNames.has(label);
+  const genericSides =
+    isGenericLabel(myParticipant?.side?.label) && isGenericLabel(opponent?.side?.label);
   const myApprovalResponded = myParticipant?.approval !== undefined;
   const myCancellationResponse = cancellationApprovals.find((a) => a.user_id === userId);
-  const latestResultSubmission = resultSubmissions[resultSubmissions.length - 1];
-  const pill = pillFor(bet.status);
+  const pendingReport =
+    resultSubmissions.find((s) => s.id === bet.result_submission_id) ??
+    resultSubmissions[resultSubmissions.length - 1];
+  const pill = pillFor(bet);
+  const opponentName = opponent?.profile?.display_name ?? 'The other player';
+  const deadlinePassed =
+    bet.status === 'active' && !!bet.deadline && new Date(bet.deadline).getTime() < Date.now();
+
+  /** "Alice won" / "Over 2.5 won" / "It was a tie", from an outcome key. */
+  function outcomeText(outcomeKey: string | null | undefined): string {
+    if (!outcomeKey) return '';
+    if (outcomeKey === TIE_OUTCOME_KEY) return 'It was a tie';
+    if (myParticipant?.side?.outcome_key === outcomeKey) {
+      return isGenericLabel(myParticipant.side.label)
+        ? 'You won'
+        : `${myParticipant.side.label} won (you)`;
+    }
+    const winner = roster.find((r) => r.side?.outcome_key === outcomeKey);
+    if (!winner) return outcomeKey;
+    const name = winner.profile?.display_name ?? 'They';
+    return isGenericLabel(winner.side?.label)
+      ? `${name} won`
+      : `${winner.side!.label} won (${name})`;
+  }
 
   // Approving the current version can flip a fully-agreed bet to active. When
   // it does, celebrate it and send them to their Active bets; a decline (or an
@@ -185,11 +247,36 @@ export function BetDetailScreen() {
   const canWithdraw =
     bet.creator_id === userId && (bet.status === 'draft' || bet.status === 'pending_acceptance');
 
-  // Editing (description/stake/currency only -- odds, line, and win-condition
-  // wording stay fixed once proposed) is the same "not yet agreed to" window
-  // as withdrawing, minus the draft case: a draft is edited by resuming the
-  // create flow, not here.
-  const canEdit = bet.creator_id === userId && bet.status === 'pending_acceptance';
+  // Changing terms (title/description/stake/currency -- odds, line, and
+  // win-condition wording stay fixed) never happens without the other side:
+  // - creator, before acceptance: edit your own proposal (they re-approve)
+  // - recipient, before acceptance: counter with different terms (creator
+  //   then accepts or declines)
+  // - either side, once active: propose a change; the bet stays as agreed
+  //   until the other person accepts it (respond_to_bet_amendment)
+  const editMode: 'edit' | 'counter' | 'amend' | null = !myParticipant
+    ? null
+    : bet.status === 'pending_acceptance'
+      ? bet.creator_id === userId
+        ? 'edit'
+        : 'counter'
+      : bet.status === 'active' && !pendingAmendment && roster.length === 2
+        ? 'amend'
+        : null;
+  const canEdit = editMode !== null;
+  const editCopy = {
+    edit: { menu: 'Edit bet', header: 'Edit bet', submit: 'Save changes' },
+    counter: {
+      menu: 'Suggest different terms',
+      header: 'Suggest different terms',
+      submit: 'Send to ' + opponentName,
+    },
+    amend: {
+      menu: 'Propose a change',
+      header: 'Propose a change',
+      submit: 'Send to ' + opponentName,
+    },
+  } as const;
 
   function openEditDetails() {
     if (!bet || !myParticipant?.commitment) return;
@@ -228,7 +315,8 @@ export function BetDetailScreen() {
     const newCurrencyId = editCurrencyKind === 'money' ? MONEY_CURRENCY_ID : editCurrencyId;
 
     setError(null);
-    editBetDetails.mutate(
+    const mutation = editMode === 'amend' ? proposeAmendment : editBetDetails;
+    mutation.mutate(
       {
         title: editTitle.trim(),
         description: editDescription.trim(),
@@ -251,16 +339,38 @@ export function BetDetailScreen() {
       },
       {
         onSuccess: () => setIsEditingDetails(false),
-        onError: (err) => setError(getErrorMessage(err, 'Could not update the bet')),
+        onError: (err: unknown) => setError(getErrorMessage(err, 'Could not update the bet')),
       },
     );
   }
 
-  // One-person settlement: whoever reports the outcome on an active
-  // participant_submission bet settles it outright (submit_bet_result finalizes
-  // immediately). Once a result exists the bet is already resolved, so this
-  // only ever shows on a still-active bet.
-  const canReportResult = bet.status === 'active' && !latestResultSubmission;
+  // "Who won?" (report-then-confirm, 20261113090000_bet_lifecycle.sql): either
+  // side reports from an active bet. Reporting your own loss is final at once;
+  // claiming a win or a tie waits for the other side to confirm or dispute,
+  // and locks in by itself if they don't answer in time.
+  const canReportResult = bet.status === 'active' && !!myParticipant;
+  const awaitingMyConfirmation =
+    bet.status === 'pending_result' &&
+    !!myParticipant &&
+    bet.result_reported_by !== userId &&
+    bet.resolution_method === 'participant_submission';
+  const reporterName =
+    roster.find((r) => r.participant.user_id === bet.result_reported_by)?.profile?.display_name ??
+    'Someone';
+
+  function claimText(outcomeKey: string | undefined, byMe: boolean): string {
+    if (!outcomeKey) return '';
+    if (outcomeKey === TIE_OUTCOME_KEY)
+      return byMe ? 'You said it was a tie' : `${reporterName} says it was a tie`;
+    const reporterSide = roster.find(
+      (r) => r.participant.user_id === bet!.result_reported_by,
+    )?.side;
+    if (reporterSide?.outcome_key === outcomeKey)
+      return byMe ? 'You said you won' : `${reporterName} says they won`;
+    return byMe
+      ? `You said: ${outcomeText(outcomeKey)}`
+      : `${reporterName} says: ${outcomeText(outcomeKey)}`;
+  }
 
   // Double or nothing: once a bet is settled, either side (winner or loser)
   // can propose running it back at double the stake -- same event, same
@@ -329,14 +439,40 @@ export function BetDetailScreen() {
     })),
   ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-  // Sides worth showing only when they carry real information (an over/under
-  // line or custom win conditions) -- the default "You"/"{name}" labels just
-  // repeat what the header already says.
-  const rosterNames = new Set(roster.map((r) => r.profile?.display_name).filter(Boolean));
-  const isGenericLabel = (label: string | undefined) =>
-    !label || label === 'You' || label === 'Them' || rosterNames.has(label);
-  const genericSides =
-    isGenericLabel(myParticipant?.side?.label) && isGenericLabel(opponent?.side?.label);
+  const amendmentChanges: string[] = [];
+  if (pendingAmendment) {
+    if (pendingAmendment.title !== bet.title) {
+      amendmentChanges.push(`Bet: “${bet.title}” → “${pendingAmendment.title}”`);
+    }
+    if (pendingAmendment.description !== bet.description) amendmentChanges.push('Details updated');
+    for (const r of roster) {
+      const proposed = pendingAmendment.participants.find(
+        (p) => p.user_id === r.participant.user_id,
+      );
+      if (!proposed || !r.commitment) continue;
+      const who =
+        r.participant.user_id === userId
+          ? 'Your stake'
+          : `${r.profile?.display_name ?? 'Their'} stake`;
+      if (Number(proposed.stake_quantity) !== Number(r.commitment.stake_quantity)) {
+        amendmentChanges.push(
+          `${who}: ${r.commitment.stake_quantity} → ${proposed.stake_quantity}`,
+        );
+      }
+    }
+    const proposedCurrency = pendingAmendment.participants[0]?.currency_id;
+    if (
+      proposedCurrency &&
+      myParticipant?.commitment &&
+      proposedCurrency !== myParticipant.commitment.currency_id
+    ) {
+      const name = (currencies ?? []).find((c) => c.id === proposedCurrency)?.name;
+      amendmentChanges.push(
+        `Currency → ${name ?? (proposedCurrency === MONEY_CURRENCY_ID ? 'Money' : 'a different one')}`,
+      );
+    }
+    if (amendmentChanges.length === 0) amendmentChanges.push('Same terms, re-confirmed');
+  }
 
   return (
     <main className="mx-auto max-w-app p-four pb-16">
@@ -520,6 +656,74 @@ export function BetDetailScreen() {
         </>
       ) : null}
 
+      {bet.status === 'pending_acceptance' && myApprovalResponded ? (
+        <p className="mt-five text-center text-sm text-text-secondary">
+          Waiting for {opponentName} to accept
+        </p>
+      ) : null}
+
+      {pendingAmendment ? (
+        <div className="mt-five rounded-large border border-grape bg-grape-soft p-three">
+          <p className="font-bold text-grape-ink">
+            {pendingAmendment.proposed_by === userId
+              ? `You asked ${opponentName} to change this bet`
+              : `${opponentName} wants to change this bet`}
+          </p>
+          <ul className="mt-one list-disc pl-four text-sm text-grape-ink">
+            {amendmentChanges.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          <p className="mt-one text-xs text-grape-ink">
+            Until it&rsquo;s accepted, the bet stays as you both agreed.
+          </p>
+          {pendingAmendment.proposed_by === userId ? (
+            <Button
+              variant="secondary"
+              fullWidth
+              className="mt-two"
+              disabled={withdrawAmendment.isPending}
+              onClick={() => run(withdrawAmendment.mutateAsync(pendingAmendment.id))}
+            >
+              Withdraw request
+            </Button>
+          ) : (
+            <div className="mt-two flex gap-two">
+              <Button
+                variant="primary"
+                fullWidth
+                disabled={respondToAmendment.isPending}
+                onClick={() =>
+                  run(
+                    respondToAmendment.mutateAsync({
+                      amendmentId: pendingAmendment.id,
+                      decision: 'approved',
+                    }),
+                  )
+                }
+              >
+                Accept change
+              </Button>
+              <Button
+                variant="secondary"
+                fullWidth
+                disabled={respondToAmendment.isPending}
+                onClick={() =>
+                  run(
+                    respondToAmendment.mutateAsync({
+                      amendmentId: pendingAmendment.id,
+                      decision: 'declined',
+                    }),
+                  )
+                }
+              >
+                Keep as is
+              </Button>
+            </div>
+          )}
+        </div>
+      ) : null}
+
       {bet.status === 'cancellation_pending' && !myCancellationResponse ? (
         <>
           <SectionHeader title="Cancellation requested — your response needed" />
@@ -541,24 +745,138 @@ export function BetDetailScreen() {
       ) : null}
 
       {canReportResult ? (
-        <Button
-          variant="primary"
-          fullWidth
-          className="mt-five"
-          onClick={() => navigate(`/bet/${bet.id}/settle`)}
-        >
-          Settle bet
-        </Button>
+        <>
+          {deadlinePassed ? (
+            <p className="mt-five text-center text-sm font-bold text-ink">
+              The deadline has passed — time to call it.
+            </p>
+          ) : null}
+          <Button
+            variant="primary"
+            fullWidth
+            className={deadlinePassed ? 'mt-two' : 'mt-five'}
+            onClick={() => navigate(`/bet/${bet.id}/result`)}
+          >
+            Who won?
+          </Button>
+        </>
+      ) : null}
+
+      {bet.status === 'pending_result' && pendingReport ? (
+        <div className="mt-five rounded-large border border-line bg-surface p-three text-center">
+          <p className="font-bold">
+            {claimText(pendingReport.proposed_outcome_key, bet.result_reported_by === userId)}
+          </p>
+          {pendingReport.rationale ? (
+            <p className="mt-one text-sm text-text-secondary">“{pendingReport.rationale}”</p>
+          ) : null}
+          {bet.result_due_at ? (
+            <p className="mt-one text-xs text-text-faint">
+              {awaitingMyConfirmation
+                ? `Locks in ${timeUntil(bet.result_due_at)} unless you dispute it`
+                : `Waiting for ${opponentName} · locks in ${timeUntil(bet.result_due_at)}`}
+            </p>
+          ) : null}
+          {awaitingMyConfirmation ? (
+            <div className="mt-three flex gap-two">
+              <Button
+                variant="primary"
+                fullWidth
+                disabled={confirmResult.isPending}
+                onClick={() =>
+                  run(
+                    confirmResult.mutateAsync({
+                      resultSubmissionId: pendingReport.id,
+                      decision: 'approved',
+                    }),
+                  )
+                }
+              >
+                That&rsquo;s right
+              </Button>
+              <Button variant="secondary" fullWidth onClick={() => setPendingDispute(true)}>
+                Dispute
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {bet.status === 'disputed' && myParticipant ? (
+        <div className="mt-five rounded-large border border-danger bg-surface p-three text-center">
+          <p className="font-bold">You don&rsquo;t agree on who won</p>
+          <p className="mt-one text-sm text-text-secondary">
+            Report what you think happened, or call the bet off — nobody owes anything if it&rsquo;s
+            called off.
+          </p>
+          <div className="mt-three flex gap-two">
+            <Button variant="primary" fullWidth onClick={() => navigate(`/bet/${bet.id}/result`)}>
+              Who won?
+            </Button>
+            <Button variant="secondary" fullWidth onClick={() => setPendingCallOff(true)}>
+              Call it off
+            </Button>
+          </div>
+        </div>
       ) : null}
 
       {(bet.status === 'resolved' || bet.status === 'tied') && bet.resolved_outcome_key ? (
         <>
           <SectionHeader title="Result" />
-          <p className="mt-two text-text-secondary">
-            {bet.status === 'tied' ? 'Tied' : `Won by outcome: ${bet.resolved_outcome_key}`}
-          </p>
+          <p className="mt-two text-text-secondary">{outcomeText(bet.resolved_outcome_key)}</p>
         </>
       ) : null}
+
+      {bet.status === 'voided' ? (
+        <p className="mt-five text-center text-sm text-text-secondary">
+          {bet.void_reason === 'declined'
+            ? 'This bet was declined, so it never started.'
+            : bet.void_reason === 'withdrawn'
+              ? 'This bet was withdrawn before it was accepted.'
+              : bet.void_reason === 'cancelled'
+                ? 'You both agreed to cancel this bet. Nobody owes anything.'
+                : bet.void_reason === 'called_off'
+                  ? 'This bet was called off after a dispute. Nobody owes anything.'
+                  : bet.void_reason === 'expired'
+                    ? 'Nobody answered this bet in time, so it expired.'
+                    : 'This bet was voided.'}
+        </p>
+      ) : null}
+
+      <ConfirmationDialog
+        visible={pendingDispute}
+        title="Dispute this result?"
+        description={`${reporterName} will be told you disagree. Then either of you can report what you think happened, or call the bet off.`}
+        confirmLabel="Dispute"
+        cancelLabel="Go back"
+        destructive
+        onConfirm={() => {
+          setPendingDispute(false);
+          if (pendingReport) {
+            run(
+              confirmResult.mutateAsync({
+                resultSubmissionId: pendingReport.id,
+                decision: 'declined',
+              }),
+            );
+          }
+        }}
+        onCancel={() => setPendingDispute(false)}
+      />
+
+      <ConfirmationDialog
+        visible={pendingCallOff}
+        title="Call this bet off?"
+        description={`It ends right away for both of you and nobody owes anything. ${opponentName} gets notified.`}
+        confirmLabel="Call it off"
+        cancelLabel="Keep it open"
+        destructive
+        onConfirm={() => {
+          setPendingCallOff(false);
+          run(callOffBet.mutateAsync());
+        }}
+        onCancel={() => setPendingCallOff(false)}
+      />
 
       {canDoubleOrNothing ? (
         <Button
@@ -602,7 +920,12 @@ export function BetDetailScreen() {
 
       {canEdit && isEditingDetails ? (
         <div className="mt-four rounded-medium border border-line bg-surface p-three">
-          <SectionHeader title="Edit bet" />
+          <SectionHeader title={editMode ? editCopy[editMode].header : 'Edit bet'} />
+          {editMode === 'amend' ? (
+            <p className="mt-one text-xs text-text-secondary">
+              {opponentName} has to accept before anything changes.
+            </p>
+          ) : null}
           <p className="mt-two mb-one text-xs font-bold text-text-faint">What&rsquo;s the bet?</p>
           <input
             value={editTitle}
@@ -671,10 +994,10 @@ export function BetDetailScreen() {
             <Button
               variant="primary"
               fullWidth
-              disabled={editBetDetails.isPending}
+              disabled={editBetDetails.isPending || proposeAmendment.isPending}
               onClick={submitEditDetails}
             >
-              Save changes
+              {editMode ? editCopy[editMode].submit : 'Save changes'}
             </Button>
             <Button variant="secondary" fullWidth onClick={() => setIsEditingDetails(false)}>
               Cancel
@@ -746,7 +1069,7 @@ export function BetDetailScreen() {
           ...(canEdit
             ? [
                 {
-                  label: 'Edit bet',
+                  label: editMode ? editCopy[editMode].menu : 'Edit bet',
                   onSelect: () => {
                     setMenuOpen(false);
                     openEditDetails();

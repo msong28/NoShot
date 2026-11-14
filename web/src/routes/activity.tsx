@@ -74,8 +74,13 @@ export function ActivityScreen() {
 
   const { incomingRequests, friends } = useFriends(userId);
   const { pendingInvites } = useMyGroups(userId);
-  const { pendingBets, cancellationPendingBets, resolutionPendingBets, resolvedBets } =
-    useMyBets(userId);
+  const {
+    pendingBets,
+    cancellationPendingBets,
+    resolutionPendingBets,
+    amendmentPendingBets,
+    resolvedBets,
+  } = useMyBets(userId);
   const { needsMyConfirmation, resolved: resolvedRedemptions } = useMyRedemptions(userId);
 
   const disputedBets = resolutionPendingBets.filter((bet) => bet.status === 'disputed');
@@ -86,6 +91,7 @@ export function ActivityScreen() {
     disputedBets.length +
     awaitingConfirmationBets.length +
     cancellationPendingBets.length +
+    amendmentPendingBets.length +
     incomingRequests.length +
     pendingInvites.length +
     needsMyConfirmation.length;
@@ -197,8 +203,17 @@ export function ActivityScreen() {
                 key={bet.id}
                 to={`/bet/${bet.id}`}
                 icon="bet"
-                title="Confirm the result"
+                title="Who won? Confirm the result"
                 subtitle={`"${bet.title}" · your move`}
+              />
+            ))}
+            {amendmentPendingBets.map((bet) => (
+              <NeedsYouRow
+                key={`amend-${bet.id}`}
+                to={`/bet/${bet.id}`}
+                icon="bet"
+                title="Change requested"
+                subtitle={`"${bet.title}" · accept or keep as is`}
               />
             ))}
             {cancellationPendingBets.map((bet) => (

@@ -5,6 +5,7 @@ import { IconTile } from '@/components/ui/icon-tile';
 import { ListRow } from '@/components/ui/list-row';
 import { StatusPill, type StatusPillVariant } from '@/components/ui/status-pill';
 import type { MyBet } from '@/hooks/use-bets';
+import { voidedLabel } from '@/lib/bet';
 import { Icons } from '@/lib/icons';
 
 /** The bet's own currency icon (real, per-bet data) instead of a generic
@@ -33,7 +34,11 @@ function statusFor(bet: MyBet): { variant: StatusPillVariant; label?: string; yo
     case 'disputed':
       return { variant: 'disputed', yourMove: true };
     case 'pending_result':
-      return { variant: 'active', label: 'Submitted' };
+      return bet.reportedByMe
+        ? { variant: 'active', label: 'Reported' }
+        : { variant: 'active', label: 'Confirm result', yourMove: true };
+    case 'voided':
+      return { variant: 'tied', label: voidedLabel(bet) };
     case 'cancellation_pending':
       return { variant: 'active', label: 'Cancel pending' };
     case 'tied':

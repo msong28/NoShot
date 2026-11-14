@@ -15,7 +15,8 @@ The two share the same domain logic _shape_ (`src/lib/*.ts` vs `web/src/lib/*.ts
 
 **`web/` is where active development happens and the trees have measurably diverged.** `src/` has not been touched since 2026-07-22 (`c81aa05`); every commit since then is `web/`-only. Features that exist only in `web/`:
 
-- the wager/create-a-bet flow (`web/src/lib/wager.ts`, `web/src/hooks/use-wager.ts`, `web/src/routes/my-wagers.tsx`) plus the two-screen Splitwise-style creation flow — `/create` = `routes/create-pick-rival.tsx` (single-select rival picker), `/create/:rivalId` = `routes/create-bet-details.tsx` (event, stake, optional modifiers behind a "More betting options" toggle) — **no root-tree equivalent at all**
+- the create-a-bet flow (`web/src/lib/wager.ts` `buildBetInput()` maps the form onto `create_or_counter_bet`; the old separate `wagers` tables are dropped by `20261113091000_drop_wagers.sql`) plus the two-screen Splitwise-style creation flow — `/create` = `routes/create-pick-rival.tsx` (single-select rival picker), `/create/:rivalId` = `routes/create-bet-details.tsx` (event, stake, optional modifiers behind a "More betting options" toggle) — **no root-tree equivalent at all**
+- the bet lifecycle UI: "Who won?" report-then-confirm (`routes/who-won.tsx` at `/bet/:betId/result`; "settle" is reserved for paying debts on Balances), dispute / call-off and change-request (amendment) sections on `routes/bet-detail.tsx` — server side in `20261113090000_bet_lifecycle.sql`, which the root app's UI was never updated for
 - a `/home` dashboard screen, bet-accept / settle reveal animations (`web/src/components/ui/confirm-reveal.tsx`, `settle-reveal.tsx`)
 - route guards (`protected-route`, `require-admin`, `require-profile`, `require-session-no-profile`) — no file-route equivalent on the root side
 

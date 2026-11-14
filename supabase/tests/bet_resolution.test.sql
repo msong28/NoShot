@@ -100,25 +100,54 @@ begin
 end;
 $$;
 
--- One-person settlement: Alice reports alice_wins and the bet resolves
--- immediately -- no second confirmation, no dispute for a participant_submission
--- bet.
+-- Report-then-confirm: Alice reports that she won. That only proposes the
+-- result -- nothing is owed until Bob confirms (or the window lapses).
 set
   request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000001';
 
 do $$
 declare
   v_status public.bet_status;
-  v_outcome text;
+  v_due timestamptz;
+  v_ledger integer;
 begin
-  select status, resolved_outcome_key into v_status, v_outcome
+  select status, result_due_at into v_status, v_due
   from public.submit_bet_result(current_setting('test.bet_id')::uuid, 'alice_wins', 'I won');
-  if v_status <> 'resolved' or v_outcome <> 'alice_wins' then
-    raise exception 'FAIL: expected a single submission to settle to alice_wins, got % / %', v_status, v_outcome;
+  if v_status <> 'pending_result' or v_due is null then
+    raise exception 'FAIL: expected a winner''s report to wait for confirmation, got % / %', v_status, v_due;
   end if;
-  raise notice 'PASS: a single participant submission settles the bet outright';
+  select count(*) into v_ledger from public.ledger_entries
+  where source_type = 'bet' and source_id = current_setting('test.bet_id')::uuid;
+  if v_ledger <> 0 then
+    raise exception 'FAIL: no ledger entry should exist before the result is final, saw %', v_ledger;
+  end if;
+  raise notice 'PASS: claiming a win waits for the other side, nothing posted yet';
 end;
 $$;
+
+-- Bob confirms: final.
+set
+  request.jwt.claim.sub = 'bbbbbbbb-0000-0000-0000-000000000002';
+
+do $$
+declare
+  v_status public.bet_status;
+  v_outcome text;
+  v_submission_id uuid;
+begin
+  select id into v_submission_id from public.bet_result_submissions
+  where bet_id = current_setting('test.bet_id')::uuid;
+  select status, resolved_outcome_key into v_status, v_outcome
+  from public.confirm_bet_result(current_setting('test.bet_id')::uuid, v_submission_id, 'approved');
+  if v_status <> 'resolved' or v_outcome <> 'alice_wins' then
+    raise exception 'FAIL: expected Bob''s confirmation to settle to alice_wins, got % / %', v_status, v_outcome;
+  end if;
+  raise notice 'PASS: the other side confirming makes the result final';
+end;
+$$;
+
+set
+  request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000001';
 
 -- Settling posted the winner/loser ledger obligation: bob (loser) owes alice.
 do $$
@@ -133,7 +162,7 @@ begin
   if v_count <> 1 then
     raise exception 'FAIL: expected one bet_settlement ledger entry (bob owes alice), saw %', v_count;
   end if;
-  raise notice 'PASS: settling a bet posts the winner/loser ledger obligation';
+  raise notice 'PASS: a final result posts the winner/loser ledger obligation';
 end;
 $$;
 
@@ -439,7 +468,7 @@ begin
 end;
 $$;
 
--- A tie: a single 'tie' report settles the bet as tied outright.
+-- A tie: a tie report needs the other side's confirmation too.
 do $$
 declare
   v_meal_id uuid;
@@ -469,10 +498,28 @@ begin
   perform public.approve_bet_version(current_setting('test.tie_bet_id')::uuid, 1, 'approved');
   select status into v_status
   from public.submit_bet_result(current_setting('test.tie_bet_id')::uuid, 'tie', null);
+  if v_status <> 'pending_result' then
+    raise exception 'FAIL: expected a tie report to wait for confirmation, got %', v_status;
+  end if;
+end;
+$$;
+
+set
+  request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000001';
+
+do $$
+declare
+  v_status public.bet_status;
+  v_submission_id uuid;
+begin
+  select id into v_submission_id from public.bet_result_submissions
+  where bet_id = current_setting('test.tie_bet_id')::uuid;
+  select status into v_status
+  from public.confirm_bet_result(current_setting('test.tie_bet_id')::uuid, v_submission_id, 'approved');
   if v_status <> 'tied' then
     raise exception 'FAIL: expected tied, got %', v_status;
   end if;
-  raise notice 'PASS: a single tie report moves the bet to tied, not resolved';
+  raise notice 'PASS: a confirmed tie report moves the bet to tied, not resolved';
 end;
 $$;
 

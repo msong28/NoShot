@@ -157,6 +157,7 @@ export function HomeScreen() {
     pendingBets,
     cancellationPendingBets,
     resolutionPendingBets,
+    amendmentPendingBets,
     resolvedBets,
   } = useMyBets(userId);
   const { rows: balanceRows } = useMyBalances(userId);
@@ -170,6 +171,7 @@ export function HomeScreen() {
     pendingInvites.length +
     pendingBets.length +
     cancellationPendingBets.length +
+    amendmentPendingBets.length +
     resolutionPendingBets.length +
     redemptionsNeedingConfirmation.length;
 
@@ -299,7 +301,17 @@ export function HomeScreen() {
                 icon="bet"
                 eyebrow="Confirm result"
                 title={bet.title}
-                subtitle="Result awaiting your confirmation"
+                subtitle="Who won? Confirm or dispute"
+              />
+            ))}
+            {amendmentPendingBets.map((bet) => (
+              <LinkAttentionCard
+                key={`amend-${bet.id}`}
+                to={`/bet/${bet.id}`}
+                icon="bet"
+                eyebrow="Change requested"
+                title={bet.title}
+                subtitle="Accept the change or keep it as is"
               />
             ))}
             {cancellationPendingBets.map((bet) => (

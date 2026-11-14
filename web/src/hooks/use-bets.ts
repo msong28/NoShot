@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 
 import type {
   Bet,
+  BetAmendment,
   BetApprovalDecision,
   BetCancellationApproval,
   BetCommitment,
@@ -17,6 +18,19 @@ import type {
   DisputeResolution,
 } from '@/lib/bet';
 import { supabase } from '@/lib/supabase';
+
+/**
+ * Lets the server run the bet timers that are due for this user -- a "who
+ * won?" report nobody disputed within the window locks in, and a proposal
+ * nobody answered expires (finalize_due_bets, 20261113090000_bet_lifecycle).
+ * Runs before reading bets so lists never show a stale state. Never blocks the
+ * read: if it fails (offline, or the migration isn't live yet) the bets still
+ * load and the next load tries again.
+ */
+async function finalizeDueBets(): Promise<void> {
+  const { error } = await supabase.rpc('finalize_due_bets');
+  if (error) console.warn('finalize_due_bets failed', error.message);
+}
 
 function myBetsQueryKey(userId: string | undefined) {
   return ['my-bets', userId] as const;
@@ -56,6 +70,8 @@ type BetOpponent = { id: string; username: string; display_name: string };
  * nothing is actually owed until it resolves. */
 export type MyBet = Bet & {
   iWon: boolean | null;
+  /** True when this caller made the bet's latest "who won?" report. */
+  reportedByMe: boolean;
   opponent: BetOpponent | null | undefined;
   myCommitment: BetCommitmentWithCurrency | null | undefined;
 };
@@ -68,6 +84,7 @@ export function useMyBets(userId: string | undefined) {
   const query = useQuery({
     queryKey: myBetsQueryKey(userId),
     queryFn: async (): Promise<MyBetRow[]> => {
+      await finalizeDueBets();
       const { data, error } = await supabase
         .from('bet_participants')
         .select('id, bet_id, bets(*), bet_sides(outcome_key)')
@@ -128,6 +145,7 @@ export function useMyBets(userId: string | undefined) {
           row.bets.status === 'resolved'
             ? row.bets.resolved_outcome_key === row.bet_sides?.outcome_key
             : null,
+        reportedByMe: row.bets.result_reported_by === userId,
         opponent: enrichmentLoaded ? (opponentsByBetId.get(row.bet_id) ?? null) : undefined,
         myCommitment: enrichmentLoaded
           ? (commitmentsByParticipantId.get(row.id) ?? null)
@@ -148,13 +166,6 @@ export function useMyBets(userId: string | undefined) {
   );
   const cancellationPendingBetIds = useMemo(
     () => bets.filter((bet) => bet.status === 'cancellation_pending').map((bet) => bet.id),
-    [bets],
-  );
-  const resolutionPendingBetIds = useMemo(
-    () =>
-      bets
-        .filter((bet) => bet.status === 'pending_result' || bet.status === 'disputed')
-        .map((bet) => bet.id),
     [bets],
   );
   const resolvedBets = useMemo(
@@ -190,18 +201,22 @@ export function useMyBets(userId: string | undefined) {
     enabled: !!userId && cancellationPendingBetIds.length > 0,
   });
 
-  const myResultConfirmationsQuery = useQuery({
-    queryKey: ['my-bet-result-confirmations', userId, resolutionPendingBetIds],
+  // Change requests on my active bets that someone else proposed -- i.e.
+  // waiting on me.
+  const activeBetIds = useMemo(() => activeBets.map((bet) => bet.id), [activeBets]);
+  const incomingAmendmentsQuery = useQuery({
+    queryKey: ['my-incoming-bet-amendments', userId, activeBetIds],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('bet_result_confirmations')
-        .select('bet_id')
-        .eq('user_id', userId as string)
-        .in('bet_id', resolutionPendingBetIds);
+        .from('bet_amendments')
+        .select('bet_id, base_version')
+        .eq('status', 'pending')
+        .neq('proposed_by', userId as string)
+        .in('bet_id', activeBetIds);
       if (error) throw error;
-      return data as { bet_id: string }[];
+      return data as { bet_id: string; base_version: number }[];
     },
-    enabled: !!userId && resolutionPendingBetIds.length > 0,
+    enabled: !!userId && activeBetIds.length > 0,
   });
 
   const pendingBets = useMemo(() => {
@@ -224,14 +239,22 @@ export function useMyBets(userId: string | undefined) {
     );
   }, [bets, myCancellationApprovalsQuery.data]);
 
-  const resolutionPendingBets = useMemo(() => {
-    const myRespondedBetIds = new Set((myResultConfirmationsQuery.data ?? []).map((a) => a.bet_id));
-    return bets.filter(
-      (bet) =>
-        (bet.status === 'pending_result' || bet.status === 'disputed') &&
-        !myRespondedBetIds.has(bet.id),
-    );
-  }, [bets, myResultConfirmationsQuery.data]);
+  // Waiting on me: someone else's "who won?" report to confirm or dispute,
+  // or a dispute (either side can re-report or call it off).
+  const resolutionPendingBets = useMemo(
+    () =>
+      bets.filter(
+        (bet) =>
+          (bet.status === 'pending_result' && bet.result_reported_by !== userId) ||
+          bet.status === 'disputed',
+      ),
+    [bets, userId],
+  );
+
+  const amendmentPendingBets = useMemo(() => {
+    const byBet = new Map((incomingAmendmentsQuery.data ?? []).map((a) => [a.bet_id, a]));
+    return activeBets.filter((bet) => byBet.get(bet.id)?.base_version === bet.current_version);
+  }, [activeBets, incomingAmendmentsQuery.data]);
 
   return {
     bets,
@@ -239,12 +262,10 @@ export function useMyBets(userId: string | undefined) {
     pendingBets,
     cancellationPendingBets,
     resolutionPendingBets,
+    amendmentPendingBets,
     resolvedBets,
     isLoading:
-      query.isLoading ||
-      myApprovalsQuery.isLoading ||
-      myCancellationApprovalsQuery.isLoading ||
-      myResultConfirmationsQuery.isLoading,
+      query.isLoading || myApprovalsQuery.isLoading || myCancellationApprovalsQuery.isLoading,
   };
 }
 
@@ -263,6 +284,7 @@ export function useBetDetail(betId: string | undefined) {
   const betQuery = useQuery({
     queryKey: [...betDetailQueryKey(betId), 'bet'],
     queryFn: async (): Promise<Bet> => {
+      await finalizeDueBets();
       const { data, error } = await supabase
         .from('bets')
         .select('*')
@@ -410,6 +432,21 @@ export function useBetDetail(betId: string | undefined) {
     enabled: !!betId,
   });
 
+  const amendmentQuery = useQuery({
+    queryKey: [...betDetailQueryKey(betId), 'pending-amendment'],
+    queryFn: async (): Promise<BetAmendment | null> => {
+      const { data, error } = await supabase
+        .from('bet_amendments')
+        .select('*')
+        .eq('bet_id', betId as string)
+        .eq('status', 'pending')
+        .maybeSingle();
+      if (error) throw error;
+      return data as BetAmendment | null;
+    },
+    enabled: !!betId,
+  });
+
   const roster = useMemo(() => {
     const sidesById = new Map((sidesQuery.data ?? []).map((s) => [s.id, s]));
     const profilesById = new Map((profilesQuery.data ?? []).map((p) => [p.id, p]));
@@ -445,6 +482,14 @@ export function useBetDetail(betId: string | undefined) {
     resultConfirmations: resultConfirmationsQuery.data ?? [],
     disputeVotes: disputeVotesQuery.data ?? [],
     disputeResolution: disputeResolutionQuery.data ?? null,
+    // Only meaningful while the bet is still active on the version the change
+    // was written against; anything else is stale and can't be accepted.
+    pendingAmendment:
+      amendmentQuery.data &&
+      betQuery.data?.status === 'active' &&
+      amendmentQuery.data.base_version === betQuery.data.current_version
+        ? amendmentQuery.data
+        : null,
     isLoading:
       betQuery.isLoading ||
       sidesQuery.isLoading ||
@@ -748,6 +793,65 @@ export function useTriggerRandomFallback(betId: string | undefined, userId: stri
       const { data, error } = await supabase.rpc('trigger_random_fallback', {
         p_bet_id: betId as string,
       });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      invalidateBet();
+      invalidateMyBets();
+    },
+  });
+}
+
+export function useRespondToBetAmendment(betId: string | undefined, userId: string | undefined) {
+  const invalidateBet = useInvalidateBetDetail(betId);
+  const invalidateMyBets = useInvalidateMyBets(userId);
+  return useMutation({
+    mutationFn: async ({
+      amendmentId,
+      decision,
+    }: {
+      amendmentId: string;
+      decision: BetApprovalDecision;
+    }): Promise<Bet> => {
+      const { data, error } = await supabase.rpc('respond_to_bet_amendment', {
+        p_amendment_id: amendmentId,
+        p_decision: decision,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      invalidateBet();
+      invalidateMyBets();
+    },
+  });
+}
+
+export function useWithdrawBetAmendment(betId: string | undefined, userId: string | undefined) {
+  const invalidateBet = useInvalidateBetDetail(betId);
+  const invalidateMyBets = useInvalidateMyBets(userId);
+  return useMutation({
+    mutationFn: async (amendmentId: string) => {
+      const { error } = await supabase.rpc('withdraw_bet_amendment', {
+        p_amendment_id: amendmentId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidateBet();
+      invalidateMyBets();
+    },
+  });
+}
+
+/** The way out of a disputed bet: voids it, nobody owes anything. */
+export function useCallOffBet(betId: string | undefined, userId: string | undefined) {
+  const invalidateBet = useInvalidateBetDetail(betId);
+  const invalidateMyBets = useInvalidateMyBets(userId);
+  return useMutation({
+    mutationFn: async (): Promise<Bet> => {
+      const { data, error } = await supabase.rpc('call_off_bet', { p_bet_id: betId as string });
       if (error) throw error;
       return data;
     },

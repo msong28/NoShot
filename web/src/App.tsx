@@ -28,7 +28,6 @@ import { GroupsScreen } from '@/routes/groups';
 import { HomeScreen } from '@/routes/home';
 import { InvitePreviewScreen } from '@/routes/invite-preview';
 import { LandingScreen } from '@/routes/landing';
-import { MyWagersScreen } from '@/routes/my-wagers';
 import { ObligationsScreen } from '@/routes/obligations';
 import { PrivacyPolicyScreen } from '@/routes/privacy-policy';
 import { ProfileScreen } from '@/routes/profile';
@@ -37,7 +36,7 @@ import { RequireAdmin } from '@/routes/require-admin';
 import { RequireProfile } from '@/routes/require-profile';
 import { RequireSessionNoProfile } from '@/routes/require-session-no-profile';
 import { ResetPasswordScreen } from '@/routes/reset-password';
-import { SettleBetScreen } from '@/routes/settle-bet';
+import { WhoWonScreen } from '@/routes/who-won';
 import { SetupProfileScreen } from '@/routes/setup-profile';
 import { SignInScreen } from '@/routes/sign-in';
 import { SignUpScreen } from '@/routes/sign-up';
@@ -73,11 +72,10 @@ export function App() {
             <Route path="/account" element={<AccountScreen mode={mode} setMode={setMode} />} />
             <Route path="/edit-profile" element={<EditProfileScreen />} />
             <Route path="/bet/:betId" element={<BetDetailScreen />} />
-            <Route path="/bet/:betId/settle" element={<SettleBetScreen />} />
+            <Route path="/bet/:betId/result" element={<WhoWonScreen />} />
             <Route path="/group/:groupId" element={<GroupDetailScreen />} />
             <Route path="/create" element={<CreatePickRivalScreen />} />
             <Route path="/create/:rivalId" element={<CreateBetDetailsScreen />} />
-            <Route path="/my-wagers" element={<MyWagersScreen />} />
             <Route path="/balances" element={<BalancesScreen />} />
             <Route path="/currencies" element={<CurrenciesScreen />} />
             <Route path="/blocked" element={<BlockedUsersScreen />} />

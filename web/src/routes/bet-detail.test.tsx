@@ -3,7 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 
-import { useApproveBetVersion, useBetDetail } from '@/hooks/use-bets';
+import {
+  useApproveBetVersion,
+  useBetDetail,
+  useCallOffBet,
+  useConfirmBetResult,
+  useRespondToBetAmendment,
+} from '@/hooks/use-bets';
 import { useProofAssets, useUploadProof } from '@/hooks/use-proof';
 import { useSubmitReport } from '@/hooks/use-reports';
 import { useSession } from '@/hooks/use-session';
@@ -24,6 +30,10 @@ vi.mock('@/hooks/use-bets', () => ({
   useWithdrawBet: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
   useEditPendingBetDetails: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useCreateOrCounterBet: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useProposeBetAmendment: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useRespondToBetAmendment: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useWithdrawBetAmendment: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useCallOffBet: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
 }));
 vi.mock('@/hooks/use-currencies', () => ({
   useCurrencies: vi.fn(() => ({ data: [] })),
@@ -90,6 +100,7 @@ function mockBetDetail(overrides: Partial<ReturnType<typeof useBetDetail>> = {})
     resultConfirmations: [],
     disputeVotes: [],
     disputeResolution: undefined,
+    pendingAmendment: null,
     isLoading: false,
     ...overrides,
   } as never);
@@ -250,7 +261,7 @@ describe('BetDetailScreen', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/bets?tab=active');
   });
 
-  it('sends the settler to the dedicated settle page', () => {
+  it('sends whoever is reporting to the dedicated Who won? page', () => {
     mockBetDetail({
       roster: TWO_PERSON_ROSTER,
       sides: [TWO_PERSON_ROSTER[0].side, TWO_PERSON_ROSTER[1].side],
@@ -260,8 +271,143 @@ describe('BetDetailScreen', () => {
 
     // No inline outcome picker any more -- just the button.
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Settle bet' }));
-    expect(screen.getByTestId('location')).toHaveTextContent('/bet/bet-1/settle');
+    fireEvent.click(screen.getByRole('button', { name: 'Who won?' }));
+    expect(screen.getByTestId('location')).toHaveTextContent('/bet/bet-1/result');
+  });
+
+  it("lets me confirm or dispute the other side's reported result", () => {
+    const confirm = { mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false };
+    vi.mocked(useConfirmBetResult).mockReturnValue(confirm as never);
+    mockBetDetail({
+      bet: {
+        ...BET,
+        status: 'pending_result',
+        result_reported_by: 'u2',
+        result_submission_id: 'sub-1',
+        result_due_at: new Date(Date.now() + 47 * 3600000).toISOString(),
+      },
+      roster: TWO_PERSON_ROSTER,
+      sides: [TWO_PERSON_ROSTER[0].side, TWO_PERSON_ROSTER[1].side],
+      resultSubmissions: [
+        { id: 'sub-1', submitter_id: 'u2', proposed_outcome_key: 'no', rationale: null },
+      ],
+    } as never);
+
+    renderScreen();
+
+    expect(screen.getByText('Bob says they won')).toBeInTheDocument();
+    expect(screen.getByText(/Locks in in 2 days unless you dispute it/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Who won?' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'That’s right' }));
+    expect(confirm.mutateAsync).toHaveBeenCalledWith({
+      resultSubmissionId: 'sub-1',
+      decision: 'approved',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dispute' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Dispute' }).at(-1)!);
+    expect(confirm.mutateAsync).toHaveBeenLastCalledWith({
+      resultSubmissionId: 'sub-1',
+      decision: 'declined',
+    });
+  });
+
+  it('shows the reporter a waiting state, not confirm buttons', () => {
+    mockBetDetail({
+      bet: {
+        ...BET,
+        status: 'pending_result',
+        result_reported_by: 'u1',
+        result_submission_id: 'sub-1',
+        result_due_at: new Date(Date.now() + 47 * 3600000).toISOString(),
+      },
+      roster: TWO_PERSON_ROSTER,
+      resultSubmissions: [
+        { id: 'sub-1', submitter_id: 'u1', proposed_outcome_key: 'yes', rationale: null },
+      ],
+    } as never);
+
+    renderScreen();
+
+    expect(screen.getByText('You said you won')).toBeInTheDocument();
+    expect(screen.getByText(/Waiting for Bob/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Dispute' })).not.toBeInTheDocument();
+  });
+
+  it('offers re-reporting or calling it off on a disputed bet', () => {
+    const callOff = { mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false };
+    vi.mocked(useCallOffBet).mockReturnValue(callOff as never);
+    mockBetDetail({ bet: { ...BET, status: 'disputed' }, roster: TWO_PERSON_ROSTER } as never);
+
+    renderScreen();
+
+    expect(screen.getByText('You don’t agree on who won')).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Call it off' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Call it off' }).at(-1)!);
+    expect(callOff.mutateAsync).toHaveBeenCalled();
+  });
+
+  it('shows an incoming change request and keeps the agreed terms until accepted', () => {
+    const respond = { mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false };
+    vi.mocked(useRespondToBetAmendment).mockReturnValue(respond as never);
+    mockBetDetail({
+      roster: TWO_PERSON_ROSTER,
+      pendingAmendment: {
+        id: 'am-1',
+        bet_id: 'bet-1',
+        proposed_by: 'u2',
+        base_version: 1,
+        title: BET.title,
+        description: BET.description,
+        deadline: null,
+        sides: [],
+        participants: [
+          {
+            user_id: 'u1',
+            outcome_key: 'yes',
+            currency_id: 'c',
+            stake_quantity: 10,
+            odds_numerator: 1,
+            odds_denominator: 1,
+          },
+          {
+            user_id: 'u2',
+            outcome_key: 'no',
+            currency_id: 'c',
+            stake_quantity: 10,
+            odds_numerator: 1,
+            odds_denominator: 1,
+          },
+        ],
+        status: 'pending',
+        created_at: '2026-01-01T00:00:00Z',
+        responded_at: null,
+      },
+    } as never);
+
+    renderScreen();
+
+    expect(screen.getByText('Bob wants to change this bet')).toBeInTheDocument();
+    expect(screen.getByText('Your stake: 5 → 10')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep as is' }));
+    expect(respond.mutateAsync).toHaveBeenCalledWith({ amendmentId: 'am-1', decision: 'declined' });
+  });
+
+  it('offers Propose a change in the menu on an active bet', () => {
+    mockBetDetail({ roster: TWO_PERSON_ROSTER } as never);
+    renderScreen();
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    expect(screen.getByRole('menuitem', { name: 'Propose a change' })).toBeInTheDocument();
+  });
+
+  it('says why a voided bet ended', () => {
+    mockBetDetail({
+      bet: { ...BET, status: 'voided', void_reason: 'called_off' },
+      roster: TWO_PERSON_ROSTER,
+    } as never);
+    renderScreen();
+    expect(screen.getByText(/called off after a dispute/)).toBeInTheDocument();
   });
 
   it('keeps Cancel bet in the more-options menu, behind a confirmation', () => {

@@ -177,9 +177,8 @@ begin
 end;
 $$;
 
--- Bob proposes an amendment now that the bet is active; it goes back to
--- pending_acceptance on a new version, and only bob (the proposer) has
--- approved it so far -- alice's original approval doesn't carry over.
+-- Bob proposes a change now that the bet is active. The bet stays active on
+-- its agreed v1 terms until alice accepts (20261113090000_bet_lifecycle.sql).
 do $$
 declare
   v_meal_id uuid;
@@ -198,10 +197,31 @@ begin
     )
   );
 
-  if v_status <> 'pending_acceptance' or v_version <> 2 then
-    raise exception 'FAIL: expected an amendment to bump to v2 and go back to pending_acceptance, got % / %', v_status, v_version;
+  if v_status <> 'active' or v_version <> 1 then
+    raise exception 'FAIL: expected a proposed change to leave the bet active on v1, got % / %', v_status, v_version;
   end if;
-  raise notice 'PASS: amending an active bet creates a new version and resets approval';
+  raise notice 'PASS: proposing a change to an active bet leaves it active until accepted';
+end;
+$$;
+
+-- Alice accepts: v2, still active.
+set
+  request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000001';
+
+do $$
+declare
+  v_status public.bet_status;
+  v_version integer;
+begin
+  select status, current_version into v_status, v_version
+  from public.respond_to_bet_amendment(
+    (select id from public.bet_amendments where bet_id = current_setting('test.bet_id')::uuid and status = 'pending'),
+    'approved'
+  );
+  if v_status <> 'active' or v_version <> 2 then
+    raise exception 'FAIL: expected the accepted change to be v2 and active, got % / %', v_status, v_version;
+  end if;
+  raise notice 'PASS: accepting a change creates a new version and keeps the bet active';
 end;
 $$;
 
@@ -213,25 +233,9 @@ begin
     raise exception 'FAIL: expected approving a stale version to be rejected';
   exception
     when others then
-      if sqlerrm not like '%newer version exists%' then raise; end if;
+      if sqlerrm not like '%newer version exists%' and sqlerrm not like '%already responded%' then raise; end if;
       raise notice 'PASS: approving a stale version is rejected';
   end;
-end;
-$$;
-
--- Alice approves v2; unanimous again, bet re-activates.
-set
-  request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000001';
-
-do $$
-declare
-  v_status public.bet_status;
-begin
-  select status into v_status from public.approve_bet_version(current_setting('test.bet_id')::uuid, 2, 'approved');
-  if v_status <> 'active' then
-    raise exception 'FAIL: expected the amended bet to re-activate, got %', v_status;
-  end if;
-  raise notice 'PASS: the amended version activates once everyone re-approves';
 end;
 $$;
 
