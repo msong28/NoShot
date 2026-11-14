@@ -221,7 +221,7 @@ export function SignUpScreen() {
           . NoShot is for fun — no real-money betting.
         </p>
 
-        <Link to="/" className="text-center text-sm text-text-secondary">
+        <Link to="/sign-in" className="text-center text-sm text-text-secondary">
           Got an account? <span className="font-bold text-grape-ink">Sign in</span>
         </Link>
       </div>

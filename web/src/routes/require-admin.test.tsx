@@ -15,7 +15,7 @@ function renderGuard() {
   return render(
     <MemoryRouter initialEntries={['/admin']}>
       <Routes>
-        <Route path="/" element={<p>sign-in</p>} />
+        <Route path="/sign-in" element={<p>sign-in</p>} />
         <Route element={<RequireAdmin />}>
           <Route path="/admin" element={<p>admin queue</p>} />
         </Route>

@@ -24,7 +24,7 @@ export function RequireSessionNoProfile() {
   }
 
   if (!session) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/sign-in" replace />;
   }
 
   if (profile && profile.status !== 'deleted') {

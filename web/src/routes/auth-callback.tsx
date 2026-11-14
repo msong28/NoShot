@@ -37,7 +37,7 @@ export function AuthCallbackScreen() {
           <p role="alert" className="text-danger">
             {error}
           </p>
-          <Link to="/" replace className="text-sm font-bold text-grape-ink">
+          <Link to="/sign-in" replace className="text-sm font-bold text-grape-ink">
             Back to sign in
           </Link>
         </>

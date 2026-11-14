@@ -64,7 +64,7 @@ export function ForgotPasswordScreen() {
         </div>
       )}
 
-      <Link to="/" className="text-sm text-text-secondary">
+      <Link to="/sign-in" className="text-sm text-text-secondary">
         Back to sign in
       </Link>
     </main>

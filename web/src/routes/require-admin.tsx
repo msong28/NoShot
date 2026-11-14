@@ -16,7 +16,7 @@ export function RequireAdmin() {
   }
 
   if (!session || !isAdmin) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/sign-in" replace />;
   }
 
   return <Outlet />;

@@ -130,7 +130,7 @@ export function InvitePreviewScreen() {
                 Sign in to add {invitedProfile.display_name} as a friend.
               </p>
               <Link
-                to="/"
+                to="/sign-in"
                 className="w-full rounded-[16px] bg-lime px-four py-three text-center font-extrabold text-on-lime"
               >
                 Sign in

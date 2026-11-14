@@ -15,7 +15,7 @@ function renderGuard() {
   return render(
     <MemoryRouter initialEntries={['/setup-profile']}>
       <Routes>
-        <Route path="/" element={<div>Sign-in page</div>} />
+        <Route path="/sign-in" element={<div>Sign-in page</div>} />
         <Route path="/home" element={<div>Home page</div>} />
         <Route element={<RequireSessionNoProfile />}>
           <Route path="/setup-profile" element={<div>Setup profile content</div>} />

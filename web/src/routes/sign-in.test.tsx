@@ -99,7 +99,7 @@ describe('SignInScreen', () => {
     render(
       <MemoryRouter
         initialEntries={[
-          { pathname: '/', state: { authMessage: 'This account has been suspended.' } },
+          { pathname: '/sign-in', state: { authMessage: 'This account has been suspended.' } },
         ]}
       >
         <SignInScreen />
@@ -116,7 +116,7 @@ describe('SignInScreen', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/']}>
+      <MemoryRouter initialEntries={['/sign-in']}>
         <SignInScreen />
       </MemoryRouter>,
     );

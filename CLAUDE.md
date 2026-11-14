@@ -30,7 +30,7 @@ Root `.env` uses `EXPO_PUBLIC_*` var names; `web/.env` uses `VITE_*` names for t
 - **Data access is React Query on top of typed hooks.** Every domain area has a `hooks/use-*.ts` (e.g. `use-bets`, `use-groups`, `use-ledger`, `use-proof`, `use-polls`) that wraps the Supabase client — reads as `useQuery`, mutations as `useMutation` calling the `SECURITY DEFINER` RPCs described under "Server authority model." Components don't call `supabase.from(...)` directly; go through (or add) a hook.
 - **Routing differs.** Root uses **expo-router** file-based routes under `src/app/` (`(auth)`, `(tabs)`, `bet/`, `group/`, `admin/`, `invite/`). Web declares every route explicitly in `web/src/App.tsx`, one module per screen under `web/src/routes/`, with guard components as layout routes wrapping groups of children.
 - Session/auth flows through `use-session`; admin gating uses `use-admin` (server-checked, per the authority model — never a client flag).
-- **`useSession()` starts every fresh mount at `session === null` for one tick** before `getSession()` resolves, and this has already caused real bugs: any hook fed `session?.user.id` (e.g. `useFriends(userId)`) briefly looks like "loaded, and the answer is empty." Never let a redirect/bounce-back guard fire on that state — gate it on `!!userId` (and the query's own loading flag) as `create-bet-details.tsx:61` does, or use `isLoading`.
+- **`useSession()` starts every fresh mount at `session === null` for one tick** before `getSession()` resolves, and this has already caused real bugs: any hook fed `session?.user.id` (e.g. `useFriends(userId)`) briefly looks like "loaded, and the answer is empty." Never let a redirect/bounce-back guard fire on that state — gate it on `!!userId` (and the query's own loading flag) as the guard in `create-bet-details.tsx` does, or use `isLoading`.
 - **Exception to "everything goes through a hook + RPC": genuinely device-local, non-authoritative UI state.** `use-custom-bet-templates.ts` keeps the user's saved bet titles in `localStorage` keyed per user id, deliberately unsynced. That's the bar for skipping the server — a personal quick-fill convenience, never bet state, money, or moderation.
 
 ## Styling: two implementations of one token set
@@ -87,7 +87,7 @@ CI (`.github/workflows/ci.yml`) runs only root scripts: `format:check`, `lint`, 
 
 - **SQL is the primary test surface** — `supabase/tests/*.sql`, one file per migration/feature area, and it's the most thoroughly covered layer. Any change to an RPC or RLS policy should come with (or update) a test here.
 - **`web/`** has meaningful frontend coverage: Vitest + jsdom + `@testing-library/react`, globals enabled, setup in `web/src/test/setup.ts`, tests colocated as `*.test.ts(x)` beside the module. Route-level tests (`routes/*.test.tsx`) rendering a screen with mocked hooks are the established pattern — follow it for new screens.
-- **jsdom is structurally blind to a whole class of web bugs**: overlays/sticky bars swallowing taps (no layout or hit-testing), animation and `AnimatePresence` timing, and anything Capacitor-native. A green Vitest run is not evidence the screen works — the create-flow bugs in `facbd6f` were both found by clicking through a real browser against live Supabase, not by tests.
+- **jsdom is structurally blind to a whole class of web bugs**: overlays/sticky bars swallowing taps (no layout or hit-testing), animation and `AnimatePresence` timing, and anything Capacitor-native. A green Vitest run is not evidence the screen works — the create-flow bugs fixed in `facbd6f` were found by clicking through a real browser against live Supabase, not by tests. After a `web/` change: run `npm run dev` in `web/`, exercise the flow in a browser, then `npx prettier --write` the touched files from the repo root.
 - **Root** has only a couple of component tests (`src/components/**/*.test.tsx`) using `jest-expo` and the shared helper `src/test/render.tsx`. Jest's `moduleNameMapper` handles `@/`, CSS, and AsyncStorage mocking (`jest.config.js`) — new native tests generally need nothing extra.
 
 ## Server authority model (applies to both frontends)
@@ -120,7 +120,6 @@ Any new mutation that touches money, bet state, or moderation should follow this
 - `DESIGN_SYSTEM.md` + `design_handoff_noshot 2/README.md` — token definitions and component specs both trees implement.
 - `DECISIONS.md` — open items needing sign-off, store/legal risks, and a decided-and-why log; check before revisiting something that looks already decided.
 - `PROJECT_STATUS.md` / `IMPLEMENTATION_PLAN.md` / `UI_IMPLEMENTATION_PLAN.md` — milestone tracking for the root app; not updated for `web/` work.
-- `README.md` is unmodified `create-expo-app` boilerplate — no project-specific information.
 
 ## Expo version note
 

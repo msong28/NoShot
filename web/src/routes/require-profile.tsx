@@ -41,7 +41,7 @@ export function RequireProfile() {
   if (!session) {
     return (
       <Navigate
-        to="/"
+        to="/sign-in"
         replace
         state={suspendedMessage ? { authMessage: suspendedMessage } : undefined}
       />

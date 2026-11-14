@@ -19,7 +19,7 @@ function renderGuard() {
   return render(
     <MemoryRouter initialEntries={['/protected']}>
       <Routes>
-        <Route path="/" element={<div>Sign-in page</div>} />
+        <Route path="/sign-in" element={<div>Sign-in page</div>} />
         <Route path="/setup-profile" element={<div>Setup profile page</div>} />
         <Route element={<RequireProfile />}>
           <Route path="/protected" element={<div>Protected content</div>} />
@@ -112,7 +112,7 @@ describe('RequireProfile', () => {
     rerender(
       <MemoryRouter initialEntries={['/protected']}>
         <Routes>
-          <Route path="/" element={<div>Sign-in page</div>} />
+          <Route path="/sign-in" element={<div>Sign-in page</div>} />
           <Route path="/setup-profile" element={<div>Setup profile page</div>} />
           <Route element={<RequireProfile />}>
             <Route path="/protected" element={<div>Protected content</div>} />

@@ -23,6 +23,7 @@ import { GroupDetailScreen } from '@/routes/group-detail';
 import { GroupsScreen } from '@/routes/groups';
 import { HomeScreen } from '@/routes/home';
 import { InvitePreviewScreen } from '@/routes/invite-preview';
+import { LandingScreen } from '@/routes/landing';
 import { MyWagersScreen } from '@/routes/my-wagers';
 import { ObligationsScreen } from '@/routes/obligations';
 import { PrivacyPolicyScreen } from '@/routes/privacy-policy';
@@ -44,7 +45,8 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<SignInScreen />} />
+          <Route path="/" element={<LandingScreen />} />
+          <Route path="/sign-in" element={<SignInScreen />} />
           <Route path="/sign-up" element={<SignUpScreen />} />
           <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
           <Route path="/reset-password" element={<ResetPasswordScreen />} />
