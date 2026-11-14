@@ -171,7 +171,21 @@ describe('BetDetailScreen', () => {
 
     expect(screen.queryByPlaceholderText('Message…')).not.toBeInTheDocument();
     expect(screen.queryByText(/New poll/)).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /attach a photo/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add proof photo/i })).toBeInTheDocument();
+  });
+
+  it('offers Accept/Decline and no proof-photo upload while a proposal is pending', () => {
+    mockBetDetail({
+      bet: { ...BET, status: 'pending_acceptance' as const },
+      roster: [{ ...ROSTER[0], approval: undefined }],
+    } as never);
+
+    renderScreen();
+
+    expect(screen.getByRole('button', { name: 'Accept' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Decline' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add proof photo/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
   });
 
   it('shows the opponent in one line instead of a VS card and a participants list', () => {
@@ -226,7 +240,7 @@ describe('BetDetailScreen', () => {
 
     renderScreen();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
 
     // The acceptance animation shows...
     expect(await screen.findByText('Bet accepted!')).toBeInTheDocument();

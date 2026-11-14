@@ -173,7 +173,7 @@ describe('FriendProfileScreen', () => {
     expect(screen.getByText('Old bet 6')).toBeInTheDocument();
   });
 
-  it('stacks up to 3 waiting bets, and turns into a swipe row at 4', () => {
+  it('stacks up to 3 waiting bets, and turns into a scrolling list at 4', () => {
     const mk = (n: number) =>
       Array.from({ length: n }, (_, i) =>
         bet({ id: `w${i}`, title: `Proposal ${i}`, status: 'pending_acceptance' }),
@@ -191,7 +191,7 @@ describe('FriendProfileScreen', () => {
         cancellationPendingBets: [],
       } as never);
       const { unmount } = renderAt('/friend/u2');
-      expect(screen.queryByRole('list', { name: /swipe for more/ }) !== null).toBe(slides);
+      expect(screen.queryByRole('list', { name: /scroll for more/ }) !== null).toBe(slides);
       unmount();
     }
   });

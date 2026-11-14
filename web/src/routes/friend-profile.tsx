@@ -32,7 +32,7 @@ function BetSection({
   bets: MyBet[];
   count?: number;
   highlight?: boolean;
-  /** Stack up to this many rows; more than that becomes a swipeable row. */
+  /** Stack up to this many rows; more than that becomes a short, vertically scrolling list. */
   slideAbove?: number;
 }) {
   const slides = slideAbove !== undefined && bets.length > slideAbove;
@@ -42,11 +42,11 @@ function BetSection({
       {slides ? (
         <div
           role="list"
-          aria-label={`${title}, swipe for more`}
-          className="mt-two -mx-four flex snap-x snap-mandatory gap-two overflow-x-auto px-four pb-two"
+          aria-label={`${title}, scroll for more`}
+          className="mt-two flex max-h-[15.5rem] snap-y snap-mandatory flex-col gap-two overflow-y-auto pr-one"
         >
           {bets.map((bet) => (
-            <div key={bet.id} role="listitem" className="w-[85%] shrink-0 snap-start">
+            <div key={bet.id} role="listitem" className="snap-start">
               <BetRow bet={bet} highlight={highlight} />
             </div>
           ))}

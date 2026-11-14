@@ -411,33 +411,58 @@ export function BetDetailScreen() {
         </button>
       </div>
 
-      <div className="mt-two flex items-center gap-two">
-        <StatusPill variant={pill.variant} label={pill.label} />
-        {bet.deadline ? (
-          <span className="text-sm text-text-secondary">· {daysUntil(bet.deadline)}</span>
-        ) : null}
-      </div>
-      <h1 className="mt-two font-display text-screen-title font-extrabold tracking-display-tight">
-        {bet.title}
-      </h1>
-      {bet.description ? <p className="mt-two text-text-secondary">{bet.description}</p> : null}
+      <section className="mt-three flex flex-col items-center text-center">
+        <div className="flex items-center gap-two">
+          <StatusPill variant={pill.variant} label={pill.label} />
+          {bet.deadline ? (
+            <span className="text-sm text-text-secondary">· {daysUntil(bet.deadline)}</span>
+          ) : null}
+        </div>
 
-      {roster.length === 2 && myParticipant && opponent ? (
-        <p className="mt-two text-text-secondary">
-          {bet.creator_id === opponent.participant.user_id && bet.status === 'pending_acceptance'
-            ? `${opponent.profile?.display_name ?? 'Someone'} is challenging you`
-            : `vs ${opponent.profile?.display_name ?? 'Unknown'}`}
-        </p>
-      ) : null}
+        {roster.length === 2 && myParticipant && opponent ? (
+          <div className="mt-four flex flex-col items-center gap-two">
+            <Avatar
+              id={opponent.participant.user_id}
+              name={opponent.profile?.display_name ?? '?'}
+              size="xl"
+            />
+            <p className="text-sm text-text-secondary">
+              {bet.creator_id === opponent.participant.user_id &&
+              bet.status === 'pending_acceptance' ? (
+                <>
+                  <span className="font-bold text-ink">
+                    {opponent.profile?.display_name ?? 'Someone'}
+                  </span>{' '}
+                  is challenging you
+                </>
+              ) : (
+                <>
+                  You vs{' '}
+                  <span className="font-bold text-ink">
+                    {opponent.profile?.display_name ?? 'Unknown'}
+                  </span>
+                </>
+              )}
+            </p>
+          </div>
+        ) : null}
+
+        <h1 className="mt-three font-display text-screen-title font-extrabold tracking-display-tight">
+          {bet.title}
+        </h1>
+        {bet.description ? (
+          <p className="mt-two max-w-[28ch] text-text-secondary">{bet.description}</p>
+        ) : null}
+      </section>
 
       {myParticipant?.commitment ? (
-        <>
-          <p className="mt-four font-mono text-eyebrow tracking-eyebrow font-bold uppercase text-text-faint">
+        <div className="mt-five">
+          <p className="text-center font-mono text-eyebrow tracking-eyebrow font-bold uppercase text-text-faint">
             On the line
           </p>
-          <div className="mt-two grid grid-cols-2 gap-two">
+          <div className="mt-two grid grid-cols-2 gap-two text-center">
             <div className="rounded-large bg-up-soft p-three">
-              <p className="text-xs font-bold text-up-ink">IF YOU WIN 🏆</p>
+              <p className="text-xs font-bold text-up-ink">IF YOU WIN, YOU RECEIVE 🏆</p>
               <p className="mt-one font-display text-lg font-extrabold">
                 {myParticipant.commitment.currencies?.icon
                   ? `${myParticipant.commitment.currencies.icon} `
@@ -447,7 +472,7 @@ export function BetDetailScreen() {
               </p>
             </div>
             <div className="rounded-large bg-down-soft p-three">
-              <p className="text-xs font-bold text-down-ink">IF YOU LOSE</p>
+              <p className="text-xs font-bold text-down-ink">IF YOU LOSE, YOU PAY</p>
               <p className="mt-one font-display text-lg font-extrabold">
                 {myParticipant.commitment.currencies?.icon
                   ? `${myParticipant.commitment.currencies.icon} `
@@ -457,11 +482,11 @@ export function BetDetailScreen() {
               </p>
             </div>
           </div>
-        </>
+        </div>
       ) : null}
 
       {roster.length === 2 && myParticipant && opponent && !genericSides ? (
-        <div className="mt-three flex flex-col gap-one rounded-large border border-line bg-surface p-three text-sm">
+        <div className="mt-three flex flex-col gap-one rounded-large border border-line bg-surface p-three text-center text-sm">
           <p>
             <span className="text-text-secondary">Your side:</span>{' '}
             <span className="font-bold">{myParticipant.side?.label}</span>
@@ -539,7 +564,7 @@ export function BetDetailScreen() {
         })}
       </div>
 
-      {myParticipant ? (
+      {myParticipant && bet.status !== 'pending_acceptance' && bet.status !== 'draft' ? (
         <>
           <div className="sticky bottom-0 mt-three bg-bg pb-one pt-two">
             {pendingProofFile ? (
@@ -610,12 +635,12 @@ export function BetDetailScreen() {
                   />
                   <button
                     type="button"
-                    aria-label="Attach a photo"
                     disabled={uploadProof.isPending}
                     onClick={() => proofInputRef.current?.click()}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-line bg-surface text-text-secondary disabled:opacity-60"
+                    className="flex items-center gap-two rounded-pill border border-line bg-surface px-three py-two text-sm font-bold text-text-secondary disabled:opacity-60"
                   >
-                    <Icons.add size={20} strokeWidth={2} />
+                    <Icons.camera size={18} strokeWidth={2} />
+                    Add proof photo
                   </button>
                 </>
               )}
@@ -626,16 +651,17 @@ export function BetDetailScreen() {
 
       {bet.status === 'pending_acceptance' && !myApprovalResponded ? (
         <>
-          <SectionHeader title="This bet needs your approval" />
-          <div className="mt-two flex gap-two">
+          <div className="mt-five flex gap-two">
             <Button
               variant="primary"
+              fullWidth
               onClick={() => handleApproval('approved', bet.current_version)}
             >
-              Approve
+              Accept
             </Button>
             <Button
               variant="secondary"
+              fullWidth
               onClick={() => handleApproval('declined', bet.current_version)}
             >
               Decline

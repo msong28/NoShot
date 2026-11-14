@@ -6,7 +6,73 @@ see `HANDOFF_WEB_PORT.md`; for already-decided items see `DECISIONS.md`.
 
 ---
 
+## Design philosophy (read this to push back)
+
+The rules behind the changes below. If a decision feels wrong, find the principle it came from
+and argue with that — it's easier to change a principle than to re-litigate every screen.
+
+1. **One place per thing.** Every fact should appear once, where you'd look for it. Repeats
+   (a VS card _and_ a participants list _and_ the title all naming the same opponent) make a
+   screen feel busy and make you wonder which one is the real one.
+   _Applied to:_ bet page opponent line, participants list, friend page owing the bet list.
+   _Push back if:_ you want redundancy for glanceability.
+2. **Show what you can act on, not trivia.** A balance you can settle beats a win–loss score;
+   proposals waiting on you beat a history log. Lists lead with "what needs me".
+   _Applied to:_ friends list chip, friend page "Waiting on you", Accept/Decline up front.
+   _Push back if:_ you'd rather see bragging stats at a glance.
+3. **Dangerous or rare actions are hidden and confirmed, never one mis-tap away.** Block moved
+   off every list row to the bottom of the friend page, behind a confirmation. Danger-register
+   buttons only for destructive actions.
+   _Push back if:_ you want faster access (e.g. swipe actions).
+4. **Don't ship features nobody asked for or can explain.** Bet chat and polls had no clear job
+   ("what does new poll mean?"). Hidden, not deleted, so they can come back.
+   _Push back if:_ you want a social layer; the code is still in the repo.
+5. **Say the real verb.** "Accept / Decline", not "Approve"; "You receive / You pay", not
+   abstract "If you win / lose". Plain words for a friends-and-bets audience.
+   _Push back if:_ you want a more playful or more formal tone.
+6. **Context decides what's shown.** Photo-proof only matters once a bet is running, so it
+   doesn't appear while you're deciding whether to accept. Side labels only show when they say
+   something ("Over 2.5"), not when they're "You".
+   _Push back if:_ you want every control always visible.
+7. **Pick one alignment.** A screen is either left-aligned like a list or centered like a
+   hero — mixing the two reads as a mistake. Detail pages (a single bet, a single friend) are
+   hero/centered; lists are left-aligned.
+   _Push back if:_ you prefer left-aligned detail pages.
+8. **Respect the server rules.** Anything involving results/money stays server-authoritative
+   (see `CLAUDE.md`), which is why scores are modeled as bets and block (not a client-side
+   "remove friend") is the only removal that exists.
+9. **Back-burner on purpose.** Group bets, contacts import and a true "Remove friend" are
+   deferred, not forgotten (see Open items).
+
+### Open items / back burner
+
+- Group bets (deprioritized by request).
+- Contacts import (needs native plugin + server matching design).
+- True "Remove friend" (needs a migration; today it's Block).
+- Renegotiate button next to Accept/Decline.
+- Per-game scores (pool etc.) and a real scoreboard — see the proposal at the end.
+
+---
+
 ## 2026-11-13
+
+### 000000. Bet page polish: centered hero, Accept/Decline, clearer stakes, no "+"
+
+- **Centered hero.** Status → opponent avatar + "Cy Okafor is challenging you" → title →
+  description are one centered stack; "On the line" is centered too. Before, the title/status
+  were left-aligned over centered cards, which read as "centered but not". (Principle 7.)
+- **Accept / Decline** replace Approve / Decline, full-width side by side. A _Renegotiate_
+  button is a future third option (open items). Principle 5.
+- **Clearer stakes:** "IF YOU WIN, YOU RECEIVE …" / "IF YOU LOSE, YOU PAY …". Assumption: you
+  said "if you lose you receive" — read as "pay"; tell me if you meant something else.
+- **No "+" button.** The "+" was the web photo-attach button. Proof photo upload is now a
+  labeled **Add proof photo** button that only appears once a bet is running (not for
+  pending/draft). Question for you: remove proof upload entirely? Settling currently has no
+  other evidence mechanism. (Principle 6.)
+- **Friend page "Waiting on you":** 4+ items now scroll **vertically** inside a fixed-height
+  list (about 3 rows tall) instead of sideways.
+
+---
 
 ### 00000. Simpler bet page; "Waiting on you" slider
 
