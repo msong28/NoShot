@@ -4,12 +4,11 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 
-import { useMyBets } from '@/hooks/use-bets';
+import { useMyBalances } from '@/hooks/use-ledger';
 import {
   useBlockUser,
   useCancelFriendRequest,
   useFriends,
-  useHeadToHeadRecords,
   useMutualFriendCount,
   useRespondFriendRequest,
   useSearchUsername,
@@ -17,16 +16,14 @@ import {
 } from '@/hooks/use-friends';
 import { useProfile } from '@/hooks/use-profile';
 import { useSession } from '@/hooks/use-session';
-import { shareInviteLink } from '@/lib/invite-link';
 
 import { FriendsScreen } from './friends';
 
 vi.mock('@/hooks/use-session', () => ({ useSession: vi.fn() }));
 vi.mock('@/hooks/use-profile', () => ({ useProfile: vi.fn() }));
-vi.mock('@/hooks/use-bets', () => ({ useMyBets: vi.fn() }));
+vi.mock('@/hooks/use-ledger', () => ({ useMyBalances: vi.fn() }));
 vi.mock('@/hooks/use-friends', () => ({
   useFriends: vi.fn(),
-  useHeadToHeadRecords: vi.fn(),
   useMutualFriendCount: vi.fn(),
   useSendFriendRequest: vi.fn(),
   useRespondFriendRequest: vi.fn(),
@@ -34,7 +31,6 @@ vi.mock('@/hooks/use-friends', () => ({
   useBlockUser: vi.fn(),
   useSearchUsername: vi.fn(),
 }));
-vi.mock('@/lib/invite-link', () => ({ shareInviteLink: vi.fn() }));
 
 function renderScreen() {
   return render(
@@ -61,8 +57,7 @@ describe('FriendsScreen', () => {
       friends: [],
       isLoading: false,
     });
-    vi.mocked(useMyBets).mockReturnValue({ resolvedBets: [] } as never);
-    vi.mocked(useHeadToHeadRecords).mockReturnValue(new Map());
+    vi.mocked(useMyBalances).mockReturnValue({ rows: [], isLoading: false });
     vi.mocked(useMutualFriendCount).mockReturnValue({ data: 0 } as never);
     vi.mocked(useSendFriendRequest).mockReturnValue({
       mutateAsync: vi.fn(),
@@ -171,25 +166,56 @@ describe('FriendsScreen', () => {
     renderScreen();
     expect(screen.getByText('No friends yet')).toBeInTheDocument();
     expect(
-      screen.getByText("Search above, or send an invite link to someone who isn't on NoShot yet."),
+      screen.getByText('Tap Add friend to copy your invite link and send it to someone.'),
     ).toBeInTheDocument();
   });
 
-  it('shares an invite link for the current user when "Invite a friend" is clicked', async () => {
-    vi.mocked(shareInviteLink).mockResolvedValue('shared');
+  it('copies the invite link when "Add friend" is clicked', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
 
     renderScreen();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Invite a friend' }));
-    expect(shareInviteLink).toHaveBeenCalledWith('alice', 'Alice');
+    await userEvent.click(screen.getByRole('button', { name: 'Add friend' }));
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/invite/alice`);
+    expect(await screen.findByRole('button', { name: 'Link copied!' })).toBeInTheDocument();
   });
 
-  it('shows a "Link copied!" confirmation when sharing falls back to a clipboard copy', async () => {
-    vi.mocked(shareInviteLink).mockResolvedValue('copied');
+  it('hides the search bar until the search button is tapped', async () => {
+    renderScreen();
+
+    expect(screen.queryByPlaceholderText('Search by @username')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(screen.getByPlaceholderText('Search by @username')).toBeInTheDocument();
+  });
+
+  it('shows what a friend owes you, compacted, and "Settled" for an even friend', () => {
+    vi.mocked(useFriends).mockReturnValue({
+      incomingRequests: [],
+      outgoingRequests: [],
+      friends: [
+        { friendship: { id: 'f1' }, profile: { id: 'u2', username: 'bob', display_name: 'Bob' } },
+        { friendship: { id: 'f2' }, profile: { id: 'u3', username: 'cy', display_name: 'Cy' } },
+      ],
+      isLoading: false,
+    } as never);
+    vi.mocked(useMyBalances).mockReturnValue({
+      isLoading: false,
+      rows: [
+        {
+          balance: { counterparty_id: 'u2', group_id: null, currency_id: 'c1', net_amount: 12500 },
+          currency: { id: 'c1', name: 'Coffees', icon: null },
+        },
+        {
+          balance: { counterparty_id: 'u2', group_id: null, currency_id: 'c2', net_amount: -3 },
+          currency: { id: 'c2', name: 'Beers', icon: null },
+        },
+      ],
+    } as never);
 
     renderScreen();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Invite a friend' }));
-    expect(await screen.findByRole('button', { name: 'Link copied!' })).toBeInTheDocument();
+    expect(screen.getByLabelText('They owe you 12.5K Coffees +1')).toBeInTheDocument();
+    expect(screen.getByText('Settled')).toBeInTheDocument();
   });
 });
