@@ -62,6 +62,52 @@ and argue with that — it's easier to change a principle than to re-litigate ev
 
 ## 2026-11-13
 
+### 0000000000. Settle button bounce fixed; handoff notes for the bet-taxonomy session
+
+**Bug — "Settle bet" bounced back to the bet page, typed URL worked.** Root cause: the
+documented `useSession()` null-for-one-tick behaviour (`CLAUDE.md`). On a client-side navigation
+the settle page mounted with the bet already cached but `userId` still undefined, so "my
+participant" was `undefined` and the guard redirected back. A typed URL only worked because the
+bet hadn't loaded yet, which masked it. Fix: wait for `userId` before any redirect guard, plus a
+regression test. (Same trap the friend page already guards against.)
+
+**Deadlines today:** shown only as small text beside the status pill on the bet page ("ends in
+3 days", "ends today", "past deadline"). They're set under "More betting options" when
+creating. Not shown on list rows or the friend page, and **nothing happens at the deadline**
+(no auto-expiry, reminder or prompt to settle) — worth deciding in the taxonomy work.
+
+**How to say "loser has to do the dishes for a week":** stakes are a quantity of a _currency_
+(Coffee, Meal, Favour, Chore, Harmless Dare, or your custom ones), so today this reads as
+"Chore × 3". That's the odd part: a forfeit is really a short **phrase**, not a number of
+something. Ideas for the taxonomy session: a stake can be (1) _money_, (2) _countable thing_
+(coffees), (3) _forfeit/task_ with free text + optional duration ("do the dishes · 1 week"),
+(4) _donation_ to a cause. The bet sentence should read naturally, e.g. "Loser does the dishes
+for a week", not "Chore ×1".
+
+**Pledge ideas (seed list for the taxonomy session)** — pledges are bets where the other person
+is a referee/beneficiary, not an opponent:
+
+- _Do-by-date:_ "I'll finish the report by Friday or owe you $10."
+- _Quit / avoid:_ "No soda for 30 days" — you lose if you **do** the thing.
+- _Streak / habit:_ "Gym 3×/week for a month" — checked weekly, each miss costs a stake.
+- _Number target:_ "Run 50 miles this month", "read 4 books".
+- _Show-up:_ "I'll be on time to every Tuesday dinner."
+- _Escalating:_ the stake grows each miss ($5, $10, $20…).
+- _Charity forfeit:_ if I fail, the stake goes to a cause (or an "anti-charity" I hate).
+- _Group pledge:_ everyone commits; pot goes to those who succeed.
+- _Dare/forfeit:_ failing means doing a dare instead of paying.
+- _Reverse pledge ("I bet you can't"):_ you stake against **their** goal — really a bet on
+  someone else.
+
+**Dimensions the taxonomy should pin down** (each bet type = a choice on each axis):
+who's involved (1 + referee / 2 / group) · who decides the result (referee / both / self /
+judge / vote) · how it's verified (word, photo, data) · timing (one deadline / recurring /
+open-ended) · stake kind (money / countable / forfeit / donation) · who receives it
+(opponent / referee / charity / pot) · payout shape (even / odds / line / escalating) ·
+what failure means (miss the deadline / do the forbidden thing).
+
+---
+
 ### 000000000. Proof photo moves to settling; "Settle bet" button fixed; accountability bets researched
 
 - **Settle bet button wasn't tappable — cause found.** The bet page's sticky photo/message

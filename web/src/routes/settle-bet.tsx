@@ -50,7 +50,11 @@ export function SettleBetScreen() {
   const [revealOutcome, setRevealOutcome] = useState<SettleOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  if (isLoading || !bet) {
+  // useSession() is null for one tick on a fresh mount (see CLAUDE.md) --
+  // without the !userId check, `me` below is briefly undefined and the redirect
+  // guard bounces a client-side navigation straight back to the bet page. A
+  // typed URL only worked because the bet itself hadn't loaded yet.
+  if (!userId || isLoading || !bet) {
     return (
       <main className="mx-auto max-w-app p-four">
         <BackButton />

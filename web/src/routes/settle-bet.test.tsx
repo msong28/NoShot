@@ -138,4 +138,11 @@ describe('SettleBetScreen', () => {
     setup({ bet: { status: 'resolved' } });
     expect(screen.getByTestId('location')).toHaveTextContent('/bet/bet-1');
   });
+
+  it('waits for the session instead of bouncing back to the bet (first-tick null session)', () => {
+    vi.mocked(useSession).mockReturnValue({ session: null, isLoading: false } as never);
+    setup();
+    expect(screen.getByText('Loading…')).toBeInTheDocument();
+    expect(screen.queryByTestId('location')).not.toBeInTheDocument();
+  });
 });
