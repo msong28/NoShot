@@ -62,6 +62,48 @@ and argue with that — it's easier to change a principle than to re-litigate ev
 
 ## 2026-11-13
 
+### 000000000. Proof photo moves to settling; "Settle bet" button fixed; accountability bets researched
+
+- **Settle bet button wasn't tappable — cause found.** The bet page's sticky photo/message
+  bar (`sticky bottom-0`) sat in the page flow above the button, so when you scrolled to the
+  button the bar pinned itself over it. Removing that bar fixes it and was the plan anyway:
+- **Proof photo now lives only on the settle page** ("Add proof photo (optional)" after you pick
+  what happened). The bet page no longer has an attach bar; photos already attached still show
+  in the bet's feed. Principle 6.
+
+**Accountability bets ("if I don't get this done by Friday I owe you $10")**
+
+You pointed out these aren't two-sided contests — I agree, and that's the real limit of options
+A/B/C above (they all assume two people competing).
+
+Research (stickK and Beeminder, the two best-known commitment-contract products — their help
+pages, so promotional; I couldn't find how stickK referees verify or where forfeited money goes):
+
+- A commitment contract is **a goal + a deadline + a stake you lose if you miss it**
+  ([stickK: how it works](https://stickk.zendesk.com/hc/en-us/articles/206833157)).
+- The other person is a **referee / supporter**, added _after_ the contract exists, who confirms
+  whether you did it; they aren't an opponent.
+- The stake is the whole motivation (loss-aversion), so the money/forfeit must be visible and
+  specific, and the question is binary: **did you do it, yes/no?**
+
+**Recommendation: don't force these into A/B/C. Add a distinct _Pledge_ type**, with the two-person
+contest template (A + C) kept for real head-to-heads:
+
+- _Create:_ "I will \[goal\] by \[date\], or I owe \[friend\] \[stake\]." One sentence, one
+  stake, one deadline, one friend as referee.
+- _Bet page:_ the goal as the title, "Cy is keeping you honest", a countdown to the deadline, and
+  the stake — no "sides", no "On the line" pair.
+- _Settling:_ the referee (or you, honestly, since this app is trust-based) answers
+  **"Did Alex do it?" → Yes / No** on the same settle page; "No" posts the debt.
+- _Engine fit (unchecked):_ it could map onto today's bets as two sides ("I did it" / "I didn't")
+  with only the pledger staking — **I haven't verified the server allows a zero-stake
+  counterparty**; if it doesn't, that's a small migration, otherwise it's UI + labels only.
+
+Decision for you: build Pledge as its own create flow (my recommendation), or leave it until the
+contest flow feels right?
+
+---
+
 ### 00000000. Settle page (built) + scope for representing every kind of bet (proposed)
 
 **Built — `/bet/:id/settle` (`routes/settle-bet.tsx`)**

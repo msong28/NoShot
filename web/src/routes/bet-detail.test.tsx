@@ -164,14 +164,14 @@ describe('BetDetailScreen', () => {
     } as never);
   });
 
-  it('has no chat or polls, but still lets a participant attach proof', () => {
+  it('has no chat, polls, or proof-photo button on the bet page (proof is added when settling)', () => {
     mockBetDetail();
 
     renderScreen();
 
     expect(screen.queryByPlaceholderText('Message…')).not.toBeInTheDocument();
     expect(screen.queryByText(/New poll/)).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /add proof photo/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add proof photo/i })).not.toBeInTheDocument();
   });
 
   it('offers Accept/Decline and no proof-photo upload while a proposal is pending', () => {

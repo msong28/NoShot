@@ -1,7 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-
-import { Capacitor } from '@capacitor/core';
 
 import { ActionSheet } from '@/components/ui/action-sheet';
 import { ReportDialog } from '@/components/report-dialog';
@@ -26,13 +24,12 @@ import {
   useWithdrawBet,
 } from '@/hooks/use-bets';
 import { useCurrencies } from '@/hooks/use-currencies';
-import { useProofAssets, useUploadProof } from '@/hooks/use-proof';
+import { useProofAssets } from '@/hooks/use-proof';
 import { useSession } from '@/hooks/use-session';
 import type { BetApprovalDecision, BetStatus } from '@/lib/bet';
 import { MONEY_CURRENCY_ID } from '@/lib/currency';
 import { getErrorMessage } from '@/lib/errors';
 import { Icons } from '@/lib/icons';
-import { chooseNativeProofPhoto, takeNativeProofPhoto } from '@/lib/native-photo';
 import type { ReportTargetType } from '@/lib/report';
 
 /** Maps every real BetStatus onto the 5-state StatusPill vocabulary, same
@@ -123,7 +120,6 @@ export function BetDetailScreen() {
   const createOrCounterBet = useCreateOrCounterBet(userId);
   const { data: currencies } = useCurrencies({ ownerUserId: userId as string });
   const { assets: proofAssets } = useProofAssets(betId);
-  const uploadProof = useUploadProof(betId, userId);
 
   const [error, setError] = useState<string | null>(null);
   const [pendingCancel, setPendingCancel] = useState(false);
@@ -135,49 +131,15 @@ export function BetDetailScreen() {
   const [editStakeAmount, setEditStakeAmount] = useState('');
   const [editCurrencyKind, setEditCurrencyKind] = useState<'money' | 'custom'>('money');
   const [editCurrencyId, setEditCurrencyId] = useState('');
-  const proofInputRef = useRef<HTMLInputElement>(null);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(
     null,
   );
   const [menuOpen, setMenuOpen] = useState(false);
   const [showAccepted, setShowAccepted] = useState(false);
-  const [pendingProofFile, setPendingProofFile] = useState<File | null>(null);
-  const [pendingProofPreviewUrl, setPendingProofPreviewUrl] = useState<string | null>(null);
-  const [pendingProofCaption, setPendingProofCaption] = useState('');
 
   function run(promise: Promise<unknown>) {
     setError(null);
     promise.catch((err: unknown) => setError(getErrorMessage(err, 'Something went wrong')));
-  }
-
-  // Staged, not uploaded immediately -- lets a caption be added, same
-  // capability the old separate Proof tab had, restored as a small
-  // messaging-app-style attachment preview above the composer instead of a
-  // separate tab.
-  function handleSelectProofFile(file: File | undefined) {
-    if (!file) return;
-    setPendingProofFile(file);
-    setPendingProofPreviewUrl(URL.createObjectURL(file));
-  }
-
-  function cancelPendingProof() {
-    if (pendingProofPreviewUrl) URL.revokeObjectURL(pendingProofPreviewUrl);
-    setPendingProofFile(null);
-    setPendingProofPreviewUrl(null);
-    setPendingProofCaption('');
-    if (proofInputRef.current) proofInputRef.current.value = '';
-  }
-
-  function handleSendProof() {
-    if (!pendingProofFile) return;
-    setError(null);
-    uploadProof.mutate(
-      { file: pendingProofFile, caption: pendingProofCaption.trim() || undefined },
-      {
-        onSuccess: () => cancelPendingProof(),
-        onError: (err) => setError(getErrorMessage(err, 'Failed to upload proof')),
-      },
-    );
   }
 
   if (isLoading || !bet) {
@@ -536,91 +498,6 @@ export function BetDetailScreen() {
           }
         })}
       </div>
-
-      {myParticipant && bet.status !== 'pending_acceptance' && bet.status !== 'draft' ? (
-        <>
-          <div className="sticky bottom-0 mt-three bg-bg pb-one pt-two">
-            {pendingProofFile ? (
-              <div className="mb-two flex items-center gap-two rounded-large border border-line bg-surface p-two">
-                {pendingProofPreviewUrl ? (
-                  <img
-                    src={pendingProofPreviewUrl}
-                    alt="Selected proof preview"
-                    className="h-14 w-14 shrink-0 rounded-medium object-cover"
-                  />
-                ) : null}
-                <input
-                  placeholder="Caption (optional)"
-                  value={pendingProofCaption}
-                  onChange={(e) => setPendingProofCaption(e.target.value)}
-                  className="min-w-0 flex-1 rounded-medium border border-line bg-surface-sunken p-two text-sm"
-                />
-                <button
-                  type="button"
-                  aria-label="Cancel proof photo"
-                  onClick={cancelPendingProof}
-                  className="shrink-0 text-text-faint"
-                >
-                  <Icons.close size={18} strokeWidth={2} />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Send proof photo"
-                  disabled={uploadProof.isPending}
-                  onClick={handleSendProof}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill bg-grape text-on-grape disabled:opacity-60"
-                >
-                  <Icons.send size={16} strokeWidth={2} />
-                </button>
-              </div>
-            ) : null}
-
-            <div className="flex items-center gap-two">
-              {Capacitor.isNativePlatform() ? (
-                <>
-                  <button
-                    type="button"
-                    aria-label="Take a photo"
-                    disabled={uploadProof.isPending}
-                    onClick={() => takeNativeProofPhoto().then(handleSelectProofFile)}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-line bg-surface text-text-secondary disabled:opacity-60"
-                  >
-                    <Icons.camera size={20} strokeWidth={2} />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Choose a photo from your library"
-                    disabled={uploadProof.isPending}
-                    onClick={() => chooseNativeProofPhoto().then(handleSelectProofFile)}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-line bg-surface text-text-secondary disabled:opacity-60"
-                  >
-                    <Icons.gallery size={20} strokeWidth={2} />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <input
-                    ref={proofInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleSelectProofFile(e.target.files?.[0])}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    disabled={uploadProof.isPending}
-                    onClick={() => proofInputRef.current?.click()}
-                    className="flex items-center gap-two rounded-pill border border-line bg-surface px-three py-two text-sm font-bold text-text-secondary disabled:opacity-60"
-                  >
-                    <Icons.camera size={18} strokeWidth={2} />
-                    Add proof photo
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </>
-      ) : null}
 
       {bet.status === 'pending_acceptance' && !myApprovalResponded ? (
         <>
