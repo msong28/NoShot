@@ -8,6 +8,20 @@ see `HANDOFF_WEB_PORT.md`; for already-decided items see `DECISIONS.md`.
 
 ## 2026-11-13
 
+### 0000. Shared bets on the friend page
+
+- `/friend/:userId` now lists your **one-on-one** bets with that friend in three sections:
+  **Waiting on you** (proposals to accept, results to confirm, cancellations; grape-bordered),
+  **In progress** (active, plus proposals you sent), and **History** (settled/voided, latest 5
+  with "See all N").
+- The bet row was extracted from `routes/bets.tsx` into `components/bet-row.tsx` so the Bets tab
+  and the friend page render identical rows.
+- **Why:** the friend page is meant to be the one place for a relationship; before this, a
+  proposal from Alex showed on Home/Bets but not on Alex's page.
+- **Limit:** group bets (`group_id` set) are excluded, same rule as the head-to-head record.
+
+---
+
 ### 000. Blocked users → Settings; quieter friends header (uncommitted → see git log)
 
 - **Blocked users moved off the friends page** to Settings → Account → **Blocked users**

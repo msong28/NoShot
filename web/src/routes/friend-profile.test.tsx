@@ -33,6 +33,19 @@ function renderAt(path: string) {
   );
 }
 
+function bet(over: Record<string, unknown>) {
+  return {
+    id: 'b1',
+    title: 'Pool tonight',
+    status: 'active',
+    group_id: null,
+    opponent: bob,
+    myCommitment: null,
+    iWon: null,
+    ...over,
+  };
+}
+
 describe('FriendProfileScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -46,7 +59,13 @@ describe('FriendProfileScreen', () => {
       friends: [{ friendship: { id: 'f1' }, profile: bob }],
       isLoading: false,
     } as never);
-    vi.mocked(useMyBets).mockReturnValue({ resolvedBets: [] } as never);
+    vi.mocked(useMyBets).mockReturnValue({
+      bets: [],
+      resolvedBets: [],
+      pendingBets: [],
+      resolutionPendingBets: [],
+      cancellationPendingBets: [],
+    } as never);
     vi.mocked(useHeadToHeadRecords).mockReturnValue(new Map([['u2', { won: 3, lost: 1 }]]));
     vi.mocked(useMyBalances).mockReturnValue({ rows: [], isLoading: false });
     vi.mocked(useBlockUser).mockReturnValue({
@@ -103,5 +122,54 @@ describe('FriendProfileScreen', () => {
   it('says so when the person is not a friend', () => {
     renderAt('/friend/nope');
     expect(screen.getByText('Not on your friends list')).toBeInTheDocument();
+  });
+
+  it('splits shared bets into waiting-on-you / in-progress / history, ignoring other people and group bets', () => {
+    const waiting = bet({ id: 'b1', title: 'Proposal from Bob', status: 'pending_acceptance' });
+    vi.mocked(useMyBets).mockReturnValue({
+      bets: [
+        waiting,
+        bet({ id: 'b2', title: 'Running bet', status: 'active' }),
+        bet({ id: 'b3', title: 'Old settled bet', status: 'resolved', iWon: true }),
+        bet({
+          id: 'b4',
+          title: 'Someone elses bet',
+          opponent: { id: 'u9', username: 'z', display_name: 'Z' },
+        }),
+        bet({ id: 'b5', title: 'Group bet', group_id: 'g1' }),
+      ],
+      resolvedBets: [],
+      pendingBets: [waiting],
+      resolutionPendingBets: [],
+      cancellationPendingBets: [],
+    } as never);
+    renderAt('/friend/u2');
+
+    expect(screen.getByText('Waiting on you')).toBeInTheDocument();
+    expect(screen.getByText('Proposal from Bob')).toBeInTheDocument();
+    expect(screen.getByText('In progress')).toBeInTheDocument();
+    expect(screen.getByText('Running bet')).toBeInTheDocument();
+    expect(screen.getByText('History')).toBeInTheDocument();
+    expect(screen.getByText('Old settled bet')).toBeInTheDocument();
+    expect(screen.queryByText('Someone elses bet')).not.toBeInTheDocument();
+    expect(screen.queryByText('Group bet')).not.toBeInTheDocument();
+  });
+
+  it('collapses long history behind See all', async () => {
+    const many = Array.from({ length: 7 }, (_, i) =>
+      bet({ id: `h${i}`, title: `Old bet ${i}`, status: 'resolved', iWon: false }),
+    );
+    vi.mocked(useMyBets).mockReturnValue({
+      bets: many,
+      resolvedBets: [],
+      pendingBets: [],
+      resolutionPendingBets: [],
+      cancellationPendingBets: [],
+    } as never);
+    renderAt('/friend/u2');
+
+    expect(screen.queryByText('Old bet 6')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'See all 7' }));
+    expect(screen.getByText('Old bet 6')).toBeInTheDocument();
   });
 });

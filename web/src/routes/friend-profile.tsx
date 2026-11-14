@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
+import { BetRow } from '@/components/bet-row';
 import { Avatar } from '@/components/ui/avatar';
 import { BackButton } from '@/components/ui/back-button';
 import { ConfirmationDialog } from '@/components/ui/confirm-dialog';
@@ -9,13 +10,37 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { InlineError } from '@/components/ui/inline-error';
 import { ListRow } from '@/components/ui/list-row';
 import { SectionHeader } from '@/components/ui/section-header';
-import { useMyBets } from '@/hooks/use-bets';
+import { betCategory } from '@/routes/bets';
+import { useMyBets, type MyBet } from '@/hooks/use-bets';
 import { useBlockUser, useFriends, useHeadToHeadRecords } from '@/hooks/use-friends';
 import { useMyBalances } from '@/hooks/use-ledger';
 import { useSession } from '@/hooks/use-session';
 import { getErrorMessage } from '@/lib/errors';
 
 const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+
+function BetSection({
+  title,
+  bets,
+  count,
+  highlight = false,
+}: {
+  title: string;
+  bets: MyBet[];
+  count?: number;
+  highlight?: boolean;
+}) {
+  return (
+    <>
+      <SectionHeader title={title} count={count ?? bets.length} />
+      <div className="mt-two flex flex-col gap-two">
+        {bets.map((bet) => (
+          <BetRow key={bet.id} bet={bet} highlight={highlight} />
+        ))}
+      </div>
+    </>
+  );
+}
 
 /** One friend's page: who they are, how you stand (record + what's owed),
  * a way to start a bet, and -- deliberately tucked at the bottom behind a
@@ -28,12 +53,14 @@ export function FriendProfileScreen() {
 
   const { friends, isLoading } = useFriends(userId);
   const { rows: balanceRows } = useMyBalances(userId);
-  const { resolvedBets } = useMyBets(userId);
+  const { bets, resolvedBets, pendingBets, resolutionPendingBets, cancellationPendingBets } =
+    useMyBets(userId);
   const headToHead = useHeadToHeadRecords(userId, resolvedBets);
   const blockUser = useBlockUser(userId);
 
   const [confirmingBlock, setConfirmingBlock] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   // useSession() is null for one tick on a fresh mount -- don't treat an
   // empty friends list as "not your friend" until we actually have a user
@@ -66,6 +93,26 @@ export function FriendProfileScreen() {
   const balances = balanceRows.filter(
     (r) => r.balance.counterparty_id === friend.id && r.balance.net_amount !== 0,
   );
+  // One-on-one bets with this friend only: group bets (group_id set) aren't
+  // attributable to a single friend, same rule as the head-to-head record.
+  const withFriend = bets.filter((b) => !b.group_id && b.opponent?.id === friend.id);
+  const needsMe = new Set(
+    [...pendingBets, ...resolutionPendingBets, ...cancellationPendingBets].map((b) => b.id),
+  );
+  const waitingOnMe = withFriend.filter((b) => needsMe.has(b.id));
+  const inProgress = withFriend.filter(
+    (b) =>
+      !needsMe.has(b.id) &&
+      (betCategory(b.status) === 'active' || betCategory(b.status) === 'pending'),
+  );
+  const history = withFriend.filter(
+    (b) =>
+      !needsMe.has(b.id) &&
+      betCategory(b.status) !== 'active' &&
+      betCategory(b.status) !== 'pending',
+  );
+  const HISTORY_PREVIEW = 5;
+  const shownHistory = showAllHistory ? history : history.slice(0, HISTORY_PREVIEW);
   const record = headToHead.get(friend.id);
   const hasRecord = !!record && (record.won > 0 || record.lost > 0);
 
@@ -133,6 +180,30 @@ export function FriendProfileScreen() {
           ))
         )}
       </div>
+
+      {waitingOnMe.length > 0 ? (
+        <BetSection title="Waiting on you" bets={waitingOnMe} highlight />
+      ) : null}
+      {inProgress.length > 0 ? <BetSection title="In progress" bets={inProgress} /> : null}
+      {history.length > 0 ? (
+        <>
+          <BetSection title="History" bets={shownHistory} count={history.length} />
+          {history.length > HISTORY_PREVIEW ? (
+            <button
+              type="button"
+              onClick={() => setShowAllHistory((v) => !v)}
+              className="mt-two w-full text-center text-sm font-bold text-grape-ink"
+            >
+              {showAllHistory ? 'Show less' : `See all ${history.length}`}
+            </button>
+          ) : null}
+        </>
+      ) : null}
+      {withFriend.length === 0 ? (
+        <p className="mt-four text-sm text-text-secondary">
+          No bets with {friend.display_name.split(' ')[0]} yet.
+        </p>
+      ) : null}
 
       <div className="mt-six border-t border-line pt-four">
         <button
