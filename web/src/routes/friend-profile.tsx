@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import { BetRow } from '@/components/bet-row';
+import { ActionSheet } from '@/components/ui/action-sheet';
 import { Avatar } from '@/components/ui/avatar';
 import { BackButton } from '@/components/ui/back-button';
 import { ConfirmationDialog } from '@/components/ui/confirm-dialog';
@@ -12,10 +13,16 @@ import { ListRow } from '@/components/ui/list-row';
 import { SectionHeader } from '@/components/ui/section-header';
 import { betCategory } from '@/routes/bets';
 import { useMyBets, type MyBet } from '@/hooks/use-bets';
-import { useBlockUser, useFriends, useHeadToHeadRecords } from '@/hooks/use-friends';
+import {
+  useBlockUser,
+  useFriends,
+  useHeadToHeadRecords,
+  useRemoveFriend,
+} from '@/hooks/use-friends';
 import { useMyBalances } from '@/hooks/use-ledger';
 import { useSession } from '@/hooks/use-session';
 import { getErrorMessage } from '@/lib/errors';
+import { Icons } from '@/lib/icons';
 
 const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
 
@@ -77,8 +84,10 @@ export function FriendProfileScreen() {
     useMyBets(userId);
   const headToHead = useHeadToHeadRecords(userId, resolvedBets);
   const blockUser = useBlockUser(userId);
+  const removeFriend = useRemoveFriend(userId);
 
-  const [confirmingBlock, setConfirmingBlock] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirming, setConfirming] = useState<'unfriend' | 'block' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showAllHistory, setShowAllHistory] = useState(false);
 
@@ -133,23 +142,37 @@ export function FriendProfileScreen() {
   );
   const HISTORY_PREVIEW = 5;
   const shownHistory = showAllHistory ? history : history.slice(0, HISTORY_PREVIEW);
+  const first = friend.display_name.split(' ')[0];
   const record = headToHead.get(friend.id);
   const hasRecord = !!record && (record.won > 0 || record.lost > 0);
 
-  async function handleBlock() {
+  async function handleConfirm() {
+    const action = confirming;
+    if (!action) return;
     setError(null);
     try {
-      await blockUser.mutateAsync(friend!.id);
+      if (action === 'block') await blockUser.mutateAsync(friend!.id);
+      else await removeFriend.mutateAsync(friend!.id);
       navigate('/friends', { replace: true });
     } catch (err) {
-      setConfirmingBlock(false);
-      setError(getErrorMessage(err, 'Could not block this person'));
+      setConfirming(null);
+      setError(getErrorMessage(err, `Could not ${action} this person`));
     }
   }
 
   return (
     <main className="mx-auto max-w-app p-four pb-six">
-      <BackButton label="Friends" />
+      <div className="flex items-center justify-between">
+        <BackButton label="Friends" />
+        <button
+          type="button"
+          aria-label="More options"
+          onClick={() => setMenuOpen(true)}
+          className="flex h-10 w-10 items-center justify-center rounded-pill text-text-secondary"
+        >
+          <Icons.more size={22} strokeWidth={2} />
+        </button>
+      </div>
 
       <div className="mt-three flex flex-col items-center text-center">
         <Avatar id={friend.id} name={friend.display_name} size="xl" />
@@ -230,25 +253,47 @@ export function FriendProfileScreen() {
         </p>
       ) : null}
 
-      <div className="mt-six border-t border-line pt-four">
-        <button
-          type="button"
-          onClick={() => setConfirmingBlock(true)}
-          className="w-full rounded-[16px] border border-line py-three text-sm font-bold text-danger-ink"
-        >
-          Block {friend.display_name.split(' ')[0]}
-        </button>
-      </div>
+      <ActionSheet
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        actions={[
+          {
+            label: 'Unfriend',
+            onSelect: () => {
+              setMenuOpen(false);
+              setConfirming('unfriend');
+            },
+          },
+          {
+            label: `Block ${first}`,
+            destructive: true,
+            onSelect: () => {
+              setMenuOpen(false);
+              setConfirming('block');
+            },
+          },
+        ]}
+      />
 
       <ConfirmationDialog
-        visible={confirmingBlock}
+        visible={confirming === 'unfriend'}
+        destructive
+        title={`Unfriend ${friend.display_name}?`}
+        description="You'll stop being friends, but your bets and balances stay. Either of you can send a new request later."
+        confirmLabel="Unfriend"
+        cancelLabel="Keep as friend"
+        onConfirm={handleConfirm}
+        onCancel={() => setConfirming(null)}
+      />
+      <ConfirmationDialog
+        visible={confirming === 'block'}
         destructive
         title={`Block ${friend.display_name}?`}
-        description="They'll be removed from your friends and won't be able to find you or send requests. You can unblock them later from the Friends page, but you'd need to be friends again."
+        description="They'll be removed from your friends and won't be able to find you or send requests. You can unblock them in Settings, but you'd need to become friends again."
         confirmLabel="Block"
         cancelLabel="Keep as friend"
-        onConfirm={handleBlock}
-        onCancel={() => setConfirmingBlock(false)}
+        onConfirm={handleConfirm}
+        onCancel={() => setConfirming(null)}
       />
     </main>
   );

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router';
 
 import { Capacitor } from '@capacitor/core';
 
+import { ActionSheet } from '@/components/ui/action-sheet';
 import { ReportDialog } from '@/components/report-dialog';
 import { Avatar } from '@/components/ui/avatar';
 import { StatusBadge } from '@/components/ui/badge';
@@ -143,6 +144,7 @@ export function BetDetailScreen() {
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(
     null,
   );
+  const [menuOpen, setMenuOpen] = useState(false);
   const [settleOutcome, setSettleOutcome] = useState<SettleOutcome | null>(null);
   const [showAccepted, setShowAccepted] = useState(false);
   const [pendingProofFile, setPendingProofFile] = useState<File | null>(null);
@@ -402,25 +404,25 @@ export function BetDetailScreen() {
     <main className="mx-auto max-w-app p-four pb-16">
       <div className="flex items-center justify-between">
         <BackButton />
-        <button
-          type="button"
-          onClick={() => setReportTarget({ type: 'bet', id: bet.id })}
-          className="text-sm font-bold text-text-secondary"
-        >
-          Report
-        </button>
-      </div>
-
-      <section className="mt-three flex flex-col items-center text-center">
         <div className="flex items-center gap-two">
           <StatusPill variant={pill.variant} label={pill.label} />
           {bet.deadline ? (
-            <span className="text-sm text-text-secondary">· {daysUntil(bet.deadline)}</span>
+            <span className="text-sm text-text-secondary">{daysUntil(bet.deadline)}</span>
           ) : null}
+          <button
+            type="button"
+            aria-label="More options"
+            onClick={() => setMenuOpen(true)}
+            className="-mr-two flex h-10 w-10 items-center justify-center rounded-pill text-text-secondary"
+          >
+            <Icons.more size={22} strokeWidth={2} />
+          </button>
         </div>
+      </div>
 
+      <section className="mt-three flex flex-col items-center text-center">
         {roster.length === 2 && myParticipant && opponent ? (
-          <div className="mt-four flex flex-col items-center gap-two">
+          <div className="flex flex-col items-center gap-two">
             <Avatar
               id={opponent.participant.user_id}
               name={opponent.profile?.display_name ?? '?'}
@@ -456,31 +458,26 @@ export function BetDetailScreen() {
       </section>
 
       {myParticipant?.commitment ? (
-        <div className="mt-five">
-          <p className="text-center font-mono text-eyebrow tracking-eyebrow font-bold uppercase text-text-faint">
-            On the line
-          </p>
-          <div className="mt-two grid grid-cols-2 gap-two text-center">
-            <div className="rounded-large bg-up-soft p-three">
-              <p className="text-xs font-bold text-up-ink">IF YOU WIN, YOU RECEIVE 🏆</p>
-              <p className="mt-one font-display text-lg font-extrabold">
-                {myParticipant.commitment.currencies?.icon
-                  ? `${myParticipant.commitment.currencies.icon} `
-                  : ''}
-                {myParticipant.commitment.payout_if_win}{' '}
-                {myParticipant.commitment.currencies?.name ?? ''}
-              </p>
-            </div>
-            <div className="rounded-large bg-down-soft p-three">
-              <p className="text-xs font-bold text-down-ink">IF YOU LOSE, YOU PAY</p>
-              <p className="mt-one font-display text-lg font-extrabold">
-                {myParticipant.commitment.currencies?.icon
-                  ? `${myParticipant.commitment.currencies.icon} `
-                  : ''}
-                {myParticipant.commitment.stake_quantity}{' '}
-                {myParticipant.commitment.currencies?.name ?? ''}
-              </p>
-            </div>
+        <div className="mt-five grid grid-cols-2 gap-two text-center">
+          <div className="rounded-large bg-up-soft px-three py-four">
+            <p className="text-xs text-up-ink">If you win</p>
+            <p className="mt-one font-display text-xl font-extrabold">
+              {myParticipant.commitment.currencies?.icon ?? ''}{' '}
+              {myParticipant.commitment.payout_if_win}
+            </p>
+            <p className="text-xs text-up-ink">
+              {myParticipant.commitment.currencies?.name ?? ''} · you receive
+            </p>
+          </div>
+          <div className="rounded-large bg-down-soft px-three py-four">
+            <p className="text-xs text-down-ink">If you lose</p>
+            <p className="mt-one font-display text-xl font-extrabold">
+              {myParticipant.commitment.currencies?.icon ?? ''}{' '}
+              {myParticipant.commitment.stake_quantity}
+            </p>
+            <p className="text-xs text-down-ink">
+              {myParticipant.commitment.currencies?.name ?? ''} · you pay
+            </p>
           </div>
         </div>
       ) : null}
@@ -955,6 +952,21 @@ export function BetDetailScreen() {
           subtitle={opponent?.profile ? `Pending · vs ${opponent.profile.display_name}` : 'Pending'}
         />
       </ConfirmationDialog>
+
+      <ActionSheet
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        actions={[
+          {
+            label: 'Report this bet',
+            destructive: true,
+            onSelect: () => {
+              setMenuOpen(false);
+              setReportTarget({ type: 'bet', id: bet.id });
+            },
+          },
+        ]}
+      />
 
       <ReportDialog
         visible={reportTarget !== null}

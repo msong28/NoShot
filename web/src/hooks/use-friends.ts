@@ -236,6 +236,19 @@ export function useBlockedUsers(userId: string | undefined) {
   return { blocked, isLoading: blocksQuery.isLoading || profilesQuery.isLoading };
 }
 
+/** Ends an accepted friendship without blocking (remove_friend RPC --
+ * see supabase/migrations/20260801090000_remove_friend.sql). */
+export function useRemoveFriend(userId: string | undefined) {
+  const invalidate = useInvalidateFriendships(userId);
+  return useMutation({
+    mutationFn: async (friendId: string) => {
+      const { error } = await supabase.rpc('remove_friend', { p_friend_id: friendId });
+      if (error) throw error;
+    },
+    onSuccess: invalidate,
+  });
+}
+
 export function useUnblockUser(userId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({

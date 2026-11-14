@@ -280,12 +280,13 @@ describe('BetDetailScreen', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/bets?tab=done');
   });
 
-  it('opens the report dialog for the bet when Report is clicked', () => {
+  it('opens the report dialog for the bet from the more-options menu', () => {
     mockBetDetail();
 
     renderScreen();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Report' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Report this bet' }));
 
     expect(screen.getByText('Report this')).toBeInTheDocument();
   });

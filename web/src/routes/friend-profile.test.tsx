@@ -5,7 +5,12 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 
 import { useMyBets } from '@/hooks/use-bets';
-import { useBlockUser, useFriends, useHeadToHeadRecords } from '@/hooks/use-friends';
+import {
+  useBlockUser,
+  useFriends,
+  useHeadToHeadRecords,
+  useRemoveFriend,
+} from '@/hooks/use-friends';
 import { useMyBalances } from '@/hooks/use-ledger';
 import { useSession } from '@/hooks/use-session';
 
@@ -18,6 +23,7 @@ vi.mock('@/hooks/use-friends', () => ({
   useFriends: vi.fn(),
   useHeadToHeadRecords: vi.fn(),
   useBlockUser: vi.fn(),
+  useRemoveFriend: vi.fn(),
 }));
 
 const bob = { id: 'u2', username: 'bob', display_name: 'Bob Smith' };
@@ -72,6 +78,10 @@ describe('FriendProfileScreen', () => {
       mutateAsync: vi.fn().mockResolvedValue(undefined),
       isPending: false,
     } as never);
+    vi.mocked(useRemoveFriend).mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(undefined),
+      isPending: false,
+    } as never);
   });
 
   it('shows the friend, their record, and a New bet link', () => {
@@ -99,12 +109,23 @@ describe('FriendProfileScreen', () => {
     expect(screen.getByText('They owe you')).toBeInTheDocument();
   });
 
-  it('only blocks after a confirmation, then returns to the list', async () => {
+  async function openMenu() {
+    await userEvent.click(screen.getByRole('button', { name: 'More options' }));
+  }
+
+  it('has no block or unfriend button sitting on the page', () => {
+    renderAt('/friend/u2');
+    expect(screen.queryByRole('button', { name: /block/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /unfriend/i })).not.toBeInTheDocument();
+  });
+
+  it('blocks only after menu -> confirm, then returns to the list', async () => {
     const blockUser = { mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false };
     vi.mocked(useBlockUser).mockReturnValue(blockUser as never);
     renderAt('/friend/u2');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Block Bob' }));
+    await openMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Block Bob' }));
     expect(blockUser.mutateAsync).not.toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole('button', { name: 'Block' }));
@@ -112,9 +133,27 @@ describe('FriendProfileScreen', () => {
     expect(await screen.findByText('friends list')).toBeInTheDocument();
   });
 
-  it('can back out of the block confirmation', async () => {
+  it('unfriends (without blocking) after menu -> confirm', async () => {
+    const removeFriend = { mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false };
+    const blockUser = { mutateAsync: vi.fn(), isPending: false };
+    vi.mocked(useRemoveFriend).mockReturnValue(removeFriend as never);
+    vi.mocked(useBlockUser).mockReturnValue(blockUser as never);
     renderAt('/friend/u2');
-    await userEvent.click(screen.getByRole('button', { name: 'Block Bob' }));
+
+    await openMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Unfriend' }));
+    expect(removeFriend.mutateAsync).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Unfriend' }));
+    expect(removeFriend.mutateAsync).toHaveBeenCalledWith('u2');
+    expect(blockUser.mutateAsync).not.toHaveBeenCalled();
+    expect(await screen.findByText('friends list')).toBeInTheDocument();
+  });
+
+  it('can back out of the confirmation', async () => {
+    renderAt('/friend/u2');
+    await openMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Block Bob' }));
     await userEvent.click(screen.getByRole('button', { name: 'Keep as friend' }));
     expect(screen.queryByRole('button', { name: 'Keep as friend' })).not.toBeInTheDocument();
   });

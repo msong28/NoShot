@@ -20,9 +20,12 @@ and argue with that — it's easier to change a principle than to re-litigate ev
    proposals waiting on you beat a history log. Lists lead with "what needs me".
    _Applied to:_ friends list chip, friend page "Waiting on you", Accept/Decline up front.
    _Push back if:_ you'd rather see bragging stats at a glance.
-3. **Dangerous or rare actions are hidden and confirmed, never one mis-tap away.** Block moved
-   off every list row to the bottom of the friend page, behind a confirmation. Danger-register
-   buttons only for destructive actions.
+3. **Dangerous or rare actions live in a "⋯" menu and are confirmed — never sitting on the
+   screen.** Block/Unfriend (friend page) and Report (bet page) are two taps away: ⋯ → pick →
+   "Are you sure?" sheet that says what will happen. This matches what Facebook, X and Snapchat do
+   (overflow menu on a profile → confirmation; Unfriend is the lighter option, Block the
+   stronger one that also removes the friendship). Research caveat: no formal UX guideline
+   turned up, just consistent app behavior.
    _Push back if:_ you want faster access (e.g. swipe actions).
 4. **Don't ship features nobody asked for or can explain.** Bet chat and polls had no clear job
    ("what does new poll mean?"). Hidden, not deleted, so they can come back.
@@ -55,6 +58,27 @@ and argue with that — it's easier to change a principle than to re-litigate ev
 ---
 
 ## 2026-11-13
+
+### 0000000. ⋯ menus, real Unfriend, calmer bet page
+
+- **Removed the Block button from the bottom of the friend page.** The friend page and the bet
+  page each have a **⋯** button (top right). Friend: **Unfriend** / **Block Alex**; bet:
+  **Report this bet**. Every risky choice then opens a confirmation sheet that says what will
+  happen. Principle 3.
+- **Unfriend is new and real.** Previously the only way to remove a friend was Block (which
+  also hides you from each other's search). New SQL function `remove_friend()`
+  (`supabase/migrations/20260801090000_remove_friend.sql`, tests in
+  `supabase/tests/remove_friend.test.sql`, passing in `npm run test:db`) ends an accepted
+  friendship without creating a block; either side can send a new request later.
+  **⚠️ This migration is NOT applied to `noshot-dev` yet** — until it is, Unfriend will show an
+  error in the app (the same "live backend drift" caveat as in `CLAUDE.md`).
+- **Bet page decluttered.** The status pill moved out of the middle to the top-right (beside
+  the ⋯), taking the deadline with it, so the centered hero is just avatar → "is challenging
+  you" → title → description. "On the line" cards now have one dominant number with small
+  "If you win / you receive" and "If you lose / you pay" captions instead of long all-caps
+  sentences.
+
+---
 
 ### 000000. Bet page polish: centered hero, Accept/Decline, clearer stakes, no "+"
 
