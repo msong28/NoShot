@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 
-import { useApproveBetVersion, useBetDetail, useSubmitBetResult } from '@/hooks/use-bets';
+import { useApproveBetVersion, useBetDetail } from '@/hooks/use-bets';
 import { useProofAssets, useUploadProof } from '@/hooks/use-proof';
 import { useSubmitReport } from '@/hooks/use-reports';
 import { useSession } from '@/hooks/use-session';
@@ -250,16 +250,7 @@ describe('BetDetailScreen', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/bets?tab=active');
   });
 
-  it('reveals the result on settle and then drops the settler on their Done bets', async () => {
-    const resolvedBet = {
-      ...BET,
-      status: 'resolved' as const,
-      resolved_outcome_key: 'no',
-      resolved_at: '2026-01-02T00:00:00Z',
-    };
-    const mutateAsync = vi.fn().mockResolvedValue(resolvedBet);
-    vi.mocked(useSubmitBetResult).mockReturnValue({ mutateAsync, isPending: false } as never);
-
+  it('sends the settler to the dedicated settle page', () => {
     mockBetDetail({
       roster: TWO_PERSON_ROSTER,
       sides: [TWO_PERSON_ROSTER[0].side, TWO_PERSON_ROSTER[1].side],
@@ -267,17 +258,34 @@ describe('BetDetailScreen', () => {
 
     renderScreen();
 
-    // Settle with the outcome that loses it for u1.
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'no' } });
+    // No inline outcome picker any more -- just the button.
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Settle bet' }));
+    expect(screen.getByTestId('location')).toHaveTextContent('/bet/bet-1/settle');
+  });
 
-    // The reveal showcases the loss (and what they owe), for every outcome.
-    expect(await screen.findByText('You lost')).toBeInTheDocument();
-    expect(screen.getByText('YOU OWE BOB')).toBeInTheDocument();
+  it('keeps Cancel bet in the more-options menu, behind a confirmation', () => {
+    mockBetDetail();
 
-    // Continuing lands them on the Done tab as proof it settled.
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    expect(screen.getByTestId('location')).toHaveTextContent('/bets?tab=done');
+    renderScreen();
+
+    expect(screen.queryByRole('button', { name: 'Cancel bet' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Cancel bet' }));
+    expect(screen.getByText('Propose cancelling this bet?')).toBeInTheDocument();
+  });
+
+  it('offers Delete bet in the menu for your own pending proposal', () => {
+    mockBetDetail({
+      bet: { ...BET, status: 'pending_acceptance' as const },
+    } as never);
+
+    renderScreen();
+
+    expect(screen.queryByRole('button', { name: 'Delete bet' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete bet' }));
+    expect(screen.getByText('Delete this bet?')).toBeInTheDocument();
   });
 
   it('opens the report dialog for the bet from the more-options menu', () => {

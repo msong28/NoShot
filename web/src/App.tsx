@@ -37,6 +37,7 @@ import { RequireAdmin } from '@/routes/require-admin';
 import { RequireProfile } from '@/routes/require-profile';
 import { RequireSessionNoProfile } from '@/routes/require-session-no-profile';
 import { ResetPasswordScreen } from '@/routes/reset-password';
+import { SettleBetScreen } from '@/routes/settle-bet';
 import { SetupProfileScreen } from '@/routes/setup-profile';
 import { SignInScreen } from '@/routes/sign-in';
 import { SignUpScreen } from '@/routes/sign-up';
@@ -72,6 +73,7 @@ export function App() {
             <Route path="/account" element={<AccountScreen mode={mode} setMode={setMode} />} />
             <Route path="/edit-profile" element={<EditProfileScreen />} />
             <Route path="/bet/:betId" element={<BetDetailScreen />} />
+            <Route path="/bet/:betId/settle" element={<SettleBetScreen />} />
             <Route path="/group/:groupId" element={<GroupDetailScreen />} />
             <Route path="/create" element={<CreatePickRivalScreen />} />
             <Route path="/create/:rivalId" element={<CreateBetDetailsScreen />} />

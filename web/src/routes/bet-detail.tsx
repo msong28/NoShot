@@ -16,7 +16,6 @@ import { ListRow } from '@/components/ui/list-row';
 import { SectionHeader } from '@/components/ui/section-header';
 import { StatusPill, type StatusPillVariant } from '@/components/ui/status-pill';
 import { ConfirmReveal } from '@/components/ui/confirm-reveal';
-import { SettleReveal, type SettleOutcome } from '@/components/ui/settle-reveal';
 import {
   useApproveBetVersion,
   useApproveCancelBet,
@@ -24,13 +23,12 @@ import {
   useCreateOrCounterBet,
   useEditPendingBetDetails,
   useProposeCancelBet,
-  useSubmitBetResult,
   useWithdrawBet,
 } from '@/hooks/use-bets';
 import { useCurrencies } from '@/hooks/use-currencies';
 import { useProofAssets, useUploadProof } from '@/hooks/use-proof';
 import { useSession } from '@/hooks/use-session';
-import { TIE_OUTCOME_KEY, type Bet, type BetApprovalDecision, type BetStatus } from '@/lib/bet';
+import type { BetApprovalDecision, BetStatus } from '@/lib/bet';
 import { MONEY_CURRENCY_ID } from '@/lib/currency';
 import { getErrorMessage } from '@/lib/errors';
 import { Icons } from '@/lib/icons';
@@ -120,7 +118,6 @@ export function BetDetailScreen() {
   const approveBetVersion = useApproveBetVersion(betId, userId);
   const proposeCancelBet = useProposeCancelBet(betId, userId);
   const approveCancelBet = useApproveCancelBet(betId, userId);
-  const submitBetResult = useSubmitBetResult(betId, userId);
   const withdrawBet = useWithdrawBet(userId);
   const editBetDetails = useEditPendingBetDetails(betId, userId);
   const createOrCounterBet = useCreateOrCounterBet(userId);
@@ -138,14 +135,11 @@ export function BetDetailScreen() {
   const [editStakeAmount, setEditStakeAmount] = useState('');
   const [editCurrencyKind, setEditCurrencyKind] = useState<'money' | 'custom'>('money');
   const [editCurrencyId, setEditCurrencyId] = useState('');
-  const [resultOutcomeKey, setResultOutcomeKey] = useState('');
-  const [resultRationale, setResultRationale] = useState('');
   const proofInputRef = useRef<HTMLInputElement>(null);
   const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(
     null,
   );
   const [menuOpen, setMenuOpen] = useState(false);
-  const [settleOutcome, setSettleOutcome] = useState<SettleOutcome | null>(null);
   const [showAccepted, setShowAccepted] = useState(false);
   const [pendingProofFile, setPendingProofFile] = useState<File | null>(null);
   const [pendingProofPreviewUrl, setPendingProofPreviewUrl] = useState<string | null>(null);
@@ -202,24 +196,6 @@ export function BetDetailScreen() {
   const myCancellationResponse = cancellationApprovals.find((a) => a.user_id === userId);
   const latestResultSubmission = resultSubmissions[resultSubmissions.length - 1];
   const pill = pillFor(bet.status);
-
-  // Fires the settle-reveal overlay for a resolution that happens in *this*
-  // page session (the settling action) -- for every outcome, win or lose or
-  // tie, so the settler always sees what happened before being sent to Done.
-  // Never on a plain page load/revisit, so an old result doesn't replay.
-  function runAndReveal(promise: Promise<Bet>) {
-    setError(null);
-    promise
-      .then((updatedBet) => {
-        if (updatedBet.status === 'tied') {
-          setSettleOutcome('tied');
-        } else if (updatedBet.status === 'resolved') {
-          const iWon = myParticipant?.side?.outcome_key === updatedBet.resolved_outcome_key;
-          setSettleOutcome(iWon ? 'won' : 'lost');
-        }
-      })
-      .catch((err: unknown) => setError(getErrorMessage(err, 'Something went wrong')));
-  }
 
   // Approving the current version can flip a fully-agreed bet to active. When
   // it does, celebrate it and send them to their Active bets; a decline (or an
@@ -688,51 +664,14 @@ export function BetDetailScreen() {
       ) : null}
 
       {canReportResult ? (
-        <>
-          <SectionHeader title="Settle bet" />
-          <p className="mt-two text-text-secondary">
-            Reporting the result settles this bet right away and notifies{' '}
-            {opponent?.profile?.display_name ?? 'the other player'}.
-          </p>
-          <div className="mt-two flex flex-col gap-two">
-            <select
-              value={resultOutcomeKey}
-              onChange={(e) => setResultOutcomeKey(e.target.value)}
-              className="rounded-medium border border-line bg-surface p-three"
-            >
-              <option value="">Pick the outcome…</option>
-              {roster.map(({ side }) =>
-                side ? (
-                  <option key={side.id} value={side.outcome_key}>
-                    {side.label}
-                  </option>
-                ) : null,
-              )}
-              <option value={TIE_OUTCOME_KEY}>Tie</option>
-            </select>
-            <textarea
-              placeholder="Rationale (optional)"
-              value={resultRationale}
-              onChange={(e) => setResultRationale(e.target.value)}
-              className="rounded-medium border border-line bg-surface p-three"
-            />
-            <Button
-              variant="primary"
-              fullWidth
-              disabled={!resultOutcomeKey}
-              onClick={() =>
-                runAndReveal(
-                  submitBetResult.mutateAsync({
-                    outcomeKey: resultOutcomeKey,
-                    rationale: resultRationale || undefined,
-                  }),
-                )
-              }
-            >
-              Settle bet
-            </Button>
-          </div>
-        </>
+        <Button
+          variant="primary"
+          fullWidth
+          className="mt-five"
+          onClick={() => navigate(`/bet/${bet.id}/settle`)}
+        >
+          Settle bet
+        </Button>
       ) : null}
 
       {(bet.status === 'resolved' || bet.status === 'tied') && bet.resolved_outcome_key ? (
@@ -783,26 +722,6 @@ export function BetDetailScreen() {
           }
         />
       </ConfirmationDialog>
-
-      {canCancel ? (
-        <button
-          type="button"
-          onClick={() => setPendingCancel(true)}
-          className="mt-four block w-full text-center text-sm font-bold text-danger-ink"
-        >
-          Cancel bet
-        </button>
-      ) : null}
-
-      {canEdit && !isEditingDetails ? (
-        <button
-          type="button"
-          onClick={openEditDetails}
-          className="mt-four block w-full text-center text-sm font-bold text-text-secondary"
-        >
-          Edit bet
-        </button>
-      ) : null}
 
       {canEdit && isEditingDetails ? (
         <div className="mt-four rounded-medium border border-line bg-surface p-three">
@@ -887,16 +806,6 @@ export function BetDetailScreen() {
         </div>
       ) : null}
 
-      {canWithdraw ? (
-        <button
-          type="button"
-          onClick={() => setPendingWithdraw(true)}
-          className="mt-four block w-full text-center text-sm font-bold text-danger-ink"
-        >
-          Delete bet
-        </button>
-      ) : null}
-
       <ConfirmationDialog
         visible={pendingCancel}
         title="Propose cancelling this bet?"
@@ -957,6 +866,41 @@ export function BetDetailScreen() {
         visible={menuOpen}
         onClose={() => setMenuOpen(false)}
         actions={[
+          ...(canEdit
+            ? [
+                {
+                  label: 'Edit bet',
+                  onSelect: () => {
+                    setMenuOpen(false);
+                    openEditDetails();
+                  },
+                },
+              ]
+            : []),
+          ...(canWithdraw
+            ? [
+                {
+                  label: 'Delete bet',
+                  destructive: true,
+                  onSelect: () => {
+                    setMenuOpen(false);
+                    setPendingWithdraw(true);
+                  },
+                },
+              ]
+            : []),
+          ...(canCancel
+            ? [
+                {
+                  label: 'Cancel bet',
+                  destructive: true,
+                  onSelect: () => {
+                    setMenuOpen(false);
+                    setPendingCancel(true);
+                  },
+                },
+              ]
+            : []),
           {
             label: 'Report this bet',
             destructive: true,
@@ -981,22 +925,6 @@ export function BetDetailScreen() {
           title="Bet accepted!"
           subtitle="It's on. Good luck."
           onDone={() => navigate('/bets?tab=active', { replace: true })}
-        />
-      ) : null}
-
-      {settleOutcome ? (
-        <SettleReveal
-          outcome={settleOutcome}
-          betTitle={bet.title}
-          opponentName={opponent?.profile?.display_name ?? 'They'}
-          amount={
-            settleOutcome === 'won'
-              ? (myParticipant?.commitment?.payout_if_win ?? 0)
-              : (myParticipant?.commitment?.stake_quantity ?? 0)
-          }
-          currencyName={myParticipant?.commitment?.currencies?.name}
-          currencyIcon={myParticipant?.commitment?.currencies?.icon}
-          onDone={() => navigate('/bets?tab=done', { replace: true })}
         />
       ) : null}
     </main>

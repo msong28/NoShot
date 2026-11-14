@@ -44,8 +44,11 @@ and argue with that — it's easier to change a principle than to re-litigate ev
 8. **Respect the server rules.** Anything involving results/money stays server-authoritative
    (see `CLAUDE.md`), which is why scores are modeled as bets and block (not a client-side
    "remove friend") is the only removal that exists.
-9. **Back-burner on purpose.** Group bets, contacts import and a true "Remove friend" are
-   deferred, not forgotten (see Open items).
+9. **Moments that change money get their own page**, one question on it ("What happened?")
+   and one final confirmation — not a form tucked under a long screen.
+   _Push back if:_ you want one-tap settling from the list.
+10. **Back-burner on purpose.** Group bets, contacts import and a true "Remove friend" are
+    deferred, not forgotten (see Open items).
 
 ### Open items / back burner
 
@@ -58,6 +61,60 @@ and argue with that — it's easier to change a principle than to re-litigate ev
 ---
 
 ## 2026-11-13
+
+### 00000000. Settle page (built) + scope for representing every kind of bet (proposed)
+
+**Built — `/bet/:id/settle` (`routes/settle-bet.tsx`)**
+
+- The bet page's inline "pick outcome" dropdown is gone. When you can settle, there's one
+  **Settle bet** button that opens a dedicated page: "What happened?" with
+  **I won / {Name} won / It was a tie / Couldn't tell · call it off**, an optional note, an
+  optional proof photo, then a final "This is final" confirmation. Then the existing win/lose/tie
+  reveal plays. Principle 10 below.
+- For over/under lines and custom win conditions the choices use the real labels ("Over 2.5
+  wins"), so odds/line/custom bets all settle through the same screen.
+- **"Inconclusive" = propose calling it off.** It doesn't settle anything; it asks the other
+  person to agree to cancel (existing mutual-cancel flow), so nothing is owed if they do.
+- **Delete / Cancel / Edit moved into the bet's ⋯ menu**, each behind a confirmation sheet
+  (Delete = your own unanswered proposal; Cancel = mutual, for a running bet; Edit = your own
+  pending proposal). Principle 3.
+
+**Not built — needs backend decisions**
+
+| Wanted                            | Why it isn't just UI                                                                                                       | Proposed approach                                                                                                                                                               |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Change the outcome after settling | Settling is **one-person and final** by design (`DECISIONS.md`, migration `20260726090000`), and the ledger is append-only | "Propose a correction": either side proposes the other outcome, the other accepts, server posts **reversal** ledger entries + the corrected ones (`reversal_of` already exists) |
+| "Inconclusive" as a real state    | Today only cancel/tie exist                                                                                                | Keep it as mutual cancel (shipped); add a distinct `inconclusive` status only if you want it shown differently from "cancelled"                                                 |
+| Bet against yourself              | Every bet needs two participants today                                                                                     | New **Challenge** type: you + a witness/stake-holder who confirms; needs schema + RLS + RPCs                                                                                    |
+| Dispute after a one-person settle | Deliberately removed for 1v1 participant-submission bets                                                                   | Fold into "propose a correction" rather than a separate dispute flow                                                                                                            |
+| Note and photo on the result      | Note is stored as the result rationale; the photo is saved as proof on the bet                                             | OK as-is, no change needed                                                                                                                                                      |
+
+**Research (thin — caveats):** Sports/wager apps use "one side reports, the other confirms or
+disputes" with a free-text reason on dispute and a clear warning before irreversible changes
+(Interact Sports, Battlefy). Splitwise-style "settle up" is a short, dedicated flow, and critics
+say it's too many screens, so ours is one page. Nothing relevant on friend-bet-specific UIs;
+treat as direction, not evidence.
+
+**Options for representing very different bet types** (decision needed — I recommend A + C)
+
+- **A. One template, driven by sides + stakes.** Every bet = sides (who can win) + what each
+  side risks + a question (the title). Odds = unequal stakes; over/under and custom = side
+  labels; settle = pick the winning side. New types only add rows/labels, not new layouts.
+  _Pro:_ scales, one thing to learn. _Con:_ unusual types (solo challenges) don't fit.
+- **B. A layout per bet type** (Even / Odds / Over-Under / Challenge). Most tailored.
+  _Con:_ four layouts to build, keep in sync, and teach; bets that mix features (odds + line)
+  have no home.
+- **C. A plain-language summary line + collapsed details.** e.g. "Over 2.5 for 15 coins ⇄ Cy:
+  Under 2.5 for 15 coins" with the numbers behind a "Details" toggle. _Pro:_ calm, kills the
+  clutter you flagged. _Con:_ hides numbers one tap away.
+- **Recommendation: A for structure + C for presentation.** Solo "against yourself" bets get
+  their own Challenge type later (it really is a different thing: it needs a witness).
+
+**Principle 10 (added to the philosophy section):** Moments that change money get their own
+page, with one question on it ("What happened?") and one final confirmation — not a form tucked
+under a long screen.
+
+---
 
 ### 0000000. ⋯ menus, real Unfriend, calmer bet page
 
